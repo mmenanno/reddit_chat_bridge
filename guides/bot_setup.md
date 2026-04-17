@@ -27,7 +27,8 @@ role access to `#commands`; allow `@BotAdmin`.
 ## 2. Create the Discord application + bot
 
 1. Open the [Discord Developer Portal](https://discord.com/developers/applications).
-2. **New Application** → name it `reddit_chat_bridge`.
+2. **New Application** → name it **Reddit Chat Bridge** (matches the
+   dedicated server name; Discord display-names are title-case with spaces).
 3. In the left sidebar, click **Bot** → **Add Bot**.
 4. Under **Privileged Gateway Intents**, toggle on **Message Content Intent**
    (Phase 2 needs this; harmless to enable now).
