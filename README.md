@@ -22,6 +22,7 @@ User-facing documentation lives in [`guides/`](./guides/):
 
 - `bot_setup.md` — creating the Discord bot, configuring the server, roles, intents
 - `extracting_matrix_token.md` — pulling the Reddit Matrix access token from your browser
+- `unraid_deployment.md` — filling out the Unraid container template (paths, ports, labels, TSDProxy)
 - `runbook.md` — operating the bridge; what to do when things go wrong
 
 ## Development

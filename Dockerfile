@@ -63,12 +63,12 @@ COPY . .
 COPY --from=assets /app/app/assets/built ./app/assets/built
 
 RUN set -eux; \
-    groupadd --system app; \
-    useradd --system --gid app --create-home --shell /bin/bash app; \
+    groupadd --gid 1000 app; \
+    useradd --uid 1000 --gid app --create-home --shell /bin/bash app; \
     mkdir -p /app/state /app/log; \
-    chown -R app:app /app/state /app/log
+    chown -R 1000:1000 /app/state /app/log
 
-USER app:app
+USER 1000:1000
 
 EXPOSE 4567
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
