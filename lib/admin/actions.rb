@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "auth/refresh_flow"
+require "admin/reconciler"
 
 module Admin
   # Single home for every admin operation. Web controllers and Discord slash
@@ -10,11 +11,16 @@ module Admin
   #
   # Matrix clients are built per-call via `matrix_client_factory` so a
   # candidate token can be probed without touching the long-running sync
-  # client's state. Injectable for testability.
+  # client's state. `reconciler` is optional — only the reconcile/refresh
+  # operations need it, and building it requires full Discord+Matrix config,
+  # which reauth/resync don't.
   class Actions
-    def initialize(matrix_client_factory:, refresh_flow: Auth::RefreshFlow.new)
+    class NotConfiguredError < StandardError; end
+
+    def initialize(matrix_client_factory:, refresh_flow: Auth::RefreshFlow.new, reconciler: nil)
       @matrix_client_factory = matrix_client_factory
       @refresh_flow = refresh_flow
+      @reconciler = reconciler
     end
 
     def reauth(access_token:)
@@ -59,6 +65,22 @@ module Admin
       result = @refresh_flow.refresh_now(cookie_jar: cookie_jar)
       AuthState.update_token!(access_token: result.access_token, user_id: AuthState.user_id)
       result
+    end
+
+    def reconcile_channels!
+      require_reconciler!
+      @reconciler.reconcile_all
+    end
+
+    def refresh_room!(matrix_room_id:)
+      require_reconciler!
+      @reconciler.refresh_one(matrix_room_id: matrix_room_id)
+    end
+
+    private
+
+    def require_reconciler!
+      raise(NotConfiguredError, "Reconciler not configured — complete /settings first") unless @reconciler
     end
   end
 end

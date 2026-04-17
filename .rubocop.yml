@@ -3,6 +3,7 @@ plugins:
   - rubocop-performance
   - rubocop-minitest
   - rubocop-thread_safety
+  - rubocop-rake
 
 AllCops:
   NewCops: enable

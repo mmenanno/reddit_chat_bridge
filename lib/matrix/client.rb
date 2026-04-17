@@ -47,6 +47,18 @@ module Matrix
       response.body.fetch("event_id")
     end
 
+    # Pulls recent timeline events for a single room, used by the per-room
+    # force-refresh action to re-examine history without replaying /sync.
+    # `dir` is "b" (backward from the latest event) or "f" (forward from
+    # `from`). Returns the raw body: `{ "chunk" => [...], "state" => [...],
+    # "start" => "...", "end" => "..." }`.
+    def room_messages(room_id:, dir: "b", limit: 50, from: nil)
+      path = "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/messages"
+      params = { "dir" => dir, "limit" => limit.to_s }
+      params["from"] = from if from
+      get(path, params: params).body
+    end
+
     # Returns { "displayname" => "...", "avatar_url" => "..." } or nil if the
     # profile isn't exposed. Used when /sync's lazy-load state didn't include
     # m.room.member for this user (can happen on resume syncs) — we still

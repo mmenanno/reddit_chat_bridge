@@ -134,5 +134,41 @@ module Admin
     test "refresh_matrix_token! raises when no cookies are stored yet" do
       assert_raises(Auth::RefreshFlow::RefreshError) { @actions.refresh_matrix_token! }
     end
+
+    # ---- reconcile_channels! / refresh_room! ----
+
+    test "reconcile_channels! delegates to the injected reconciler" do
+      reconciler = mock("Reconciler")
+      reconciler.expects(:reconcile_all).returns(renamed: 3, skipped: 1, errors: 0)
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      assert_equal({ renamed: 3, skipped: 1, errors: 0 }, actions.reconcile_channels!)
+    end
+
+    test "refresh_room! delegates to the injected reconciler" do
+      reconciler = mock("Reconciler")
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!r:reddit.com").returns(renamed: true, posted_attempted: 5)
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      assert_equal({ renamed: true, posted_attempted: 5 }, actions.refresh_room!(matrix_room_id: "!r:reddit.com"))
+    end
+
+    test "reconcile_channels! raises NotConfiguredError without a reconciler" do
+      assert_raises(Admin::Actions::NotConfiguredError) { @actions.reconcile_channels! }
+    end
+
+    test "refresh_room! raises NotConfiguredError without a reconciler" do
+      assert_raises(Admin::Actions::NotConfiguredError) do
+        @actions.refresh_room!(matrix_room_id: "!r:reddit.com")
+      end
+    end
   end
 end

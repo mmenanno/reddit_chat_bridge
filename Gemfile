@@ -34,6 +34,7 @@ group :development, :test do
   gem "debug", platforms: [:mri]
   gem "rake"
   gem "rubocop-mmenanno", require: false
+  gem "rubocop-rake", require: false
 end
 
 group :test do

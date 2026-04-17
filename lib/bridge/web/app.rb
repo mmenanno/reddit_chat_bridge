@@ -3,7 +3,12 @@
 require "sinatra/base"
 require "securerandom"
 require "matrix/client"
+require "matrix/event_normalizer"
+require "discord/client"
+require "discord/channel_index"
+require "discord/poster"
 require "admin/actions"
+require "admin/reconciler"
 
 module Bridge
   module Web
@@ -70,7 +75,40 @@ module Bridge
             homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
             Matrix::Client.new(access_token: token, homeserver: homeserver)
           }
-          Admin::Actions.new(matrix_client_factory: factory)
+          Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+        end
+
+        # Returns a Reconciler wired from live config, or nil when Discord +
+        # Matrix config isn't fully populated yet (reconcile isn't reachable
+        # from the UI in that state anyway — actions page sits behind the
+        # setup wizard / settings).
+        def build_reconciler
+          return unless Bridge::Application.configured?
+
+          homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+          matrix_client = Matrix::Client.new(
+            access_token: -> { AuthState.access_token },
+            homeserver: homeserver,
+          )
+          discord_client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
+          channel_index = Discord::ChannelIndex.new(
+            client: discord_client,
+            guild_id: AppConfig.fetch("discord_guild_id"),
+            category_id: AppConfig.fetch("discord_dms_category_id"),
+          )
+          poster = Discord::Poster.new(
+            client: discord_client,
+            channel_index: channel_index,
+            matrix_client: matrix_client,
+          )
+          normalizer = Matrix::EventNormalizer.new(own_user_id: AppConfig.fetch("matrix_user_id"))
+          Admin::Reconciler.new(
+            matrix_client: matrix_client,
+            discord_client: discord_client,
+            channel_index: channel_index,
+            poster: poster,
+            normalizer: normalizer,
+          )
         end
 
         def settings_fields_with_values
@@ -245,6 +283,28 @@ module Bridge
         erb(:rooms)
       end
 
+      post "/rooms/:id/refresh" do
+        room = Room.find_by(id: params[:id])
+
+        if room.nil?
+          @error = "Room not found."
+        else
+          begin
+            result = admin_actions.refresh_room!(matrix_room_id: room.matrix_room_id)
+            @notice = "Refreshed #{room.matrix_room_id}: " \
+                      "channel #{result[:renamed] ? "renamed" : "unchanged"}, " \
+                      "#{result[:posted_attempted]} event(s) re-examined."
+          rescue Admin::Actions::NotConfiguredError => e
+            @error = e.message
+          rescue Matrix::Error, Discord::Error => e
+            @error = "Refresh failed: #{e.class}: #{e.message}"
+          end
+        end
+
+        @rooms = Room.order(:counterparty_username).to_a
+        erb(:rooms)
+      end
+
       get "/actions" do
         erb(:actions)
       end
@@ -252,6 +312,17 @@ module Bridge
       post "/actions/resync" do
         admin_actions.resync
         @notice = "Sync checkpoint cleared. The next iteration will pull recent history."
+        erb(:actions)
+      end
+
+      post "/actions/reconcile" do
+        begin
+          stats = admin_actions.reconcile_channels!
+          @notice = "Reconcile complete: #{stats[:renamed]} renamed, " \
+                    "#{stats[:skipped]} skipped, #{stats[:errors]} errors."
+        rescue Admin::Actions::NotConfiguredError => e
+          @error = e.message
+        end
         erb(:actions)
       end
 

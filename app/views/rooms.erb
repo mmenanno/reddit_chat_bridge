@@ -3,6 +3,9 @@
     <h2 class="card-title">Bridged rooms</h2>
     <p class="opacity-80">One row per Reddit chat the bridge has seen. Channels are auto-created on first message.</p>
 
+    <% if @notice %><div role="status" data-auto-dismiss class="alert alert-success"><%= @notice %></div><% end %>
+    <% if @error %><div role="alert" class="alert alert-error"><%= @error %></div><% end %>
+
     <% if @rooms.empty? %>
       <p class="opacity-60 italic mt-4">No rooms yet. The first Matrix <code>/sync</code> will populate this list.</p>
     <% else %>
@@ -14,6 +17,7 @@
               <th>Matrix room</th>
               <th>Discord channel</th>
               <th>Last event</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -36,6 +40,13 @@
                   <% else %>
                     <span class="opacity-60">—</span>
                   <% end %>
+                </td>
+                <td>
+                  <form method="post" action="/rooms/<%= room.id %>/refresh">
+                    <button type="submit" class="btn btn-xs btn-outline" title="Re-fetch profile, rename channel if needed, and re-examine recent history">
+                      Refresh
+                    </button>
+                  </form>
                 </td>
               </tr>
             <% end %>

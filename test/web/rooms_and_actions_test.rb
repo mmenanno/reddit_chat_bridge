@@ -98,6 +98,60 @@ module Bridge
         assert_equal(302, last_response.status)
         assert_equal("kept", SyncCheckpoint.next_batch_token)
       end
+
+      # ---- /actions/reconcile ----
+
+      test "GET /actions renders the reconcile button" do
+        get "/actions"
+
+        assert_match(/Reconcile now/, last_response.body)
+      end
+
+      test "POST /actions/reconcile delegates to Admin::Actions and shows a count banner" do
+        Admin::Actions.any_instance.expects(:reconcile_channels!).returns(renamed: 2, skipped: 1, errors: 0)
+
+        post "/actions/reconcile"
+
+        assert_match(/2 renamed, 1 skipped, 0 errors/, last_response.body)
+      end
+
+      test "POST /actions/reconcile shows the error when config isn't complete" do
+        Admin::Actions.any_instance
+          .expects(:reconcile_channels!)
+          .raises(Admin::Actions::NotConfiguredError, "Reconciler not configured — complete /settings first")
+
+        post "/actions/reconcile"
+
+        assert_match(/Reconciler not configured/, last_response.body)
+      end
+
+      # ---- /rooms/:id/refresh ----
+
+      test "GET /rooms renders a refresh button per row" do
+        Room.create!(matrix_room_id: "!one:reddit.com", counterparty_username: "nothnnn", discord_channel_id: "123")
+
+        get "/rooms"
+
+        assert_match(%r{/rooms/\d+/refresh}, last_response.body)
+      end
+
+      test "POST /rooms/:id/refresh delegates and shows a result banner" do
+        room = Room.create!(matrix_room_id: "!one:reddit.com", counterparty_username: "nothnnn", discord_channel_id: "123")
+        Admin::Actions.any_instance.expects(:refresh_room!)
+          .with(matrix_room_id: "!one:reddit.com")
+          .returns(renamed: true, posted_attempted: 5)
+
+        post "/rooms/#{room.id}/refresh"
+
+        assert_match(/channel renamed/, last_response.body)
+        assert_match(/5 event\(s\) re-examined/, last_response.body)
+      end
+
+      test "POST /rooms/:id/refresh shows an error when the room is unknown" do
+        post "/rooms/9999/refresh"
+
+        assert_match(/Room not found/, last_response.body)
+      end
     end
   end
 end

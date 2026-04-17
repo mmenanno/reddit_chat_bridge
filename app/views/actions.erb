@@ -55,3 +55,18 @@
     </form>
   </div>
 </section>
+
+<section class="card bg-base-100 shadow-xl border border-base-300">
+  <div class="card-body">
+    <h3 class="card-title text-lg">Reconcile channels</h3>
+    <p class="text-sm opacity-80 mb-3">
+      Sweep every bridged room, re-fetch the counterparty's Reddit profile, and rename the
+      Discord channel to match. Use this after the initial sync creates channels with opaque
+      <code class="bg-base-300 px-1 rounded">dm-t2_&lt;id&gt;</code> names that didn't auto-heal.
+      Per-room refresh lives on the <a href="/rooms" class="link link-primary">Rooms</a> page.
+    </p>
+    <form method="post" action="/actions/reconcile">
+      <button type="submit" class="btn btn-primary">Reconcile now</button>
+    </form>
+  </div>
+</section>
