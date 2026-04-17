@@ -41,6 +41,24 @@ module Matrix
       assert_match(/M_UNKNOWN_TOKEN/, error.message)
     end
 
+    test "accepts a callable access_token and resolves it per request" do
+      values = ["tok_first", "tok_second"]
+      client = Matrix::Client.new(access_token: -> { values.shift }, homeserver: HOMESERVER)
+      stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/account/whoami")
+        .with(headers: { "Authorization" => "Bearer tok_first" })
+        .to_return(status: 200, body: { user_id: "@a" }.to_json, headers: { "Content-Type" => "application/json" })
+        .then
+        .to_return(status: 200, body: { user_id: "@a" }.to_json, headers: { "Content-Type" => "application/json" })
+
+      client.whoami
+      stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/account/whoami")
+        .with(headers: { "Authorization" => "Bearer tok_second" })
+        .to_return(status: 200, body: { user_id: "@a" }.to_json, headers: { "Content-Type" => "application/json" })
+      client.whoami
+
+      assert_requested(:get, "#{HOMESERVER}/_matrix/client/v3/account/whoami", times: 2)
+    end
+
     test "whoami raises Matrix::ServerError on 5xx" do
       stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/account/whoami")
         .to_return(status: 503, body: "gateway down")

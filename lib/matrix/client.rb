@@ -22,7 +22,10 @@ module Matrix
     DEFAULT_TIMEOUT_MS = 30_000
 
     def initialize(access_token:, homeserver: DEFAULT_HOMESERVER, conn: nil)
-      @access_token = access_token
+      # access_token may be a static String or a callable that returns one.
+      # The callable form lets production threads pick up a reauth'd token
+      # from AuthState without recreating the client; tests pass the String.
+      @access_token_source = access_token
       @homeserver = homeserver
       @conn = conn || build_connection
     end
@@ -46,9 +49,13 @@ module Matrix
 
     private
 
+    def current_token
+      @access_token_source.respond_to?(:call) ? @access_token_source.call : @access_token_source
+    end
+
     def get(path, params: nil)
       response = @conn.get(path) do |req|
-        req.headers["Authorization"] = "Bearer #{@access_token}"
+        req.headers["Authorization"] = "Bearer #{current_token}"
         params&.each_pair { |key, value| req.params[key] = value }
       end
       handle(response)
@@ -56,7 +63,7 @@ module Matrix
 
     def put(path, payload:)
       response = @conn.put(path) do |req|
-        req.headers["Authorization"] = "Bearer #{@access_token}"
+        req.headers["Authorization"] = "Bearer #{current_token}"
         req.body = payload
       end
       handle(response)
