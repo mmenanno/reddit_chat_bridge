@@ -126,6 +126,71 @@ module Bridge
         erb(:dashboard)
       end
 
+      # Ordered list of keys the /settings form manages, along with a friendly
+      # label and a hint shown under the input. These live in the DB via
+      # AppConfig; the Matrix access token itself is handled separately in
+      # /auth because its persistence goes through AuthState + a probe.
+      SETTINGS_FIELDS = [
+        {
+          key: "matrix_homeserver",
+          label: "Matrix homeserver URL",
+          hint: "Reddit's chat homeserver. Should be https://matrix.redditspace.com unless Reddit migrates.",
+        },
+        {
+          key: "matrix_user_id",
+          label: "Matrix user ID",
+          hint: "Looks like @t2_<opaque>:reddit.com. Find it in DevTools → any /_matrix/client/v3/account/whoami response.",
+        },
+        {
+          key: "discord_bot_token",
+          label: "Discord bot token",
+          hint: "From the Discord Developer Portal → your app → Bot → Reset Token.",
+        },
+        {
+          key: "discord_guild_id",
+          label: "Discord server (guild) ID",
+          hint: "Right-click the server in Discord (with Developer Mode on) → Copy Server ID.",
+        },
+        {
+          key: "discord_dms_category_id",
+          label: "Reddit DMs category ID",
+          hint: "The category where #dm-* channels will be auto-created.",
+        },
+        {
+          key: "discord_admin_status_channel_id",
+          label: "#app-status channel ID",
+          hint: "Where critical alerts land. @everyone pinged on fatal errors only.",
+        },
+        {
+          key: "discord_admin_logs_channel_id",
+          label: "#app-logs channel ID",
+          hint: "Info/warn lines from the bridge's operational log.",
+        },
+        {
+          key: "discord_admin_commands_channel_id",
+          label: "#commands channel ID",
+          hint: "Slash-command surface. Restrict to @BotAdmin.",
+        },
+      ].freeze
+
+      get "/settings" do
+        @fields = SETTINGS_FIELDS.map { |f| f.merge(value: AppConfig.fetch(f[:key], "")) }
+
+        erb(:settings)
+      end
+
+      post "/settings" do
+        SETTINGS_FIELDS.each do |field|
+          submitted = params[field[:key]].to_s.strip
+          AppConfig.set(field[:key], submitted)
+        end
+
+        @notice = "Settings saved."
+        @fields = SETTINGS_FIELDS.map { |f| f.merge(value: AppConfig.fetch(f[:key], "")) }
+
+        erb(:settings)
+      end
+
       BOOT_AT = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
   end

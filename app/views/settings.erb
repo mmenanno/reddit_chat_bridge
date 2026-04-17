@@ -1,0 +1,24 @@
+<h2>Settings</h2>
+<p>
+  Discord and Matrix configuration the bridge needs at runtime. The Matrix
+  access token itself is managed separately on the <a href="/auth">auth</a>
+  page because it probes Reddit before saving.
+</p>
+<% if @notice %><p role="status"><%= @notice %></p><% end %>
+<form method="post" action="/settings">
+  <% @fields.each do |field| %>
+    <div>
+      <label>
+        <%= field[:label] %>
+        <input
+          type="text"
+          name="<%= field[:key] %>"
+          value="<%= field[:value] %>"
+          autocomplete="off"
+          spellcheck="false">
+      </label>
+      <small><%= field[:hint] %></small>
+    </div>
+  <% end %>
+  <button type="submit">Save</button>
+</form>
