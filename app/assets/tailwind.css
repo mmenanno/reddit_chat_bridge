@@ -3,35 +3,5 @@
 @source "../../lib/bridge/web/**/*.rb";
 
 @plugin "daisyui" {
-  themes: farm --default;
-}
-
-/* Farm-themed palette: warm earth tones — olive, tan, cream, ochre. */
-@plugin "daisyui/theme" {
-  name: "farm";
-  default: true;
-  prefersdark: false;
-  color-scheme: "light";
-
-  --color-base-100: oklch(97% 0.02 85);
-  --color-base-200: oklch(92% 0.03 85);
-  --color-base-300: oklch(85% 0.05 85);
-  --color-base-content: oklch(22% 0.04 60);
-
-  --color-primary: oklch(55% 0.14 130);
-  --color-primary-content: oklch(98% 0.02 130);
-
-  --color-secondary: oklch(62% 0.09 65);
-  --color-secondary-content: oklch(20% 0.05 65);
-
-  --color-accent: oklch(68% 0.18 55);
-  --color-accent-content: oklch(22% 0.1 55);
-
-  --color-neutral: oklch(35% 0.03 75);
-  --color-neutral-content: oklch(95% 0.02 75);
-
-  --color-info: oklch(65% 0.13 200);
-  --color-success: oklch(60% 0.15 140);
-  --color-warning: oklch(72% 0.18 80);
-  --color-error: oklch(60% 0.22 25);
+  themes: dim --default, light;
 }
