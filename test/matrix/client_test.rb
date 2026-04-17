@@ -68,7 +68,7 @@ module Matrix
 
     test "sync passes timeout when no since token is given" do
       stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/sync")
-        .with(query: { "timeout" => "30000" })
+        .with(query: { "timeout" => "10000" })
         .to_return(
           status: 200,
           body: { next_batch: "n1", rooms: {} }.to_json,
@@ -77,7 +77,7 @@ module Matrix
 
       @client.sync
 
-      assert_requested(:get, "#{HOMESERVER}/_matrix/client/v3/sync", query: { "timeout" => "30000" })
+      assert_requested(:get, "#{HOMESERVER}/_matrix/client/v3/sync", query: { "timeout" => "10000" })
     end
 
     test "sync passes both since and timeout when resuming" do
@@ -100,7 +100,7 @@ module Matrix
 
     test "sync returns the parsed body" do
       stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/sync")
-        .with(query: hash_including("timeout" => "30000"))
+        .with(query: hash_including("timeout" => "10000"))
         .to_return(
           status: 200,
           body: { next_batch: "n3", rooms: { join: {} } }.to_json,

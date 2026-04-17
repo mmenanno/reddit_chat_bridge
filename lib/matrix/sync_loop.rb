@@ -23,7 +23,12 @@ module Matrix
   #     backoff and retry.
   #   - Dispatcher raising anything → re-raise; same supervisor policy.
   class SyncLoop
-    DEFAULT_TIMEOUT_MS = 30_000
+    # 10s long-poll keeps the worst-case shutdown wait to the same budget
+    # (the supervisor can only check its stop signal between /sync calls).
+    # Reddit sends events eagerly when they arrive, so this only controls
+    # the idle-reconnect cadence — the extra HTTP round-trip every few
+    # seconds is negligible overhead.
+    DEFAULT_TIMEOUT_MS = 10_000
 
     def initialize(client:, normalizer:, dispatcher:, timeout_ms: DEFAULT_TIMEOUT_MS)
       @client = client

@@ -41,14 +41,14 @@ module Matrix
     end
 
     test "iterate calls sync with no since token on a fresh checkpoint" do
-      @client.expects(:sync).with(since: nil, timeout_ms: 30_000).returns(empty_body("n1"))
+      @client.expects(:sync).with(since: nil, timeout_ms: 10_000).returns(empty_body("n1"))
 
       @loop.iterate
     end
 
     test "iterate calls sync with the stored next_batch on subsequent runs" do
       SyncCheckpoint.advance!("stored_token")
-      @client.expects(:sync).with(since: "stored_token", timeout_ms: 30_000).returns(empty_body("n2"))
+      @client.expects(:sync).with(since: "stored_token", timeout_ms: 10_000).returns(empty_body("n2"))
 
       @loop.iterate
     end

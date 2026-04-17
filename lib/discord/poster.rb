@@ -95,13 +95,13 @@ module Discord
 
     def send_with_channel_recovery(room, event)
       channel_id = @channel_index.ensure_channel(room: room)
-      send_with_rate_limit_retry(channel_id: channel_id, content: format_content(event))
+      send_with_rate_limit_retry(channel_id: channel_id, content: format_content(event, room))
     rescue Discord::NotFound
       # Operator deleted the channel; forget the stale id and let
       # ChannelIndex create a fresh one on the retry.
       room.update!(discord_channel_id: nil)
       channel_id = @channel_index.ensure_channel(room: room.reload)
-      send_with_rate_limit_retry(channel_id: channel_id, content: format_content(event))
+      send_with_rate_limit_retry(channel_id: channel_id, content: format_content(event, room))
     end
 
     def send_with_rate_limit_retry(channel_id:, content:)
@@ -118,22 +118,35 @@ module Discord
       end
     end
 
-    def format_content(event)
-      raw = "#{prefix_for(event)}\n#{event.body}"
+    def format_content(event, room)
+      raw = "#{prefix_for(event, room)}\n#{event.body}"
       return raw if raw.length <= DISCORD_MESSAGE_CAP
 
       raw[0, TRUNCATION_HEADROOM] + TRUNCATION_NOTICE
     end
 
-    def prefix_for(event)
+    def prefix_for(event, room)
       return OWN_PREFIX if event.own?
       return SYSTEM_PREFIX if event.system?
 
-      "**#{display_name_for(event)}**"
+      "**#{display_name_for(event, room)}**"
     end
 
-    def display_name_for(event)
-      event.sender_username.presence || matrix_id_localpart(event.sender)
+    # Order of preference for the counterparty's display name:
+    #   1. The username Matrix shipped with this event (may be blank on
+    #      resume syncs where member state wasn't lazy-loaded).
+    #   2. The room's stored counterparty_username — `refresh_counterparty_
+    #      and_channel!` just populated this from /profile if the event
+    #      didn't carry it, so by the time we're formatting the prefix it's
+    #      the authoritative name.
+    #   3. The matrix_id localpart (e.g. `t2_abc123`) as a last resort so
+    #      we never post an empty `**` prefix.
+    def display_name_for(event, room)
+      return event.sender_username if event.sender_username.present?
+
+      return room.counterparty_username if event.sender == room.counterparty_matrix_id && room.counterparty_username.present?
+
+      matrix_id_localpart(event.sender)
     end
 
     def matrix_id_localpart(matrix_id)

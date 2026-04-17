@@ -19,7 +19,7 @@ module Matrix
   # later. By default each instance builds its own connection.
   class Client
     DEFAULT_HOMESERVER = "https://matrix.redditspace.com"
-    DEFAULT_TIMEOUT_MS = 30_000
+    DEFAULT_TIMEOUT_MS = 10_000
 
     def initialize(access_token:, homeserver: DEFAULT_HOMESERVER, conn: nil)
       # access_token may be a static String or a callable that returns one.

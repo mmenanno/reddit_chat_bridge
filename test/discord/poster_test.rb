@@ -122,6 +122,21 @@ module Discord
       @poster.call([event(body: "anon", sender_username: nil)])
     end
 
+    test "uses the Room's stored counterparty_username when the event doesn't carry one" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "jinxieRay",
+        discord_channel_id: CHANNEL_ID,
+      )
+      @client.expects(:send_message).with(
+        channel_id: CHANNEL_ID,
+        content: regexp_matches(/jinxieRay.*\n.*later msg/m),
+      ).returns("m")
+
+      @poster.call([event(body: "later msg", sender_username: nil)])
+    end
+
     test "advances last_event_id after a successful post" do
       @client.stubs(:send_message).returns("m")
 
