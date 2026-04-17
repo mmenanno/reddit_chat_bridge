@@ -97,6 +97,20 @@ class AuthState < ApplicationRecord
       expires_at - Time.current < within
     end
 
+    def access_token_expires_at
+      exp = decode_jwt_exp(current.access_token)
+      return unless exp
+
+      Time.at(exp.to_f).utc
+    end
+
+    def access_token_expiring_soon?(within: 1.hour)
+      expires_at = access_token_expires_at
+      return false unless expires_at
+
+      expires_at - Time.current < within
+    end
+
     private
 
     def encryptor
@@ -111,21 +125,27 @@ class AuthState < ApplicationRecord
       match = cookie_jar.to_s.match(/(?:\A|;\s*)reddit_session=([^;]+)/)
       return unless match
 
-      payload = decode_jwt_payload(match[1])
-      return unless payload.is_a?(Hash) && payload["exp"]
-
-      Time.at(payload["exp"].to_f).utc
+      Time.at(decode_jwt_exp(match[1]).to_f).utc if decode_jwt_exp(match[1])
     rescue StandardError
       nil
     end
 
+    def decode_jwt_exp(jwt)
+      payload = decode_jwt_payload(jwt)
+      return unless payload.is_a?(Hash)
+
+      payload["exp"]
+    end
+
     def decode_jwt_payload(jwt)
-      encoded = jwt.split(".").fetch(1, nil)
+      encoded = jwt.to_s.split(".").fetch(1, nil)
       return unless encoded
 
       padded = encoded.tr("-_", "+/")
       padded += "=" * ((4 - (padded.length % 4)) % 4)
       JSON.parse(padded.unpack1("m"))
+    rescue JSON::ParserError
+      nil
     end
   end
 end

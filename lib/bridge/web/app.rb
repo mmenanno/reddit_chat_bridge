@@ -297,6 +297,34 @@ module Bridge
         erb(:auth)
       end
 
+      post "/auth/cookies" do
+        cookie_jar = params[:reddit_cookie].to_s.strip
+
+        if cookie_jar.empty?
+          @error = "Paste your Reddit Cookie header before submitting."
+          return erb(:auth)
+        end
+
+        begin
+          admin_actions.set_reddit_cookies!(cookie_jar)
+          was_running = Bridge::Application.running?
+          Bridge::Application.start_if_configured!
+          @notice = if !was_running && Bridge::Application.running?
+            "Reddit cookies saved and fresh token minted. Sync is now running."
+          else
+            "Reddit cookies saved and fresh token minted. Future expirations refresh automatically."
+          end
+        rescue Auth::RefreshFlow::RefreshError => e
+          @error = "Reddit rejected those cookies: #{e.message}"
+        rescue Matrix::TokenError => e
+          @error = "Reddit minted a JWT but Matrix rejected it: #{e.message}"
+        rescue ArgumentError => e
+          @error = e.message
+        end
+
+        erb(:auth)
+      end
+
       BOOT_AT = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
   end

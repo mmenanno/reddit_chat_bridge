@@ -19,11 +19,13 @@ module Bridge
     def initialize(
       sync_loop:,
       admin_notifier: nil,
+      admin_actions: nil,
       sleeper: Kernel.method(:sleep),
       retry_policy: DEFAULT_RETRY_POLICY
     )
       @sync_loop = sync_loop
       @admin_notifier = admin_notifier
+      @admin_actions = admin_actions
       @sleeper = sleeper
       @backoff = Retry::Backoff.new(
         rescue_from: [Matrix::ServerError],
@@ -33,6 +35,8 @@ module Bridge
     end
 
     def one_tick
+      refresh_matrix_token_if_near_expiry
+
       if AuthState.paused?
         @sleeper.call(PAUSED_SLEEP_SECONDS)
         return :paused
@@ -59,6 +63,19 @@ module Bridge
 
     def alert_critical(message)
       @admin_notifier&.critical(message, ping_everyone: false)
+    end
+
+    # Matrix JWTs live 24h; refresh them when <1h remains. The refresh path
+    # requires stored Reddit cookies — if they're absent, this is a no-op
+    # (the operator is driving manually via /auth).
+    def refresh_matrix_token_if_near_expiry
+      return unless @admin_actions
+      return unless AuthState.reddit_cookie_jar
+      return unless AuthState.access_token_expiring_soon?(within: 1.hour)
+
+      @admin_actions.refresh_matrix_token!
+    rescue Auth::RefreshFlow::RefreshError => e
+      @admin_notifier&.warn("Auto-refresh failed: #{e.message}")
     end
   end
 end

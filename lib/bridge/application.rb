@@ -8,6 +8,8 @@ require "discord/channel_index"
 require "discord/poster"
 require "discord/admin_notifier"
 require "discord/logger"
+require "admin/actions"
+require "auth/refresh_flow"
 require "bridge/supervisor"
 
 module Bridge
@@ -29,7 +31,7 @@ module Bridge
       "discord_admin_logs_channel_id",
     ].freeze
 
-    attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger
+    attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger, :admin_actions
 
     @mutex = Mutex.new
 
@@ -87,6 +89,7 @@ module Bridge
       @logger = build_logger
       @poster = build_poster
       @sync_loop = build_sync_loop
+      @admin_actions = build_admin_actions
       @supervisor = build_supervisor
     end
 
@@ -152,8 +155,18 @@ module Bridge
       )
     end
 
+    def build_admin_actions
+      matrix_homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+      factory = ->(token) { Matrix::Client.new(access_token: token, homeserver: matrix_homeserver) }
+      Admin::Actions.new(matrix_client_factory: factory)
+    end
+
     def build_supervisor
-      Supervisor.new(sync_loop: @sync_loop, admin_notifier: @admin_notifier)
+      Supervisor.new(
+        sync_loop: @sync_loop,
+        admin_notifier: @admin_notifier,
+        admin_actions: @admin_actions,
+      )
     end
   end
 end

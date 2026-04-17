@@ -2,11 +2,10 @@
   <div class="card-body">
     <h2 class="card-title">Matrix access token</h2>
     <p class="opacity-80">
-      Reddit's chat tokens live for roughly 24 hours. When the sync loop hits
-      <code class="bg-base-300 px-1 rounded">M_UNKNOWN_TOKEN</code>, extract a
-      fresh one from the browser and paste it below. The bridge probes
-      <code class="bg-base-300 px-1 rounded">/account/whoami</code> before
-      saving, so a bad paste never clobbers a working token.
+      Reddit's chat tokens live for roughly 24 hours. You have two ways to stay authenticated:
+      store your long-lived Reddit session cookies and let the bridge re-mint tokens on its
+      own (recommended, one setup every ~6 months), or paste a fresh JWT manually when the
+      old one expires.
     </p>
   </div>
 </section>
@@ -27,6 +26,9 @@
             <span class="badge badge-success">ok</span>
           <% end %>
         </li>
+        <% if AuthState.access_token_expires_at %>
+          <li><span class="opacity-70">Token expires:</span> <%= AuthState.access_token_expires_at.utc.iso8601 %></li>
+        <% end %>
         <% if AuthState.current.last_ok_at %>
           <li><span class="opacity-70">Last verified:</span> <%= AuthState.current.last_ok_at.utc.iso8601 %></li>
         <% end %>
@@ -43,17 +45,59 @@
 
 <section class="card bg-base-100 shadow-xl border border-base-300">
   <div class="card-body">
-    <h3 class="card-title text-lg">Replace the token</h3>
+    <h3 class="card-title text-lg">Auto-refresh via Reddit cookies <span class="badge badge-primary">recommended</span></h3>
     <p class="text-sm opacity-80 mb-3">
-      In Chrome/Firefox DevTools: open chat.reddit.com, go to the Network
-      tab, filter for <code class="bg-base-300 px-1 rounded">matrix</code>,
-      click any <code class="bg-base-300 px-1 rounded">_matrix/client/*</code>
-      request, copy the Authorization header value (keep or drop the
-      <code class="bg-base-300 px-1 rounded">Bearer </code> prefix — we strip).
+      Paste the full <code class="bg-base-300 px-1 rounded">Cookie:</code> header from a logged-in
+      <code class="bg-base-300 px-1 rounded">www.reddit.com</code> session. The bridge stores the
+      long-lived <code class="bg-base-300 px-1 rounded">reddit_session</code> JWT (6-month lifespan),
+      strips the short-lived <code class="bg-base-300 px-1 rounded">token_v2</code>, and has Reddit
+      re-mint Matrix tokens on demand. You only repeat this every ~6 months.
+    </p>
+    <p class="text-sm opacity-80 mb-3">
+      <strong>How:</strong> on a logged-in reddit.com tab, DevTools → Network → right-click any
+      <code class="bg-base-300 px-1 rounded">www.reddit.com/...</code> request → Copy → Copy as cURL.
+      Find <code class="bg-base-300 px-1 rounded">-H 'cookie: …'</code> and paste just the value.
+    </p>
+    <% if AuthState.reddit_cookie_jar %>
+      <p class="text-sm mb-3">
+        <span class="badge badge-success">cookies saved</span>
+        <% if AuthState.reddit_session_expires_at %>
+          · reddit_session expires <%= AuthState.reddit_session_expires_at.utc.iso8601 %>
+          <% if AuthState.reddit_session_expiring_soon? %>
+            <span class="badge badge-warning">expiring soon</span>
+          <% end %>
+        <% end %>
+      </p>
+    <% end %>
+    <form method="post" action="/auth/cookies" class="space-y-3">
+      <label class="form-control">
+        <span class="label label-text">Cookie header</span>
+        <textarea
+          name="reddit_cookie"
+          rows="6"
+          autocomplete="off"
+          spellcheck="false"
+          required
+          placeholder="reddit_session=…; loid=…; token_v2=…; …"
+          class="textarea textarea-bordered font-mono text-xs"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary">Probe &amp; save cookies</button>
+    </form>
+  </div>
+</section>
+
+<section class="card bg-base-100 shadow-xl border border-base-300">
+  <div class="card-body">
+    <h3 class="card-title text-lg">Manual token paste</h3>
+    <p class="text-sm opacity-80 mb-3">
+      Fallback: paste a Matrix bearer JWT from DevTools on
+      <code class="bg-base-300 px-1 rounded">chat.reddit.com</code>. Lasts ~24h; expect to repeat
+      daily. The bridge probes <code class="bg-base-300 px-1 rounded">/account/whoami</code> before
+      saving, so a bad paste never clobbers a working token.
     </p>
     <form method="post" action="/auth" class="space-y-3">
       <label class="form-control">
-        <span class="label label-text">New access token</span>
+        <span class="label label-text">Matrix access token</span>
         <textarea
           name="access_token"
           rows="6"
@@ -62,7 +106,7 @@
           required
           class="textarea textarea-bordered font-mono text-xs"></textarea>
       </label>
-      <button type="submit" class="btn btn-primary">Probe &amp; save</button>
+      <button type="submit" class="btn btn-outline">Probe &amp; save token only</button>
     </form>
   </div>
 </section>
