@@ -5,29 +5,33 @@ module Discord
   # `dispatcher:` argument; each batch of NormalizedEvents flows through
   # here on its way to Discord.
   #
-  # For each event:
-  #   1. Short-circuit if `PostedEvent` already has its event_id — the
-  #      checkpoint must have rewound, this event already went out.
-  #   2. Upsert the `Room` by matrix_room_id.
-  #   3. Record / refresh the counterparty's username when that info is
-  #      present and the sender is someone other than us or Reddit's
-  #      system account.
-  #   4. Resolve the target Discord channel via `ChannelIndex`.
-  #   5. Format the event (author prefix + body) and post it — with
-  #      transparent retry on Discord::RateLimited (respects retry_after)
-  #      and channel-rebuild on Discord::NotFound (operator deleted the
-  #      channel; next sync reconciles without human intervention).
-  #   6. Record the event_id in PostedEvent and advance `Room#last_event_id`.
+  # Per event:
+  #   1. Short-circuit if already recorded in PostedEvent (checkpoint rewind).
+  #   2. Upsert Room; refresh counterparty info, falling back to a Matrix
+  #      /profile lookup when /sync didn't ship lazy-loaded member state.
+  #   3. Rename an existing channel when the counterparty username resolves
+  #      later than the channel's creation — so early "dm-t2_opaque" channels
+  #      self-heal the first time the real username becomes known.
+  #   4. Post via Discord, retrying on rate limits and rebuilding the channel
+  #      on 404 (operator manually deleted it).
+  #   5. Truncate content to Discord's 2000-char cap; skip (but still record)
+  #      on 400 — bad content isn't retryable, looping makes it worse.
   class Poster
     OWN_PREFIX    = "📤 **You**"
     SYSTEM_PREFIX = "🤖 **Reddit**"
 
-    RATE_LIMIT_MAX_ATTEMPTS = 3
+    DISCORD_MESSAGE_CAP = 2000
+    TRUNCATION_NOTICE   = "\n…[truncated]"
+    TRUNCATION_HEADROOM = DISCORD_MESSAGE_CAP - TRUNCATION_NOTICE.length
+
+    RATE_LIMIT_MAX_ATTEMPTS   = 3
     RATE_LIMIT_FALLBACK_SLEEP = 1.0
 
-    def initialize(client:, channel_index:, sleeper: Kernel.method(:sleep))
+    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sleeper: Kernel.method(:sleep))
       @client = client
       @channel_index = channel_index
+      @matrix_client = matrix_client
+      @logger = logger
       @sleeper = sleeper
     end
 
@@ -41,10 +45,52 @@ module Discord
       return if PostedEvent.posted?(event.event_id)
 
       room = Room.find_or_create_by_matrix_id!(event.room_id)
-      record_counterparty(room, event)
+      refresh_counterparty_and_channel!(room, event)
       send_with_channel_recovery(room, event)
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room.advance_event!(event.event_id)
+    rescue Discord::BadRequest => e
+      # Unrecoverable request-shape error. Record anyway so we don't loop.
+      @logger&.warn("Discord rejected event #{event.event_id} (400): #{e.message}")
+      PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
+      room&.advance_event!(event.event_id)
+    end
+
+    # Keeps the Room's counterparty metadata current, fetches the peer's
+    # Matrix profile when needed, and renames the Discord channel if the
+    # slug would change as a result.
+    def refresh_counterparty_and_channel!(room, event)
+      return if event.own? || event.system?
+      return if event.sender.blank?
+
+      username = event.sender_username.presence || fetch_username_from_matrix(event.sender)
+
+      old_slug = @channel_index.channel_name_for(room)
+      changes = room.ensure_counterparty!(matrix_id: event.sender, username: username)
+
+      # If the name changed and a channel already exists, rename it to match.
+      return unless changes[:counterparty_username] && room.discord_channel_id
+
+      new_slug = @channel_index.channel_name_for(room.reload)
+      return if new_slug == old_slug
+
+      rename_channel!(room.discord_channel_id, new_slug)
+    end
+
+    def fetch_username_from_matrix(user_id)
+      return unless @matrix_client
+
+      profile = @matrix_client.profile(user_id: user_id)
+      profile.is_a?(Hash) ? profile["displayname"] : nil
+    rescue Matrix::Error => e
+      @logger&.warn("Matrix profile lookup failed for #{user_id}: #{e.message}")
+      nil
+    end
+
+    def rename_channel!(channel_id, new_name)
+      @client.rename_channel(channel_id: channel_id, name: new_name)
+    rescue Discord::Error => e
+      @logger&.warn("channel rename #{channel_id} → #{new_name} failed: #{e.message}")
     end
 
     def send_with_channel_recovery(room, event)
@@ -72,16 +118,11 @@ module Discord
       end
     end
 
-    def record_counterparty(room, event)
-      return if event.own? || event.system?
-      return if event.sender_username.blank?
-      return if room.counterparty_username == event.sender_username
-
-      room.record_counterparty!(matrix_id: event.sender, username: event.sender_username)
-    end
-
     def format_content(event)
-      "#{prefix_for(event)}\n#{event.body}"
+      raw = "#{prefix_for(event)}\n#{event.body}"
+      return raw if raw.length <= DISCORD_MESSAGE_CAP
+
+      raw[0, TRUNCATION_HEADROOM] + TRUNCATION_NOTICE
     end
 
     def prefix_for(event)
@@ -97,6 +138,13 @@ module Discord
 
     def matrix_id_localpart(matrix_id)
       matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
+    end
+
+    def record_counterparty(room, event)
+      return if event.own? || event.system?
+      return if event.sender.blank?
+
+      room.ensure_counterparty!(matrix_id: event.sender, username: event.sender_username.presence)
     end
   end
 end

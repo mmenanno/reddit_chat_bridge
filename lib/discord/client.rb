@@ -7,6 +7,7 @@ module Discord
   class Error < StandardError; end
   class AuthError < Error; end
   class NotFound < Error; end
+  class BadRequest < Error; end
   class ServerError < Error; end
 
   class RateLimited < Error
@@ -52,6 +53,15 @@ module Discord
       get("channels/#{channel_id}").body
     end
 
+    def rename_channel(channel_id:, name:)
+      response = @conn.patch("channels/#{channel_id}") do |req|
+        req.headers["Authorization"] = "Bot #{@bot_token}"
+        req.body = { name: name }
+      end
+      handle(response)
+      :ok
+    end
+
     private
 
     def post(path, payload:)
@@ -73,6 +83,8 @@ module Discord
       case response.status
       when 200..299
         response
+      when 400
+        raise BadRequest, error_message(response)
       when 401, 403
         raise AuthError, error_message(response)
       when 404

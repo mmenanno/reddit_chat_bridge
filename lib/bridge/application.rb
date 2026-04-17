@@ -144,7 +144,12 @@ module Bridge
         guild_id: AppConfig.fetch("discord_guild_id"),
         category_id: AppConfig.fetch("discord_dms_category_id"),
       )
-      Discord::Poster.new(client: @discord_client, channel_index: channel_index)
+      Discord::Poster.new(
+        client: @discord_client,
+        channel_index: channel_index,
+        matrix_client: @matrix_client,
+        logger: @logger,
+      )
     end
 
     def build_sync_loop

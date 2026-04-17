@@ -24,6 +24,18 @@ class Room < ApplicationRecord
     update!(counterparty_matrix_id: matrix_id, counterparty_username: username)
   end
 
+  # Incremental update that only writes what we actually know about the
+  # counterparty. Matrix_id alone is better than nothing (at least the channel
+  # slug is stable); username arrives later via profile fetch or member state
+  # and overrides.
+  def ensure_counterparty!(matrix_id:, username: nil)
+    changes = {}
+    changes[:counterparty_matrix_id] = matrix_id if counterparty_matrix_id != matrix_id
+    changes[:counterparty_username] = username if username.present? && counterparty_username != username
+    update!(changes) if changes.any?
+    changes
+  end
+
   def attach_discord_channel!(channel_id)
     update!(discord_channel_id: channel_id)
   end

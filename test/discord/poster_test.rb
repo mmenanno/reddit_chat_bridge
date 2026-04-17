@@ -218,6 +218,72 @@ module Discord
       @poster.call([event])
     end
 
+    # ---- content truncation + BadRequest handling ----
+
+    test "truncates content longer than Discord's 2000-char cap" do
+      @client.expects(:send_message).with do |kwargs|
+        body = kwargs[:content]
+        body.length <= 2000 && body.end_with?("…[truncated]")
+      end.returns("m")
+
+      long = "a" * 3000
+      @poster.call([event(body: long)])
+    end
+
+    test "records PostedEvent and skips forward on Discord::BadRequest instead of looping" do
+      @client.stubs(:send_message).raises(Discord::BadRequest, "Invalid Form Body")
+
+      @poster.call([event(event_id: "$bad")])
+
+      # Event is marked posted so the next sync iteration doesn't replay it.
+      assert(PostedEvent.posted?("$bad"))
+    end
+
+    # ---- matrix_id fallback when username can't be resolved ----
+
+    test "records counterparty_matrix_id even when sender_username is nil" do
+      @client.stubs(:send_message).returns("m")
+
+      @poster.call([event(body: "hi", sender_username: nil)])
+
+      assert_equal(PEER, Room.first.counterparty_matrix_id)
+      assert_nil(Room.first.counterparty_username)
+    end
+
+    # ---- profile fallback via Matrix::Client ----
+
+    test "falls back to Matrix::Client#profile when sender_username is nil" do
+      matrix_client = mock("MatrixClient")
+      matrix_client.expects(:profile).with(user_id: PEER).returns("displayname" => "nothnnn")
+      poster = Discord::Poster.new(
+        client: @client,
+        channel_index: @index,
+        matrix_client: matrix_client,
+        sleeper: ->(_) {},
+      )
+      @client.stubs(:send_message).returns("m")
+
+      poster.call([event(body: "hi", sender_username: nil)])
+
+      assert_equal("nothnnn", Room.first.counterparty_username)
+    end
+
+    # ---- channel rename on username resolution ----
+
+    test "renames the Discord channel when the username resolves after the channel was created" do
+      room = Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        discord_channel_id: "chan_123",
+      )
+      @client.stubs(:send_message).returns("m")
+      @client.expects(:rename_channel).with(channel_id: "chan_123", name: "dm-nothnnn").returns(:ok)
+
+      @poster.call([event(body: "hi", sender_username: "nothnnn")])
+
+      assert_equal("nothnnn", room.reload.counterparty_username)
+    end
+
     test "resolves the channel via the channel index for each event" do
       @index.unstub(:ensure_channel)
       @index.expects(:ensure_channel).with(has_entry(:room, instance_of(Room))).returns(CHANNEL_ID)

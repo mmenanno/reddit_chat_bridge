@@ -31,8 +31,8 @@ module Discord
       channel_id
     end
 
-    private
-
+    # Public so Poster can compare the slug before and after a counterparty
+    # update and decide whether to rename an existing Discord channel.
     def channel_name_for(room)
       slug = slug_source(room)
       "#{CHANNEL_PREFIX}#{sanitize(slug)}"[0, CHANNEL_NAME_MAX]

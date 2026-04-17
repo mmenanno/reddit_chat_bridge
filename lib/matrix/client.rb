@@ -47,6 +47,21 @@ module Matrix
       response.body.fetch("event_id")
     end
 
+    # Returns { "displayname" => "...", "avatar_url" => "..." } or nil if the
+    # profile isn't exposed. Used when /sync's lazy-load state didn't include
+    # m.room.member for this user (can happen on resume syncs) — we still
+    # want a human-readable channel name.
+    def profile(user_id:)
+      path = "/_matrix/client/v3/profile/#{CGI.escape(user_id)}"
+      get(path).body
+    rescue TokenError
+      raise
+    rescue Error
+      # A missing profile shouldn't break the whole sync loop; return nil and
+      # let the caller fall back to the matrix_id slug.
+      nil
+    end
+
     private
 
     def current_token
