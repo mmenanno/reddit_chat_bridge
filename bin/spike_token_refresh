@@ -24,7 +24,7 @@ require "bundler/setup"
 require "faraday"
 require "json"
 
-cookie = ENV["REDDIT_COOKIE"] or abort("set REDDIT_COOKIE in .env (full Cookie header from www.reddit.com)")
+cookie = ENV.fetch("REDDIT_COOKIE", nil) or abort("set REDDIT_COOKIE in .env (full Cookie header from www.reddit.com)")
 
 user_agent = ENV.fetch(
   "REDDIT_USER_AGENT",
@@ -53,16 +53,16 @@ end
 
 def summarize_response(resp)
   puts "status: #{resp.status}"
-  puts "content-type: #{resp.headers['content-type']}"
+  puts "content-type: #{resp.headers["content-type"]}"
   set_cookies = Array(resp.headers["set-cookie"])
   set_cookies = set_cookies.first.split(/,(?=\s*\w+=)/) if set_cookies.length == 1 && set_cookies.first.include?("token_v2=")
-  token_v2 = set_cookies.find { |c| c =~ /\Atoken_v2=/ }
+  token_v2 = set_cookies.find { |c| c.start_with?("token_v2=") }
   puts "Set-Cookie token_v2: #{token_v2 ? "PRESENT (#{token_v2[0, 80]}…)" : "absent"}"
 end
 
 def extract_jwt_from_html(body)
   match = body.match(/<rs-app[^>]*\stoken="([^"]*)"/m)
-  return nil unless match
+  return unless match
 
   decoded = match[1]
     .gsub("&quot;", '"')
@@ -76,11 +76,11 @@ end
 
 def print_jwt_exp(jwt)
   payload_b64 = jwt.split(".").fetch(1).tr("-_", "+/")
-  payload_b64 += "=" * ((4 - payload_b64.length % 4) % 4)
+  payload_b64 += "=" * ((4 - (payload_b64.length % 4)) % 4)
   payload = JSON.parse(payload_b64.unpack1("m"))
-  puts "  exp: #{payload['exp']} (#{Time.at(payload['exp']).utc})"
-  puts "  iat: #{payload['iat']} (#{Time.at(payload['iat']).utc})"
-  puts "  jti: #{payload['jti']}"
+  puts "  exp: #{payload["exp"]} (#{Time.at(payload["exp"]).utc})"
+  puts "  iat: #{payload["iat"]} (#{Time.at(payload["iat"]).utc})"
+  puts "  jti: #{payload["jti"]}"
 end
 
 # Split the full cookie into individual pairs so we can mint a variant
@@ -100,7 +100,7 @@ if parsed
   puts "JSON keys: #{parsed.keys}"
   puts "JWT from <rs-app token=>:"
   print_jwt_exp(parsed["token"])
-  puts "expires: #{parsed['expires']} (#{Time.at(parsed['expires'].to_f / 1000).utc})" if parsed["expires"]
+  puts "expires: #{parsed["expires"]} (#{Time.at(parsed["expires"].to_f / 1000).utc})" if parsed["expires"]
 end
 
 # ---- The real test: strip token_v2 and see if Reddit re-mints ----
@@ -116,7 +116,7 @@ if parsed && parsed["token"]
   puts "JSON keys: #{parsed.keys}"
   puts "JWT from <rs-app token=>:"
   print_jwt_exp(parsed["token"])
-  puts "expires: #{parsed['expires']} (#{Time.at(parsed['expires'].to_f / 1000).utc})" if parsed["expires"]
+  puts "expires: #{parsed["expires"]} (#{Time.at(parsed["expires"].to_f / 1000).utc})" if parsed["expires"]
 elsif parsed
   puts "parsed: #{parsed.inspect}"
 else
