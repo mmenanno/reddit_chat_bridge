@@ -201,6 +201,21 @@ module Bridge
         erb(:settings)
       end
 
+      get "/rooms" do
+        @rooms = Room.order(:counterparty_username).to_a
+        erb(:rooms)
+      end
+
+      get "/actions" do
+        erb(:actions)
+      end
+
+      post "/actions/resync" do
+        admin_actions.resync
+        @notice = "Sync checkpoint cleared. The next iteration will pull recent history."
+        erb(:actions)
+      end
+
       get "/auth" do
         erb(:auth)
       end

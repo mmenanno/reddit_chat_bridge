@@ -1,0 +1,17 @@
+<h2>Actions</h2>
+<p>Administrative triggers. Every action here is also available via Discord slash commands in <code>#commands</code>.</p>
+
+<% if @notice %><p role="status"><%= @notice %></p><% end %>
+<% if @error %><p role="alert"><%= @error %></p><% end %>
+
+<section>
+  <h3>Resync</h3>
+  <p>
+    Clear the Matrix <code>next_batch</code> checkpoint. The next sync iteration
+    will pull recent history from Reddit — useful after a long outage or when
+    recovering from a corrupted state.
+  </p>
+  <form method="post" action="/actions/resync">
+    <button type="submit">Resync now</button>
+  </form>
+</section>

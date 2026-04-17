@@ -1,0 +1,41 @@
+<h2>Bridged rooms</h2>
+<p>One row per Reddit chat the bridge has seen. Channels are auto-created on first message.</p>
+
+<% if @rooms.empty? %>
+  <p><em>No rooms yet. The first Matrix <code>/sync</code> will populate this list.</em></p>
+<% else %>
+  <table>
+    <thead>
+      <tr>
+        <th>Counterparty</th>
+        <th>Matrix room</th>
+        <th>Discord channel</th>
+        <th>Last event</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @rooms.each do |room| %>
+        <tr>
+          <td>
+            <%= room.counterparty_username || room.counterparty_matrix_id || "unresolved" %>
+          </td>
+          <td><code><%= room.matrix_room_id %></code></td>
+          <td>
+            <% if room.discord_channel_id %>
+              <code><%= room.discord_channel_id %></code>
+            <% else %>
+              <em>not created yet</em>
+            <% end %>
+          </td>
+          <td>
+            <% if room.last_event_id %>
+              <code><%= room.last_event_id %></code>
+            <% else %>
+              <em>—</em>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
