@@ -128,5 +128,47 @@ module Admin
     test "refresh_one raises when the room is unknown" do
       assert_raises(ArgumentError) { @reconciler.refresh_one(matrix_room_id: "!nope:reddit.com") }
     end
+
+    # ---- deleted-channel recovery ----
+
+    test "reconcile_all recreates the channel when Discord returns 404 on rename" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "nothnnn",
+        discord_channel_id: CHANNEL_ID,
+      )
+      @matrix_client.stubs(:profile).returns("displayname" => "nothnnn")
+      @channel_index.stubs(:channel_name_for).returns("dm-nothnnn")
+      @discord_client.expects(:rename_channel)
+        .with(channel_id: CHANNEL_ID, name: "dm-nothnnn")
+        .raises(Discord::NotFound, "Unknown Channel")
+      @channel_index.expects(:ensure_channel).with { |args| args[:room].discord_channel_id.nil? }.returns("999")
+
+      stats = @reconciler.reconcile_all
+
+      assert_equal(1, stats[:renamed])
+      assert_equal(0, stats[:errors])
+    end
+
+    test "refresh_one recreates the channel before backfilling when the old one is gone" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "nothnnn",
+        discord_channel_id: CHANNEL_ID,
+      )
+      @matrix_client.stubs(:profile).returns("displayname" => "nothnnn")
+      @channel_index.stubs(:channel_name_for).returns("dm-nothnnn")
+      @discord_client.stubs(:rename_channel).raises(Discord::NotFound, "Unknown Channel")
+      @channel_index.expects(:ensure_channel).returns("999")
+      @matrix_client.stubs(:room_messages).returns("chunk" => [], "state" => [])
+      @normalizer.stubs(:normalize).returns([])
+      @poster.stubs(:call)
+
+      result = @reconciler.refresh_one(matrix_room_id: ROOM_ID)
+
+      assert(result[:renamed])
+    end
   end
 end

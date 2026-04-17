@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "discord/client"
+
 module Admin
   # One-shot reconciliation for rooms whose Discord channel drifted out of
   # sync with the counterparty's Reddit username — usually because the
@@ -63,8 +65,18 @@ module Admin
       room.ensure_counterparty!(matrix_id: room.counterparty_matrix_id, username: username)
 
       new_slug = @channel_index.channel_name_for(room.reload)
-      @discord_client.rename_channel(channel_id: room.discord_channel_id, name: new_slug)
+      rename_or_recreate!(room, new_slug)
       :renamed
+    end
+
+    # Discord returns 404 on rename when the channel has been deleted by the
+    # operator. Clear the stale id and let ChannelIndex create a fresh one
+    # — name is already current so no follow-up rename is needed.
+    def rename_or_recreate!(room, new_slug)
+      @discord_client.rename_channel(channel_id: room.discord_channel_id, name: new_slug)
+    rescue Discord::NotFound
+      room.update!(discord_channel_id: nil)
+      @channel_index.ensure_channel(room: room)
     end
 
     def fetch_profile_username(matrix_id)
