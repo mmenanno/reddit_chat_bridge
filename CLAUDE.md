@@ -57,7 +57,7 @@ bin/tailwind-watch               # rebuild CSS on save during UI work (dev conve
 - **Reddit ships custom event types** like `com.reddit.profile` in the room timeline. Filter to `m.room.message` and `m.room.member` only; log any other seen type so we can spot new ones.
 - **`@t2_1qwk:reddit.com`** is a Reddit system/service account seen across multiple rooms. Prefix its messages with a distinct marker (`🤖 Reddit System` or similar) rather than silently dropping them in the MVP.
 - Reddit chat rooms are not E2E-encrypted, so plain `/sync` returns plaintext events. No Olm/Megolm work required.
-- Never pass the Matrix access token as a long shell positional arg — bash / LLM copy layers have mangled a character in the 1309-char JWT before. Always use a file (`MATRIX_ACCESS_TOKEN_FILE`) or the web UI paste field.
+- Never pass the Matrix access token as a long shell positional arg — bash / LLM copy layers have mangled a character in the 1309-char JWT before. For local scripts use `dotenvx run -- …` with a `.env` file (gitignored); in production use the web UI's `/auth` paste field.
 - Unraid: containers are managed through the Unraid web UI only. Never create/delete/recreate via CLI (container config lives in Unraid's XML templates, which the CLI doesn't know about).
 
 ## Process notes

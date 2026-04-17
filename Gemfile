@@ -23,6 +23,10 @@ gem "faraday"
 gem "faraday-retry"
 
 # Integrations
+#
+# matrix_sdk was evaluated in the Phase 0 spike and dropped — we use Faraday
+# directly for Matrix (no unmaintained-gem risk, easier to test, and matches
+# Reddit's custom event types better than a generic SDK).
 gem "discordrb"
 gem "websocket-client-simple"
 

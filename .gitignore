@@ -6,6 +6,7 @@
 *.sqlite3-journal
 .env
 .env.*
+!.env.example
 .DS_Store
 /coverage/
 /tmp/
