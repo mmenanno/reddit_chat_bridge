@@ -71,7 +71,7 @@ module Bridge
         pass if request.path_info.start_with?("/setup")
         pass if request.path_info == "/login"
         pass if request.path_info == "/logout"
-        pass if request.path_info.start_with?("/assets")
+        pass if request.path_info.end_with?(".css", ".js", ".ico", ".png", ".svg")
 
         return redirect("/setup") if AdminUser.first_run?
         return redirect("/login") unless logged_in?
