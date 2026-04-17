@@ -38,25 +38,20 @@ RUN bundle install && \
       "${BUNDLE_PATH}"/ruby/*/cache \
       "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
-# ---- assets stage: Tailwind v4 via the standalone CLI, no Node.js ----
+# ---- assets stage: Tailwind v4 + DaisyUI via npm ----
+# DaisyUI is a JS plugin and has to be require()'able for Tailwind's @plugin
+# directive to resolve. Node lives only in this stage — the runtime image
+# never sees it. Only the compiled CSS is copied into the final stage.
 FROM base AS assets
-ARG TAILWIND_VERSION=v4.2.2
-# Tailwind's release assets use GNU-style arch names (x64, arm64) rather than
-# Docker's TARGETARCH (amd64, arm64). Map Docker → Tailwind once.
-ARG TARGETARCH
-RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) tw_arch=x64 ;; \
-      arm64) tw_arch=arm64 ;; \
-      *) echo "unsupported arch: ${TARGETARCH}"; exit 1 ;; \
-    esac; \
-    curl -fsSL -o /usr/local/bin/tailwindcss \
-      "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${tw_arch}"; \
-    chmod +x /usr/local/bin/tailwindcss; \
-    /usr/local/bin/tailwindcss --help >/dev/null
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y nodejs npm && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
 COPY app ./app
-RUN mkdir -p app/assets/built && \
-    tailwindcss \
+RUN npm init -y >/dev/null && \
+    npm install --silent --no-save tailwindcss@^4 @tailwindcss/cli@^4 daisyui@^5 && \
+    mkdir -p app/assets/built && \
+    npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
       -o app/assets/built/application.css \
       --minify
