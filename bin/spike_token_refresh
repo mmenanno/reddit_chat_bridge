@@ -1,0 +1,125 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Phase 0b spike — automatic Matrix token refresh via Reddit session cookies.
+#
+# Reddit embeds a fresh Matrix JWT into the server-side-rendered HTML at
+# https://www.reddit.com/chat/ inside an <rs-app token="{...}"> element.
+# The same element carries `token-refresh-url="/svc/shreddit/token"` — a
+# dedicated endpoint the web client hits to refresh without a full reload.
+#
+# This spike probes both paths with the Reddit cookies we've captured,
+# prints the results, and lets us pick the refresh strategy.
+#
+# Setup:
+#   1. In DevTools on www.reddit.com (logged in), Application → Storage →
+#      Cookies → https://www.reddit.com. Copy the full `Cookie:` request
+#      header Reddit sends — easiest way: right-click any www.reddit.com
+#      request in Network → Copy → Copy as cURL; grab the -H 'cookie: …'
+#      value.
+#   2. Save to .env as REDDIT_COOKIE="reddit_session=...; token_v2=...; ..."
+#   3. dotenvx run -- bundle exec bin/spike_token_refresh
+
+require "bundler/setup"
+require "faraday"
+require "json"
+
+cookie = ENV["REDDIT_COOKIE"] or abort("set REDDIT_COOKIE in .env (full Cookie header from www.reddit.com)")
+
+user_agent = ENV.fetch(
+  "REDDIT_USER_AGENT",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " \
+  "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+)
+
+conn = Faraday.new(
+  url: "https://www.reddit.com",
+  headers: {
+    "User-Agent" => user_agent,
+    "Cookie" => cookie,
+    "Accept" => "application/json,text/html;q=0.9,*/*;q=0.8",
+    "Accept-Language" => "en-US,en;q=0.9",
+  },
+) do |f|
+  f.adapter(Faraday.default_adapter)
+end
+
+def hr(title)
+  puts
+  puts "=" * 60
+  puts title
+  puts "=" * 60
+end
+
+def summarize_response(resp)
+  puts "status: #{resp.status}"
+  puts "content-type: #{resp.headers['content-type']}"
+  set_cookies = Array(resp.headers["set-cookie"])
+  set_cookies = set_cookies.first.split(/,(?=\s*\w+=)/) if set_cookies.length == 1 && set_cookies.first.include?("token_v2=")
+  token_v2 = set_cookies.find { |c| c =~ /\Atoken_v2=/ }
+  puts "Set-Cookie token_v2: #{token_v2 ? "PRESENT (#{token_v2[0, 80]}…)" : "absent"}"
+end
+
+def extract_jwt_from_html(body)
+  match = body.match(/<rs-app[^>]*\stoken="([^"]*)"/m)
+  return nil unless match
+
+  decoded = match[1]
+    .gsub("&quot;", '"')
+    .gsub("&amp;", "&")
+    .gsub("&lt;", "<")
+    .gsub("&gt;", ">")
+  JSON.parse(decoded)
+rescue JSON::ParserError
+  nil
+end
+
+def print_jwt_exp(jwt)
+  payload_b64 = jwt.split(".").fetch(1).tr("-_", "+/")
+  payload_b64 += "=" * ((4 - payload_b64.length % 4) % 4)
+  payload = JSON.parse(payload_b64.unpack1("m"))
+  puts "  exp: #{payload['exp']} (#{Time.at(payload['exp']).utc})"
+  puts "  iat: #{payload['iat']} (#{Time.at(payload['iat']).utc})"
+  puts "  jti: #{payload['jti']}"
+end
+
+# Split the full cookie into individual pairs so we can mint a variant
+# without token_v2 for the "does Reddit re-mint" test.
+all_cookies = cookie.split(/;\s*/).reject(&:empty?)
+without_token_v2 = all_cookies.reject { |c| c.start_with?("token_v2=") }.join("; ")
+
+# ---- Baseline: /chat/ with full cookie (expect existing token echoed) ----
+
+hr("GET /chat/  (full cookie — expect the existing token_v2 echoed back)")
+resp = conn.get("/chat/") do |req|
+  req.headers["Accept"] = "text/html"
+end
+summarize_response(resp)
+parsed = extract_jwt_from_html(resp.body)
+if parsed
+  puts "JSON keys: #{parsed.keys}"
+  puts "JWT from <rs-app token=>:"
+  print_jwt_exp(parsed["token"])
+  puts "expires: #{parsed['expires']} (#{Time.at(parsed['expires'].to_f / 1000).utc})" if parsed["expires"]
+end
+
+# ---- The real test: strip token_v2 and see if Reddit re-mints ----
+
+hr("GET /chat/  (cookie MINUS token_v2 — expect Reddit to mint a fresh JWT)")
+resp = conn.get("/chat/") do |req|
+  req.headers["Accept"] = "text/html"
+  req.headers["Cookie"] = without_token_v2
+end
+summarize_response(resp)
+parsed = extract_jwt_from_html(resp.body)
+if parsed && parsed["token"]
+  puts "JSON keys: #{parsed.keys}"
+  puts "JWT from <rs-app token=>:"
+  print_jwt_exp(parsed["token"])
+  puts "expires: #{parsed['expires']} (#{Time.at(parsed['expires'].to_f / 1000).utc})" if parsed["expires"]
+elsif parsed
+  puts "parsed: #{parsed.inspect}"
+else
+  puts "no token embedded in response; body head:"
+  puts resp.body[0, 400]
+end
