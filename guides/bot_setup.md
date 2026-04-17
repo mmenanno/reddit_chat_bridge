@@ -42,7 +42,8 @@ Still in the Developer Portal:
 2. Scopes: check **bot** and **applications.commands**
 3. Bot Permissions: check **Manage Channels**, **Send Messages**,
    **Embed Links**, **Attach Files**, **Read Message History**, and
-   **Use Application Commands**.
+   **Use Slash Commands**. (The Discord permission was renamed from
+   "Use Application Commands" — same capability, newer label.)
 4. Copy the generated URL and open it in a browser. Pick the Reddit Chat
    Bridge server and authorize.
 
