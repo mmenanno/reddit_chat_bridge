@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Phase 0 spike — Matrix /sync live read.
+#
+# Performs a single /sync request against the Reddit Matrix homeserver using
+# credentials pulled from env vars, and prints a summary of recent rooms +
+# events. The intent is to:
+#
+#   1. Confirm Reddit's Matrix homeserver accepts a bearer token extracted
+#      from a browser session.
+#   2. Capture the shape of events for later fixture use.
+#   3. Verify matrix_sdk (or, if it breaks, a raw Faraday call) works on
+#      Ruby 4.0.2.
+#
+# Usage:
+#   MATRIX_HOMESERVER=https://matrix.redditspace.com \
+#   MATRIX_USER_ID=@yourusername:reddit.com \
+#   MATRIX_ACCESS_TOKEN=<bearer> \
+#   bundle exec bin/spike_matrix_sync
+#
+# Add MATRIX_SYNC_CAPTURE_PATH=docs/fixtures/sync.json to save the raw response.
+
+require "bundler/setup"
+require "faraday"
+require "faraday/retry"
+require "json"
+require "fileutils"
+
+homeserver   = ENV.fetch("MATRIX_HOMESERVER", "https://matrix.redditspace.com")
+user_id      = ENV["MATRIX_USER_ID"] or abort("set MATRIX_USER_ID=@t2_<id>:reddit.com")
+raw_token =
+  if (token_file = ENV["MATRIX_ACCESS_TOKEN_FILE"])
+    File.read(File.expand_path(token_file))
+  else
+    ENV["MATRIX_ACCESS_TOKEN"] or abort("set MATRIX_ACCESS_TOKEN=<bearer> or MATRIX_ACCESS_TOKEN_FILE=/path/to/token")
+  end
+access_token = raw_token.strip.sub(/\ABearer\s+/i, "")
+capture_path = ENV["MATRIX_SYNC_CAPTURE_PATH"]
+
+user_agent = ENV.fetch(
+  "MATRIX_USER_AGENT",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+)
+
+conn = Faraday.new(url: homeserver, headers: { "User-Agent" => user_agent }) do |f|
+  f.request(:retry, max: 2, interval: 0.5, backoff_factor: 2)
+  f.response(:json, content_type: /\bjson$/)
+  f.adapter(Faraday.default_adapter)
+end
+
+token_preview = "#{access_token[0, 12]}…#{access_token[-8..]} (#{access_token.length} chars)"
+puts "token: #{token_preview}"
+
+# 1. whoami probe — confirms token is alive before spending 30s on /sync.
+whoami = conn.get("/_matrix/client/v3/account/whoami") do |req|
+  req.headers["Authorization"] = "Bearer #{access_token}"
+end
+
+unless whoami.success?
+  warn "whoami failed: status=#{whoami.status} body=#{whoami.body.inspect}"
+  warn "response headers: #{whoami.headers.to_h.select { |k, _| k =~ /ratelimit|date|server|www-auth/i }.inspect}"
+  abort("bearer token rejected — re-extract from chat.reddit.com DevTools and try again")
+end
+
+reported_user_id = whoami.body["user_id"]
+puts "whoami: #{reported_user_id}"
+if reported_user_id && reported_user_id != user_id
+  warn "NOTE: MATRIX_USER_ID in env is #{user_id.inspect}, but server reports #{reported_user_id.inspect}"
+end
+puts
+
+# 2. /sync — no since token, small timeout. Pulls recent rooms + some events.
+puts "GET /sync (timeout 10s) ..."
+sync = conn.get("/_matrix/client/v3/sync") do |req|
+  req.headers["Authorization"] = "Bearer #{access_token}"
+  req.params["timeout"] = 10_000
+end
+
+unless sync.success?
+  abort "sync failed: status=#{sync.status} body=#{sync.body.inspect[0, 500]}"
+end
+
+body = sync.body
+next_batch = body["next_batch"]
+rooms = body.dig("rooms", "join") || {}
+invites = body.dig("rooms", "invite") || {}
+
+puts "next_batch: #{next_batch[0, 40]}…"
+puts "joined rooms: #{rooms.size}"
+puts "pending invites: #{invites.size}"
+puts
+
+rooms.each do |room_id, room|
+  timeline = room.dig("timeline", "events") || []
+  sender_names = timeline.map { |e| e["sender"] }.compact.uniq
+  last = timeline.last
+  last_body = last&.dig("content", "body")
+  puts "  #{room_id}"
+  puts "    senders: #{sender_names.join(', ')}"
+  puts "    last event: #{last && last['type']} — #{last_body.to_s[0, 80].inspect}"
+end
+
+if capture_path
+  FileUtils.mkdir_p(File.dirname(capture_path))
+  File.write(capture_path, JSON.pretty_generate(body))
+  puts
+  puts "Captured raw /sync response → #{capture_path}"
+end

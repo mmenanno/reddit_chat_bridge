@@ -1,0 +1,14 @@
+/.bundle/
+/vendor/bundle/
+/app/assets/built/
+/log/*.log
+*.sqlite3
+*.sqlite3-journal
+.env
+.env.*
+.DS_Store
+/coverage/
+/tmp/
+
+# working notes and plan snapshot — not shared
+/docs/
