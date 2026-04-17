@@ -4,14 +4,38 @@ source "https://rubygems.org"
 
 ruby "4.0.2"
 
-# Phase 0 spike Gemfile — minimal set to verify gem compatibility on Ruby 4.0.2
-# and exercise the live Matrix + Discord APIs. Expanded in Phase 1.
+# Core
+gem "activerecord", "~> 8.1"
+gem "activesupport", "~> 8.1"
+gem "sqlite3"
+gem "zeitwerk"
 
-# Integrations under evaluation
-gem "matrix_sdk"
-gem "discordrb"
+# Web
+gem "bcrypt"
+gem "puma"
+gem "rack-session"
+gem "sinatra"
+gem "sinatra-contrib"
 
-# Fallback building blocks if either of the above fails on Ruby 4.0.2
+# Networking
+gem "concurrent-ruby"
 gem "faraday"
 gem "faraday-retry"
+
+# Integrations
+gem "discordrb"
 gem "websocket-client-simple"
+
+group :development, :test do
+  gem "debug", platforms: [:mri]
+  gem "rake"
+  gem "rubocop-mmenanno", require: false
+end
+
+group :test do
+  gem "minitest", "~> 5.25"
+  gem "minitest-reporters"
+  gem "mocha"
+  gem "rack-test"
+  gem "webmock"
+end

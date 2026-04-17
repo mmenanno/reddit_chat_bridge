@@ -28,19 +28,19 @@ require "json"
 require "fileutils"
 
 homeserver   = ENV.fetch("MATRIX_HOMESERVER", "https://matrix.redditspace.com")
-user_id      = ENV["MATRIX_USER_ID"] or abort("set MATRIX_USER_ID=@t2_<id>:reddit.com")
+user_id      = ENV.fetch("MATRIX_USER_ID", nil) or abort("set MATRIX_USER_ID=@t2_<id>:reddit.com")
 raw_token =
-  if (token_file = ENV["MATRIX_ACCESS_TOKEN_FILE"])
+  if (token_file = ENV.fetch("MATRIX_ACCESS_TOKEN_FILE", nil))
     File.read(File.expand_path(token_file))
   else
     ENV["MATRIX_ACCESS_TOKEN"] or abort("set MATRIX_ACCESS_TOKEN=<bearer> or MATRIX_ACCESS_TOKEN_FILE=/path/to/token")
   end
 access_token = raw_token.strip.sub(/\ABearer\s+/i, "")
-capture_path = ENV["MATRIX_SYNC_CAPTURE_PATH"]
+capture_path = ENV.fetch("MATRIX_SYNC_CAPTURE_PATH", nil)
 
 user_agent = ENV.fetch(
   "MATRIX_USER_AGENT",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
 )
 
 conn = Faraday.new(url: homeserver, headers: { "User-Agent" => user_agent }) do |f|
@@ -65,9 +65,7 @@ end
 
 reported_user_id = whoami.body["user_id"]
 puts "whoami: #{reported_user_id}"
-if reported_user_id && reported_user_id != user_id
-  warn "NOTE: MATRIX_USER_ID in env is #{user_id.inspect}, but server reports #{reported_user_id.inspect}"
-end
+warn "NOTE: MATRIX_USER_ID in env is #{user_id.inspect}, but server reports #{reported_user_id.inspect}" if reported_user_id && reported_user_id != user_id
 puts
 
 # 2. /sync — no since token, small timeout. Pulls recent rooms + some events.
@@ -77,9 +75,7 @@ sync = conn.get("/_matrix/client/v3/sync") do |req|
   req.params["timeout"] = 10_000
 end
 
-unless sync.success?
-  abort "sync failed: status=#{sync.status} body=#{sync.body.inspect[0, 500]}"
-end
+abort "sync failed: status=#{sync.status} body=#{sync.body.inspect[0, 500]}" unless sync.success?
 
 body = sync.body
 next_batch = body["next_batch"]
@@ -93,12 +89,12 @@ puts
 
 rooms.each do |room_id, room|
   timeline = room.dig("timeline", "events") || []
-  sender_names = timeline.map { |e| e["sender"] }.compact.uniq
+  sender_names = timeline.filter_map { |e| e["sender"] }.uniq
   last = timeline.last
   last_body = last&.dig("content", "body")
   puts "  #{room_id}"
-  puts "    senders: #{sender_names.join(', ')}"
-  puts "    last event: #{last && last['type']} — #{last_body.to_s[0, 80].inspect}"
+  puts "    senders: #{sender_names.join(", ")}"
+  puts "    last event: #{last && last["type"]} — #{last_body.to_s[0, 80].inspect}"
 end
 
 if capture_path

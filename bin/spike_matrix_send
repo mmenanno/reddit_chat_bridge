@@ -21,15 +21,15 @@ require "faraday"
 require "json"
 require "securerandom"
 
-homeserver   = ENV.fetch("MATRIX_HOMESERVER", "https://matrix.redditspace.com")
+homeserver = ENV.fetch("MATRIX_HOMESERVER", "https://matrix.redditspace.com")
 raw_token =
-  if (token_file = ENV["MATRIX_ACCESS_TOKEN_FILE"])
+  if (token_file = ENV.fetch("MATRIX_ACCESS_TOKEN_FILE", nil))
     File.read(File.expand_path(token_file))
   else
     ENV["MATRIX_ACCESS_TOKEN"] or abort("set MATRIX_ACCESS_TOKEN or MATRIX_ACCESS_TOKEN_FILE")
   end
 access_token = raw_token.strip.sub(/\ABearer\s+/i, "")
-room_id      = ENV["MATRIX_ROOM_ID"]      or abort("set MATRIX_ROOM_ID='!abc:reddit.com' (grab from /sync output)")
+room_id      = ENV.fetch("MATRIX_ROOM_ID", nil) or abort("set MATRIX_ROOM_ID='!abc:reddit.com' (grab from /sync output)")
 body         = ENV.fetch("MATRIX_BODY", "ping from reddit_chat_bridge spike")
 
 txn_id = SecureRandom.uuid
