@@ -56,6 +56,24 @@
   </div>
 </section>
 
+<section class="card bg-base-100 shadow-xl border border-error">
+  <div class="card-body">
+    <h3 class="card-title text-lg text-error">Full resync (destructive)</h3>
+    <p class="text-sm opacity-80 mb-3">
+      Clears every Room's cached Discord channel id + last-event pointer, wipes the
+      <code class="bg-base-300 px-1 rounded">PostedEvent</code> dedup cache, and resets the
+      sync checkpoint. The next sync will recreate channels from scratch and replay recent
+      history into them. Use this after you've manually deleted the Discord channels and want
+      the bridge to start fresh. Room metadata (counterparty username) is preserved so new
+      channels get the right names immediately.
+    </p>
+    <form method="post" action="/actions/full_resync"
+          onsubmit="return confirm('Nuke all channel refs, dedup cache, and sync checkpoint? This is irreversible.');">
+      <button type="submit" class="btn btn-error">Full resync now</button>
+    </form>
+  </div>
+</section>
+
 <section class="card bg-base-100 shadow-xl border border-base-300">
   <div class="card-body">
     <h3 class="card-title text-lg">Reconcile channels</h3>

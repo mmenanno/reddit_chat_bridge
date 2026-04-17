@@ -326,6 +326,13 @@ module Bridge
         erb(:actions)
       end
 
+      post "/actions/full_resync" do
+        stats = admin_actions.full_resync!
+        @notice = "Full resync: cleared Discord channel refs on #{stats[:rooms_reset]} room(s), " \
+                  "wiped #{stats[:events_cleared]} posted-event record(s), reset the sync checkpoint."
+        erb(:actions)
+      end
+
       post "/actions/start_sync" do
         if Bridge::Application.running?
           @notice = "Sync is already running."

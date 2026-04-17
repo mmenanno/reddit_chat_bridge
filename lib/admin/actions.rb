@@ -37,6 +37,24 @@ module Admin
       :ok
     end
 
+    # Destructive: wipes every Room's Discord channel id + last_event_id,
+    # deletes the entire PostedEvent dedup cache, and clears the /sync
+    # checkpoint. Use when the Discord side has been nuked manually and
+    # the operator wants the bridge to recreate everything from scratch.
+    # Room rows themselves are kept so counterparty_username survives —
+    # new channels get their right names on first post, no profile round-
+    # trip required.
+    def full_resync!
+      rooms_reset = 0
+      events_cleared = 0
+      ActiveRecord::Base.transaction do
+        rooms_reset = Room.update_all(discord_channel_id: nil, last_event_id: nil)
+        events_cleared = PostedEvent.delete_all
+        SyncCheckpoint.reset!
+      end
+      { rooms_reset: rooms_reset, events_cleared: events_cleared }
+    end
+
     # Persists the Reddit cookie jar AND uses it to mint a fresh Matrix JWT
     # in one call, probing whoami before saving anything. Successful run
     # leaves AuthState with:

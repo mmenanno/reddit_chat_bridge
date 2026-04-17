@@ -89,6 +89,62 @@ module Admin
       assert_equal(:ok, @actions.resync)
     end
 
+    # ---- full_resync! ----
+
+    test "full_resync! clears discord_channel_id and last_event_id on every room" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111", last_event_id: "$one")
+      Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222", last_event_id: "$two")
+
+      @actions.full_resync!
+
+      Room.find_each do |room|
+        assert_nil(room.discord_channel_id)
+        assert_nil(room.last_event_id)
+      end
+    end
+
+    test "full_resync! deletes every PostedEvent row" do
+      PostedEvent.record!(event_id: "$a", room_id: "!a:reddit.com")
+      PostedEvent.record!(event_id: "$b", room_id: "!b:reddit.com")
+
+      @actions.full_resync!
+
+      assert_equal(0, PostedEvent.count)
+    end
+
+    test "full_resync! clears the sync checkpoint" do
+      SyncCheckpoint.advance!("some_token")
+
+      @actions.full_resync!
+
+      assert_nil(SyncCheckpoint.next_batch_token)
+    end
+
+    test "full_resync! preserves Room rows and counterparty usernames" do
+      Room.create!(
+        matrix_room_id: "!a:reddit.com",
+        counterparty_matrix_id: "@t2_peer:reddit.com",
+        counterparty_username: "nothnnn",
+        discord_channel_id: "111",
+      )
+
+      @actions.full_resync!
+
+      assert_equal(1, Room.count)
+      assert_equal("nothnnn", Room.first.counterparty_username)
+    end
+
+    test "full_resync! returns counts of what it cleared" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
+      PostedEvent.record!(event_id: "$a", room_id: "!a:reddit.com")
+
+      stats = @actions.full_resync!
+
+      assert_equal(2, stats[:rooms_reset])
+      assert_equal(1, stats[:events_cleared])
+    end
+
     # ---- set_reddit_cookies! ----
 
     test "set_reddit_cookies! mints a fresh token via RefreshFlow and saves everything" do

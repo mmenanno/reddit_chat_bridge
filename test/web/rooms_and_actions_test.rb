@@ -125,6 +125,52 @@ module Bridge
         assert_match(/Reconciler not configured/, last_response.body)
       end
 
+      # ---- /actions/full_resync ----
+
+      test "GET /actions renders the full-resync button" do
+        get "/actions"
+
+        assert_match(/Full resync now/, last_response.body)
+      end
+
+      test "POST /actions/full_resync clears Room channel refs" do
+        Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111", last_event_id: "$x")
+
+        post "/actions/full_resync"
+
+        assert_nil(Room.first.discord_channel_id)
+      end
+
+      test "POST /actions/full_resync wipes PostedEvent and resets the checkpoint" do
+        PostedEvent.record!(event_id: "$x", room_id: "!a:reddit.com")
+        SyncCheckpoint.advance!("some_token")
+
+        post "/actions/full_resync"
+
+        assert_equal(0, PostedEvent.count)
+        assert_nil(SyncCheckpoint.next_batch_token)
+      end
+
+      test "POST /actions/full_resync shows a result banner with counts" do
+        Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+        PostedEvent.record!(event_id: "$x", room_id: "!a:reddit.com")
+
+        post "/actions/full_resync"
+
+        assert_match(/cleared Discord channel refs on 1 room/, last_response.body)
+        assert_match(/wiped 1 posted-event record/, last_response.body)
+      end
+
+      test "POST /actions/full_resync requires auth" do
+        post "/logout"
+        Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "keep")
+
+        post "/actions/full_resync"
+
+        assert_equal(302, last_response.status)
+        assert_equal("keep", Room.first.discord_channel_id)
+      end
+
       # ---- /rooms/:id/refresh ----
 
       test "GET /rooms renders a refresh button per row" do
