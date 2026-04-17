@@ -3,8 +3,6 @@
 $LOAD_PATH.unshift(File.expand_path("lib", __dir__))
 
 require "bridge/boot"
-require "bridge/application"
-require "bridge/web/app"
 
 database_path =
   case ENV.fetch("RACK_ENV", nil)
@@ -16,7 +14,13 @@ database_path =
     "db/development.sqlite3"
   end
 
+# Boot must run before requiring the web app — the app's Sinatra `configure`
+# block reads AppConfig at class-load time (for the persisted session_secret).
+# Boot opens the DB connection and autoloads every model.
 Bridge::Boot.call(database_path: database_path)
+
+require "bridge/application"
+require "bridge/web/app"
 
 # Starts the supervisor thread only when all required config is present.
 # The web UI is available either way — first-run users land on /setup

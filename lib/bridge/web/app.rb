@@ -21,6 +21,10 @@ module Bridge
       VIEWS_ROOT  = File.expand_path("../../../app/views", __dir__)
       PUBLIC_ROOT = File.expand_path("../../../app/assets/built", __dir__)
 
+      # This block runs at class-load time and reads AppConfig for the
+      # persisted session_secret. Callers must have run `Bridge::Boot.call`
+      # before requiring this file — otherwise the model constants aren't
+      # loaded yet. config.ru and test_helper both enforce that order.
       configure do
         set :views, VIEWS_ROOT
         set :public_folder, PUBLIC_ROOT
