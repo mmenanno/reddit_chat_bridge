@@ -1,0 +1,8 @@
+#!/bin/bash
+set -euo pipefail
+
+# Container entrypoint. Boots the Puma-backed web UI. Background threads
+# (Matrix::SyncLoop supervisor, Phase 2 Discord::Gateway) are wired up
+# inside config.ru so they share the process and persistence layer.
+
+exec bundle exec puma -e "${RACK_ENV:-production}" -p "${PORT:-4567}" -b "tcp://0.0.0.0:${PORT:-4567}"

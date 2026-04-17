@@ -1,0 +1,14 @@
+<h2>First-run setup</h2>
+<p>Create the admin account that'll sign in to this bridge from now on.</p>
+<% if @error %><p role="alert"><%= @error %></p><% end %>
+<form method="post" action="/setup">
+  <label>
+    Username
+    <input type="text" name="username" required autocomplete="username">
+  </label>
+  <label>
+    Password (12+ chars)
+    <input type="password" name="password" required minlength="12" autocomplete="new-password">
+  </label>
+  <button type="submit">Create admin account</button>
+</form>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>reddit_chat_bridge</title>
+    <link rel="stylesheet" href="/assets/application.css">
+  </head>
+  <body>
+    <header>
+      <h1><a href="/">reddit_chat_bridge</a></h1>
+      <% if logged_in? %>
+        <form method="post" action="/logout" style="display:inline;">
+          <button type="submit">Log out <%= current_user.username %></button>
+        </form>
+      <% end %>
+    </header>
+    <main>
+      <%= yield %>
+    </main>
+  </body>
+</html>

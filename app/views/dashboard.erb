@@ -1,0 +1,19 @@
+<h2>Dashboard</h2>
+<section>
+  <h3>Matrix</h3>
+  <p>
+    Status: <%= AuthState.paused? ? "🔴 paused" : "🟢 ok" %>
+    <% if AuthState.access_token %>
+      · token saved · user <code><%= AuthState.user_id %></code>
+    <% else %>
+      · no token yet
+    <% end %>
+    <% if AuthState.current.last_ok_at %>
+      · last ok <%= AuthState.current.last_ok_at.utc.iso8601 %>
+    <% end %>
+  </p>
+</section>
+<section>
+  <h3>Rooms</h3>
+  <p>Bridged rooms: <%= Room.count %></p>
+</section>
