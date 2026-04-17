@@ -64,6 +64,17 @@ module Bridge
           }
           Admin::Actions.new(matrix_client_factory: factory)
         end
+
+        def settings_fields_with_values
+          App::SETTINGS_FIELDS.map do |field|
+            stored = AppConfig.get(field[:key])
+            # Pre-fill with the default when the admin hasn't saved a value yet,
+            # so hints like "should be https://matrix.redditspace.com" aren't
+            # just decoration — the field actually arrives that way.
+            value = stored.nil? || stored.empty? ? field[:default] : stored
+            field.merge(value: value)
+          end
+        end
       end
 
       before do
@@ -145,47 +156,62 @@ module Bridge
           key: "matrix_homeserver",
           label: "Matrix homeserver URL",
           hint: "Reddit's chat homeserver. Should be https://matrix.redditspace.com unless Reddit migrates.",
+          default: "https://matrix.redditspace.com",
+          secret: false,
         },
         {
           key: "matrix_user_id",
           label: "Matrix user ID",
           hint: "Looks like @t2_<opaque>:reddit.com. Find it in DevTools → any /_matrix/client/v3/account/whoami response.",
+          default: "",
+          secret: false,
         },
         {
           key: "discord_bot_token",
           label: "Discord bot token",
           hint: "From the Discord Developer Portal → your app → Bot → Reset Token.",
+          default: "",
+          secret: true,
         },
         {
           key: "discord_guild_id",
           label: "Discord server (guild) ID",
           hint: "Right-click the server in Discord (with Developer Mode on) → Copy Server ID.",
+          default: "",
+          secret: false,
         },
         {
           key: "discord_dms_category_id",
           label: "Reddit DMs category ID",
           hint: "The category where #dm-* channels will be auto-created.",
+          default: "",
+          secret: false,
         },
         {
           key: "discord_admin_status_channel_id",
           label: "#app-status channel ID",
           hint: "Where critical alerts land. @everyone pinged on fatal errors only.",
+          default: "",
+          secret: false,
         },
         {
           key: "discord_admin_logs_channel_id",
           label: "#app-logs channel ID",
           hint: "Info/warn lines from the bridge's operational log.",
+          default: "",
+          secret: false,
         },
         {
           key: "discord_admin_commands_channel_id",
           label: "#commands channel ID",
           hint: "Slash-command surface. Restrict to @BotAdmin.",
+          default: "",
+          secret: false,
         },
       ].freeze
 
       get "/settings" do
-        @fields = SETTINGS_FIELDS.map { |f| f.merge(value: AppConfig.fetch(f[:key], "")) }
-
+        @fields = settings_fields_with_values
         erb(:settings)
       end
 
@@ -196,8 +222,7 @@ module Bridge
         end
 
         @notice = "Settings saved."
-        @fields = SETTINGS_FIELDS.map { |f| f.merge(value: AppConfig.fetch(f[:key], "")) }
-
+        @fields = settings_fields_with_values
         erb(:settings)
       end
 

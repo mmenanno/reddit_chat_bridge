@@ -1,4 +1,4 @@
-<section class="card bg-base-100 shadow">
+<section class="card bg-base-100 shadow-xl border border-base-300">
   <div class="card-body">
     <h2 class="card-title">Settings</h2>
     <p class="opacity-80">
@@ -12,22 +12,20 @@
       <div role="status" class="alert alert-success text-sm"><%= @notice %></div>
     <% end %>
 
-    <form method="post" action="/settings" class="space-y-4 mt-4">
+    <form method="post" action="/settings" class="space-y-5 mt-4">
       <% @fields.each do |field| %>
-        <div class="form-control">
-          <label class="label">
+        <div>
+          <label class="label pb-1">
             <span class="label-text font-medium"><%= field[:label] %></span>
           </label>
           <input
-            type="text"
+            type="<%= field[:secret] ? "password" : "text" %>"
             name="<%= field[:key] %>"
             value="<%= field[:value] %>"
             autocomplete="off"
             spellcheck="false"
-            class="input input-bordered w-full font-mono text-sm">
-          <label class="label">
-            <span class="label-text-alt opacity-70"><%= field[:hint] %></span>
-          </label>
+            class="input input-bordered w-full bg-base-200 font-mono text-sm">
+          <p class="mt-1 text-xs opacity-70"><%= field[:hint] %></p>
         </div>
       <% end %>
       <button type="submit" class="btn btn-primary">Save</button>
