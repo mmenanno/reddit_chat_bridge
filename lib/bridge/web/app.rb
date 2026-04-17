@@ -27,7 +27,11 @@ module Bridge
         set :show_exceptions, false
         set :raise_errors, true
         enable :sessions
-        set :session_secret, (ENV["SESSION_SECRET"] || SecureRandom.hex(32))
+        set :session_secret, (
+          ENV["SESSION_SECRET"] ||
+          AppConfig.get("session_secret") ||
+          SecureRandom.hex(32).tap { |s| AppConfig.set("session_secret", s) }
+        )
       end
 
       configure :test do
