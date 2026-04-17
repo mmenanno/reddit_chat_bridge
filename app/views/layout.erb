@@ -29,5 +29,17 @@
     <main class="max-w-5xl mx-auto p-6 space-y-6">
       <%= yield %>
     </main>
+    <script>
+      // Success / status banners auto-dismiss after a few seconds so the page
+      // isn't cluttered by stale "saved" confirmations on subsequent visits.
+      // Error banners stick around so the admin actually reads them.
+      for (const banner of document.querySelectorAll("[data-auto-dismiss]")) {
+        setTimeout(() => {
+          banner.style.transition = "opacity 400ms";
+          banner.style.opacity = "0";
+          setTimeout(() => banner.remove(), 400);
+        }, 4000);
+      }
+    </script>
   </body>
 </html>

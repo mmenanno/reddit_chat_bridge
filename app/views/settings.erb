@@ -9,7 +9,7 @@
     </p>
 
     <% if @notice %>
-      <div role="status" class="alert alert-success text-sm"><%= @notice %></div>
+      <div role="status" data-auto-dismiss class="alert alert-success text-sm"><%= @notice %></div>
     <% end %>
 
     <form method="post" action="/settings" class="space-y-5 mt-4">
