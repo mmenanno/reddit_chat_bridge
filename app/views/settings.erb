@@ -1,24 +1,36 @@
-<h2>Settings</h2>
-<p>
-  Discord and Matrix configuration the bridge needs at runtime. The Matrix
-  access token itself is managed separately on the <a href="/auth">auth</a>
-  page because it probes Reddit before saving.
-</p>
-<% if @notice %><p role="status"><%= @notice %></p><% end %>
-<form method="post" action="/settings">
-  <% @fields.each do |field| %>
-    <div>
-      <label>
-        <%= field[:label] %>
-        <input
-          type="text"
-          name="<%= field[:key] %>"
-          value="<%= field[:value] %>"
-          autocomplete="off"
-          spellcheck="false">
-      </label>
-      <small><%= field[:hint] %></small>
-    </div>
-  <% end %>
-  <button type="submit">Save</button>
-</form>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Settings</h2>
+    <p class="opacity-80">
+      Discord and Matrix configuration the bridge needs at runtime. The Matrix
+      access token itself is managed separately on the
+      <a href="/auth" class="link link-primary">auth</a> page because it probes
+      Reddit before saving.
+    </p>
+
+    <% if @notice %>
+      <div role="status" class="alert alert-success text-sm"><%= @notice %></div>
+    <% end %>
+
+    <form method="post" action="/settings" class="space-y-4 mt-4">
+      <% @fields.each do |field| %>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium"><%= field[:label] %></span>
+          </label>
+          <input
+            type="text"
+            name="<%= field[:key] %>"
+            value="<%= field[:value] %>"
+            autocomplete="off"
+            spellcheck="false"
+            class="input input-bordered w-full font-mono text-sm">
+          <label class="label">
+            <span class="label-text-alt opacity-70"><%= field[:hint] %></span>
+          </label>
+        </div>
+      <% end %>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+  </div>
+</section>

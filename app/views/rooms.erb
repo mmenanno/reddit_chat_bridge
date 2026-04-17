@@ -1,41 +1,47 @@
-<h2>Bridged rooms</h2>
-<p>One row per Reddit chat the bridge has seen. Channels are auto-created on first message.</p>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Bridged rooms</h2>
+    <p class="opacity-80">One row per Reddit chat the bridge has seen. Channels are auto-created on first message.</p>
 
-<% if @rooms.empty? %>
-  <p><em>No rooms yet. The first Matrix <code>/sync</code> will populate this list.</em></p>
-<% else %>
-  <table>
-    <thead>
-      <tr>
-        <th>Counterparty</th>
-        <th>Matrix room</th>
-        <th>Discord channel</th>
-        <th>Last event</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% @rooms.each do |room| %>
-        <tr>
-          <td>
-            <%= room.counterparty_username || room.counterparty_matrix_id || "unresolved" %>
-          </td>
-          <td><code><%= room.matrix_room_id %></code></td>
-          <td>
-            <% if room.discord_channel_id %>
-              <code><%= room.discord_channel_id %></code>
-            <% else %>
-              <em>not created yet</em>
+    <% if @rooms.empty? %>
+      <p class="opacity-60 italic mt-4">No rooms yet. The first Matrix <code>/sync</code> will populate this list.</p>
+    <% else %>
+      <div class="overflow-x-auto mt-4">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Counterparty</th>
+              <th>Matrix room</th>
+              <th>Discord channel</th>
+              <th>Last event</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @rooms.each do |room| %>
+              <tr>
+                <td class="font-medium">
+                  <%= room.counterparty_username || room.counterparty_matrix_id || "unresolved" %>
+                </td>
+                <td><code class="text-xs"><%= room.matrix_room_id %></code></td>
+                <td>
+                  <% if room.discord_channel_id %>
+                    <code class="text-xs"><%= room.discord_channel_id %></code>
+                  <% else %>
+                    <span class="opacity-60 italic">not created yet</span>
+                  <% end %>
+                </td>
+                <td>
+                  <% if room.last_event_id %>
+                    <code class="text-xs"><%= room.last_event_id %></code>
+                  <% else %>
+                    <span class="opacity-60">—</span>
+                  <% end %>
+                </td>
+              </tr>
             <% end %>
-          </td>
-          <td>
-            <% if room.last_event_id %>
-              <code><%= room.last_event_id %></code>
-            <% else %>
-              <em>—</em>
-            <% end %>
-          </td>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
-<% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+</section>

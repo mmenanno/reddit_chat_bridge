@@ -1,19 +1,40 @@
-<h2>Dashboard</h2>
-<section>
-  <h3>Matrix</h3>
-  <p>
-    Status: <%= AuthState.paused? ? "🔴 paused" : "🟢 ok" %>
-    <% if AuthState.access_token %>
-      · token saved · user <code><%= AuthState.user_id %></code>
-    <% else %>
-      · no token yet
-    <% end %>
-    <% if AuthState.current.last_ok_at %>
-      · last ok <%= AuthState.current.last_ok_at.utc.iso8601 %>
-    <% end %>
-  </p>
-</section>
-<section>
-  <h3>Rooms</h3>
-  <p>Bridged rooms: <%= Room.count %></p>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Dashboard</h2>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="p-4 rounded-box bg-base-200">
+        <h3 class="font-semibold mb-2">Matrix</h3>
+        <p class="text-sm">
+          <% if AuthState.paused? %>
+            <span class="badge badge-error">paused</span>
+          <% elsif AuthState.access_token %>
+            <span class="badge badge-success">ok</span>
+          <% else %>
+            <span class="badge badge-warning">no token</span>
+          <% end %>
+          <% if AuthState.access_token %>
+            <br><span class="opacity-70">User:</span> <code><%= AuthState.user_id %></code>
+          <% end %>
+          <% if AuthState.current.last_ok_at %>
+            <br><span class="opacity-70">Last ok:</span> <%= AuthState.current.last_ok_at.utc.iso8601 %>
+          <% end %>
+          <% if AuthState.current.last_error %>
+            <br><span class="opacity-70">Last error:</span> <code class="text-error"><%= AuthState.current.last_error %></code>
+          <% end %>
+        </p>
+      </div>
+
+      <div class="p-4 rounded-box bg-base-200">
+        <h3 class="font-semibold mb-2">Rooms</h3>
+        <p class="text-sm">
+          <span class="opacity-70">Bridged:</span>
+          <span class="font-mono text-lg"><%= Room.count %></span>
+        </p>
+        <p class="text-sm mt-2">
+          <a href="/rooms" class="link link-primary">View all →</a>
+        </p>
+      </div>
+    </div>
+  </div>
 </section>

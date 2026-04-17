@@ -20,7 +20,7 @@ ENV BUNDLE_DEPLOYMENT=1 \
     RACK_ENV=production \
     RUBY_YJIT_ENABLE=1
 
-# ---- gems stage: compile native extensions, strip caches ----
+# ---- gems stage ----
 FROM base AS gems
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
@@ -38,10 +38,25 @@ RUN bundle install && \
       "${BUNDLE_PATH}"/ruby/*/cache \
       "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
+# ---- assets stage: Tailwind v4 via the standalone CLI, no Node.js ----
+FROM base AS assets
+ARG TAILWIND_VERSION=v4.1.14
+ARG TARGETARCH=amd64
+RUN curl -sSL -o /usr/local/bin/tailwindcss \
+      "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${TARGETARCH}" && \
+    chmod +x /usr/local/bin/tailwindcss
+COPY app ./app
+RUN mkdir -p app/assets/built && \
+    tailwindcss \
+      -i app/assets/tailwind.css \
+      -o app/assets/built/application.css \
+      --minify
+
 # ---- final runtime ----
 FROM base
 COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY . .
+COPY --from=assets /app/app/assets/built ./app/assets/built
 
 RUN set -eux; \
     groupadd --system app; \

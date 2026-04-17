@@ -1,14 +1,22 @@
-<h2>First-run setup</h2>
-<p>Create the admin account that'll sign in to this bridge from now on.</p>
-<% if @error %><p role="alert"><%= @error %></p><% end %>
-<form method="post" action="/setup">
-  <label>
-    Username
-    <input type="text" name="username" required autocomplete="username">
-  </label>
-  <label>
-    Password (12+ chars)
-    <input type="password" name="password" required minlength="12" autocomplete="new-password">
-  </label>
-  <button type="submit">Create admin account</button>
-</form>
+<section class="card bg-base-100 shadow max-w-lg mx-auto">
+  <div class="card-body">
+    <h2 class="card-title">First-run setup</h2>
+    <p class="opacity-80">Create the admin account that'll sign in to this bridge from now on.</p>
+
+    <% if @error %>
+      <div role="alert" class="alert alert-error text-sm"><%= @error %></div>
+    <% end %>
+
+    <form method="post" action="/setup" class="space-y-4 mt-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text">Username</span></label>
+        <input type="text" name="username" required autocomplete="username" class="input input-bordered w-full">
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">Password (12+ chars)</span></label>
+        <input type="password" name="password" required minlength="12" autocomplete="new-password" class="input input-bordered w-full">
+      </div>
+      <button type="submit" class="btn btn-primary w-full">Create admin account</button>
+    </form>
+  </div>
+</section>

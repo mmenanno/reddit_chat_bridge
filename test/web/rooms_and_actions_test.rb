@@ -43,7 +43,7 @@ module Bridge
 
         assert_match(/nothnnn/, last_response.body)
         assert_match(/testuser/, last_response.body)
-        assert_match(%r{<code>!one:reddit\.com</code>}, last_response.body)
+        assert_match(/!one:reddit\.com/, last_response.body)
       end
 
       test "GET /rooms marks rooms without a discord channel as 'not created yet'" do

@@ -1,13 +1,21 @@
-<h2>Log in</h2>
-<% if @error %><p role="alert"><%= @error %></p><% end %>
-<form method="post" action="/login">
-  <label>
-    Username
-    <input type="text" name="username" required autocomplete="username">
-  </label>
-  <label>
-    Password
-    <input type="password" name="password" required autocomplete="current-password">
-  </label>
-  <button type="submit">Log in</button>
-</form>
+<section class="card bg-base-100 shadow max-w-md mx-auto">
+  <div class="card-body">
+    <h2 class="card-title">Log in</h2>
+
+    <% if @error %>
+      <div role="alert" class="alert alert-error text-sm"><%= @error %></div>
+    <% end %>
+
+    <form method="post" action="/login" class="space-y-4 mt-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text">Username</span></label>
+        <input type="text" name="username" required autocomplete="username" class="input input-bordered w-full">
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">Password</span></label>
+        <input type="password" name="password" required autocomplete="current-password" class="input input-bordered w-full">
+      </div>
+      <button type="submit" class="btn btn-primary w-full">Log in</button>
+    </form>
+  </div>
+</section>

@@ -1,45 +1,68 @@
-<h2>Matrix access token</h2>
-<p>
-  Reddit's chat tokens live for roughly 24 hours. When the sync loop hits
-  <code>M_UNKNOWN_TOKEN</code>, extract a fresh one from the browser and
-  paste it below. The bridge probes <code>/account/whoami</code> before
-  saving, so a bad paste never clobbers a working token.
-</p>
-
-<section>
-  <h3>Current state</h3>
-  <% if AuthState.access_token.nil? || AuthState.access_token.empty? %>
-    <p>No token saved yet.</p>
-  <% else %>
-    <ul>
-      <li>User: <code><%= AuthState.user_id %></code></li>
-      <li>Status: <%= AuthState.paused? ? "🔴 paused" : "🟢 ok" %></li>
-      <% if AuthState.current.last_ok_at %>
-        <li>Last verified: <%= AuthState.current.last_ok_at.utc.iso8601 %></li>
-      <% end %>
-      <% if AuthState.current.last_error %>
-        <li>Last error: <code><%= AuthState.current.last_error %></code></li>
-      <% end %>
-    </ul>
-  <% end %>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Matrix access token</h2>
+    <p class="opacity-80">
+      Reddit's chat tokens live for roughly 24 hours. When the sync loop hits
+      <code class="bg-base-300 px-1 rounded">M_UNKNOWN_TOKEN</code>, extract a
+      fresh one from the browser and paste it below. The bridge probes
+      <code class="bg-base-300 px-1 rounded">/account/whoami</code> before
+      saving, so a bad paste never clobbers a working token.
+    </p>
+  </div>
 </section>
 
-<% if @notice %><p role="status"><%= @notice %></p><% end %>
-<% if @error %><p role="alert"><%= @error %></p><% end %>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h3 class="card-title text-lg">Current state</h3>
+    <% if AuthState.access_token.nil? || AuthState.access_token.empty? %>
+      <p class="opacity-70">No token saved yet.</p>
+    <% else %>
+      <ul class="text-sm space-y-1">
+        <li><span class="opacity-70">User:</span> <code><%= AuthState.user_id %></code></li>
+        <li>
+          <span class="opacity-70">Status:</span>
+          <% if AuthState.paused? %>
+            <span class="badge badge-error">paused</span>
+          <% else %>
+            <span class="badge badge-success">ok</span>
+          <% end %>
+        </li>
+        <% if AuthState.current.last_ok_at %>
+          <li><span class="opacity-70">Last verified:</span> <%= AuthState.current.last_ok_at.utc.iso8601 %></li>
+        <% end %>
+        <% if AuthState.current.last_error %>
+          <li><span class="opacity-70">Last error:</span> <code class="text-error"><%= AuthState.current.last_error %></code></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+</section>
 
-<section>
-  <h3>Replace the token</h3>
-  <p>
-    In Chrome/Firefox DevTools: open chat.reddit.com, go to the Network
-    tab, filter for <code>matrix</code>, click any
-    <code>_matrix/client/*</code> request, copy the Authorization header
-    value (drop the <code>Bearer </code> prefix or leave it — we strip).
-  </p>
-  <form method="post" action="/auth">
-    <label>
-      New access token
-      <textarea name="access_token" rows="6" autocomplete="off" spellcheck="false" required></textarea>
-    </label>
-    <button type="submit">Probe &amp; save</button>
-  </form>
+<% if @notice %><div role="status" class="alert alert-success"><%= @notice %></div><% end %>
+<% if @error %><div role="alert" class="alert alert-error"><%= @error %></div><% end %>
+
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h3 class="card-title text-lg">Replace the token</h3>
+    <p class="text-sm opacity-80 mb-3">
+      In Chrome/Firefox DevTools: open chat.reddit.com, go to the Network
+      tab, filter for <code class="bg-base-300 px-1 rounded">matrix</code>,
+      click any <code class="bg-base-300 px-1 rounded">_matrix/client/*</code>
+      request, copy the Authorization header value (keep or drop the
+      <code class="bg-base-300 px-1 rounded">Bearer </code> prefix — we strip).
+    </p>
+    <form method="post" action="/auth" class="space-y-3">
+      <label class="form-control">
+        <span class="label label-text">New access token</span>
+        <textarea
+          name="access_token"
+          rows="6"
+          autocomplete="off"
+          spellcheck="false"
+          required
+          class="textarea textarea-bordered font-mono text-xs"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary">Probe &amp; save</button>
+    </form>
+  </div>
 </section>

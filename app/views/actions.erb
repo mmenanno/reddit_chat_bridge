@@ -1,17 +1,26 @@
-<h2>Actions</h2>
-<p>Administrative triggers. Every action here is also available via Discord slash commands in <code>#commands</code>.</p>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Actions</h2>
+    <p class="opacity-80">
+      Administrative triggers. Every action here is also available via Discord slash commands in
+      <code class="bg-base-300 px-1 rounded">#commands</code>.
+    </p>
+  </div>
+</section>
 
-<% if @notice %><p role="status"><%= @notice %></p><% end %>
-<% if @error %><p role="alert"><%= @error %></p><% end %>
+<% if @notice %><div role="status" class="alert alert-success"><%= @notice %></div><% end %>
+<% if @error %><div role="alert" class="alert alert-error"><%= @error %></div><% end %>
 
-<section>
-  <h3>Resync</h3>
-  <p>
-    Clear the Matrix <code>next_batch</code> checkpoint. The next sync iteration
-    will pull recent history from Reddit — useful after a long outage or when
-    recovering from a corrupted state.
-  </p>
-  <form method="post" action="/actions/resync">
-    <button type="submit">Resync now</button>
-  </form>
+<section class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h3 class="card-title text-lg">Resync</h3>
+    <p class="text-sm opacity-80 mb-3">
+      Clear the Matrix <code class="bg-base-300 px-1 rounded">next_batch</code> checkpoint.
+      The next sync iteration will pull recent history from Reddit — useful after a long
+      outage or when recovering from a corrupted state.
+    </p>
+    <form method="post" action="/actions/resync">
+      <button type="submit" class="btn btn-primary">Resync now</button>
+    </form>
+  </div>
 </section>
