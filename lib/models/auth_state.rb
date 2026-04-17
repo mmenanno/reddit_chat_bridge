@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+require "active_support/message_encryptor"
+require "active_support/key_generator"
+require "base64"
+require "json"
+
 # Singleton row describing the bridge's current Matrix authentication.
 #
 # The SQLite database holds exactly one `auth_state` row; callers reach it
@@ -7,8 +12,18 @@
 # state in the database (instead of an env var) means the operator can
 # rotate the Matrix access token from the web UI without a container
 # restart — the whole point of the `/auth` page.
+#
+# The Reddit cookie jar (source of all future Matrix JWT refreshes) is
+# stored encrypted with a key derived from AppConfig's session_secret.
+# Unraid's trust boundary already covers the whole appdata volume, so
+# this is defence-in-depth rather than a security boundary on its own —
+# it does mean a stray database dump in isolation doesn't hand an
+# attacker a usable Reddit session.
 class AuthState < ApplicationRecord
   self.table_name = "auth_state"
+
+  COOKIE_JAR_SALT = "reddit_cookie_jar/v1"
+  REDDIT_SESSION_WARNING_WINDOW = 7.days
 
   class << self
     def current
@@ -49,6 +64,68 @@ class AuthState < ApplicationRecord
 
     def user_id
       current.user_id
+    end
+
+    # ---- Reddit session / cookie jar ----
+
+    def store_reddit_session!(cookie_jar)
+      encrypted = encryptor.encrypt_and_sign(cookie_jar)
+      current.update!(
+        reddit_cookie_jar: encrypted,
+        reddit_session_expires_at: extract_reddit_session_expiry(cookie_jar),
+      )
+    end
+
+    def reddit_cookie_jar
+      encrypted = current.reddit_cookie_jar
+      return if encrypted.to_s.empty?
+
+      encryptor.decrypt_and_verify(encrypted)
+    rescue ActiveSupport::MessageEncryptor::InvalidMessage,
+           ActiveSupport::MessageVerifier::InvalidSignature
+      nil
+    end
+
+    def reddit_session_expires_at
+      current.reddit_session_expires_at
+    end
+
+    def reddit_session_expiring_soon?(within: REDDIT_SESSION_WARNING_WINDOW)
+      expires_at = reddit_session_expires_at
+      return false unless expires_at
+
+      expires_at - Time.current < within
+    end
+
+    private
+
+    def encryptor
+      secret = AppConfig.fetch("session_secret", "")
+      raise("AuthState encryption requires session_secret in AppConfig") if secret.to_s.empty?
+
+      key = ActiveSupport::KeyGenerator.new(secret).generate_key(COOKIE_JAR_SALT, 32)
+      ActiveSupport::MessageEncryptor.new(key)
+    end
+
+    def extract_reddit_session_expiry(cookie_jar)
+      match = cookie_jar.to_s.match(/(?:\A|;\s*)reddit_session=([^;]+)/)
+      return unless match
+
+      payload = decode_jwt_payload(match[1])
+      return unless payload.is_a?(Hash) && payload["exp"]
+
+      Time.at(payload["exp"].to_f).utc
+    rescue StandardError
+      nil
+    end
+
+    def decode_jwt_payload(jwt)
+      encoded = jwt.split(".").fetch(1, nil)
+      return unless encoded
+
+      padded = encoded.tr("-_", "+/")
+      padded += "=" * ((4 - (padded.length % 4)) % 4)
+      JSON.parse(padded.unpack1("m"))
     end
   end
 end
