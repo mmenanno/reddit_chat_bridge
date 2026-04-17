@@ -13,6 +13,37 @@
 
 <section class="card bg-base-100 shadow-xl border border-base-300">
   <div class="card-body">
+    <h3 class="card-title text-lg">Sync loop</h3>
+    <p class="text-sm opacity-80">
+      Current status:
+      <% if Bridge::Application.running? %>
+        <span class="badge badge-success">running</span>
+      <% elsif Bridge::Application.configured? %>
+        <span class="badge badge-warning">stopped</span>
+      <% else %>
+        <span class="badge badge-ghost">not configured</span>
+      <% end %>
+    </p>
+
+    <% unless Bridge::Application.running? %>
+      <p class="text-sm opacity-80 mt-3">
+        <% if Bridge::Application.configured? %>
+          Config is complete but the supervisor thread isn't running — probably because the container booted before setup was finished. Kick it off here without restarting the container.
+        <% else %>
+          Finish the <a href="/settings" class="link link-primary">settings</a> form and paste a Matrix token on the <a href="/auth" class="link link-primary">auth</a> page; sync will start automatically on successful save.
+        <% end %>
+      </p>
+      <form method="post" action="/actions/start_sync" class="mt-3">
+        <button type="submit" class="btn btn-primary" <%= "disabled" unless Bridge::Application.configured? %>>
+          Start sync
+        </button>
+      </form>
+    <% end %>
+  </div>
+</section>
+
+<section class="card bg-base-100 shadow-xl border border-base-300">
+  <div class="card-body">
     <h3 class="card-title text-lg">Resync</h3>
     <p class="text-sm opacity-80 mb-3">
       Clear the Matrix <code class="bg-base-300 px-1 rounded">next_batch</code> checkpoint.

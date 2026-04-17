@@ -29,6 +29,10 @@ module ActiveSupport
     end
 
     teardown do
+      # Bridge::Application is a process-wide singleton; any test that starts
+      # its supervisor has to tear it down or the next test inherits state.
+      Bridge::Application.shutdown! if defined?(Bridge::Application) && Bridge::Application.instance
+
       connection = ActiveRecord::Base.connection
       connection.rollback_transaction if connection.transaction_open?
     end

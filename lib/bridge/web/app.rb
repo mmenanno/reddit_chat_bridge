@@ -225,7 +225,13 @@ module Bridge
           AppConfig.set(field[:key], submitted)
         end
 
-        @notice = "Settings saved."
+        was_running = Bridge::Application.running?
+        Bridge::Application.start_if_configured!
+        @notice = if !was_running && Bridge::Application.running?
+          "Settings saved. Sync is now running."
+        else
+          "Settings saved."
+        end
         @fields = settings_fields_with_values
         erb(:settings)
       end
@@ -245,6 +251,18 @@ module Bridge
         erb(:actions)
       end
 
+      post "/actions/start_sync" do
+        if Bridge::Application.running?
+          @notice = "Sync is already running."
+        elsif !Bridge::Application.configured?
+          @error = "Can't start yet. Finish /settings and paste a token on /auth first."
+        else
+          Bridge::Application.start_if_configured!
+          @notice = Bridge::Application.running? ? "Sync started." : "Failed to start sync — check the logs."
+        end
+        erb(:actions)
+      end
+
       get "/auth" do
         erb(:auth)
       end
@@ -259,7 +277,13 @@ module Bridge
 
         begin
           admin_actions.reauth(access_token: token)
-          @notice = "Token probed and saved. Matrix sync resumes on the next iteration."
+          was_running = Bridge::Application.running?
+          Bridge::Application.start_if_configured!
+          @notice = if !was_running && Bridge::Application.running?
+            "Token probed and saved. Sync is now running."
+          else
+            "Token probed and saved. Matrix sync resumes on the next iteration."
+          end
         rescue Matrix::TokenError => e
           @error = "Reddit rejected that token: #{e.message}"
         rescue Matrix::Error => e

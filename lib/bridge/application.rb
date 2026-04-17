@@ -31,7 +31,11 @@ module Bridge
 
     attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger
 
+    @mutex = Mutex.new
+
     class << self
+      attr_reader :instance
+
       def configured?
         return false unless AuthState.access_token.to_s.strip != ""
 
@@ -41,6 +45,39 @@ module Bridge
       def build
         new
       end
+
+      def running?
+        instance&.running? || false
+      end
+
+      # Idempotent entry point used by:
+      #   - config.ru at container boot
+      #   - the /settings and /auth controllers after a successful save,
+      #     so the sync loop starts the moment the last piece of config
+      #     lands without making the operator restart the container.
+      # The singleton @instance is guarded by @mutex — the ThreadSafety cop
+      # can't see that statically, so disable it for the supervised region.
+      # rubocop:disable ThreadSafety/ClassInstanceVariable
+      def start_if_configured!
+        return instance if running?
+        return unless configured?
+
+        @mutex.synchronize do
+          return @instance if @instance&.running?
+
+          @instance = build
+          @instance.start!
+        end
+        @instance
+      end
+
+      def shutdown!
+        @mutex.synchronize do
+          @instance&.stop!
+          @instance = nil
+        end
+      end
+      # rubocop:enable ThreadSafety/ClassInstanceVariable
     end
 
     def initialize
@@ -65,6 +102,10 @@ module Bridge
     def stop!
       @stopped = true
       @thread&.join(30)
+    end
+
+    def running?
+      @thread&.alive? || false
     end
 
     private

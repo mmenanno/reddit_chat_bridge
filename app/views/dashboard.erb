@@ -2,7 +2,25 @@
   <div class="card-body">
     <h2 class="card-title">Dashboard</h2>
 
-    <div class="grid md:grid-cols-2 gap-4 mt-4">
+    <div class="grid md:grid-cols-3 gap-4 mt-4">
+      <div class="p-4 rounded-box bg-base-200">
+        <h3 class="font-semibold mb-2">Sync</h3>
+        <p class="text-sm">
+          <% if Bridge::Application.running? %>
+            <span class="badge badge-success">running</span>
+          <% elsif Bridge::Application.configured? %>
+            <span class="badge badge-warning">stopped</span>
+            — <a href="/actions" class="link link-primary">start it</a>
+          <% else %>
+            <span class="badge badge-ghost">not configured</span>
+            — <a href="/settings" class="link link-primary">complete setup</a>
+          <% end %>
+          <% if SyncCheckpoint.current.last_batch_at %>
+            <br><span class="opacity-70">Last batch:</span> <%= SyncCheckpoint.current.last_batch_at.utc.iso8601 %>
+          <% end %>
+        </p>
+      </div>
+
       <div class="p-4 rounded-box bg-base-200">
         <h3 class="font-semibold mb-2">Matrix</h3>
         <p class="text-sm">

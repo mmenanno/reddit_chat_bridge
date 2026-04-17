@@ -18,15 +18,12 @@ database_path =
 
 Bridge::Boot.call(database_path: database_path)
 
-# The bridge's background thread only spins up when there's actually enough
-# config for it to do anything. First-boot + setup-wizard flows hit the web
-# UI with the sync loop dormant; the user flips the switch by completing
-# /settings and /auth, then restarts the container (for now — a future
-# slice adds a /actions "start bridge" button that spawns the thread live).
-if Bridge::Application.configured?
-  application = Bridge::Application.build
-  application.start!
-  at_exit { application.stop! }
-end
+# Starts the supervisor thread only when all required config is present.
+# The web UI is available either way — first-run users land on /setup
+# with the sync loop idle until their config is complete. After they
+# finish /settings and /auth, those controllers call the same method
+# and the loop spins up live; no container restart needed.
+Bridge::Application.start_if_configured!
+at_exit { Bridge::Application.shutdown! }
 
 run Bridge::Web::App
