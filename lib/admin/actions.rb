@@ -14,9 +14,10 @@ module Admin
       @matrix_client_factory = matrix_client_factory
     end
 
-    def reauth(access_token:, user_id:)
+    def reauth(access_token:)
       probe = @matrix_client_factory.call(access_token)
-      probe.whoami # raises Matrix::TokenError if the token is bad
+      whoami = probe.whoami # raises Matrix::TokenError if the token is bad
+      user_id = whoami.fetch("user_id")
 
       AuthState.update_token!(access_token: access_token, user_id: user_id)
       :ok

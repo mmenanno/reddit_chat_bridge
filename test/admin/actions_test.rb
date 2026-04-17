@@ -25,7 +25,7 @@ module Admin
     test "reauth probes the new token via whoami before saving" do
       @probe_client.expects(:whoami).returns("user_id" => NEW_USER)
 
-      @actions.reauth(access_token: NEW_TOKEN, user_id: NEW_USER)
+      @actions.reauth(access_token: NEW_TOKEN)
 
       assert_equal([NEW_TOKEN], @built_with)
     end
@@ -33,7 +33,7 @@ module Admin
     test "reauth persists the token and user_id on probe success" do
       @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
 
-      @actions.reauth(access_token: NEW_TOKEN, user_id: NEW_USER)
+      @actions.reauth(access_token: NEW_TOKEN)
 
       assert_equal(NEW_TOKEN, AuthState.access_token)
       assert_equal(NEW_USER, AuthState.user_id)
@@ -43,7 +43,7 @@ module Admin
       AuthState.mark_failure!("earlier failure")
       @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
 
-      @actions.reauth(access_token: NEW_TOKEN, user_id: NEW_USER)
+      @actions.reauth(access_token: NEW_TOKEN)
 
       refute_predicate(AuthState, :paused?)
     end
@@ -51,7 +51,7 @@ module Admin
     test "reauth returns :ok on success" do
       @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
 
-      assert_equal(:ok, @actions.reauth(access_token: NEW_TOKEN, user_id: NEW_USER))
+      assert_equal(:ok, @actions.reauth(access_token: NEW_TOKEN))
     end
 
     test "reauth propagates Matrix::TokenError without saving the bad token" do
@@ -59,7 +59,7 @@ module Admin
       AuthState.update_token!(access_token: "existing", user_id: "@t2_old:reddit.com")
 
       assert_raises(Matrix::TokenError) do
-        @actions.reauth(access_token: NEW_TOKEN, user_id: NEW_USER)
+        @actions.reauth(access_token: NEW_TOKEN)
       end
 
       assert_equal("existing", AuthState.access_token)

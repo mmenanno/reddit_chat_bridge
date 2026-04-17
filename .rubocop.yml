@@ -6,3 +6,11 @@ plugins:
 
 AllCops:
   NewCops: enable
+
+# Sinatra's DSL converts `post "/path" do ... end` blocks into instance
+# methods on Sinatra::Base. Inside them, `@foo` is a per-request instance
+# variable, not a class-instance variable — but the cop can't tell from
+# static analysis and flags every assignment. Turn it off for the web app.
+ThreadSafety/MutableClassInstanceVariable:
+  Exclude:
+    - lib/bridge/web/**/*.rb

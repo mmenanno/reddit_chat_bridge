@@ -1,0 +1,45 @@
+<h2>Matrix access token</h2>
+<p>
+  Reddit's chat tokens live for roughly 24 hours. When the sync loop hits
+  <code>M_UNKNOWN_TOKEN</code>, extract a fresh one from the browser and
+  paste it below. The bridge probes <code>/account/whoami</code> before
+  saving, so a bad paste never clobbers a working token.
+</p>
+
+<section>
+  <h3>Current state</h3>
+  <% if AuthState.access_token.nil? || AuthState.access_token.empty? %>
+    <p>No token saved yet.</p>
+  <% else %>
+    <ul>
+      <li>User: <code><%= AuthState.user_id %></code></li>
+      <li>Status: <%= AuthState.paused? ? "🔴 paused" : "🟢 ok" %></li>
+      <% if AuthState.current.last_ok_at %>
+        <li>Last verified: <%= AuthState.current.last_ok_at.utc.iso8601 %></li>
+      <% end %>
+      <% if AuthState.current.last_error %>
+        <li>Last error: <code><%= AuthState.current.last_error %></code></li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>
+
+<% if @notice %><p role="status"><%= @notice %></p><% end %>
+<% if @error %><p role="alert"><%= @error %></p><% end %>
+
+<section>
+  <h3>Replace the token</h3>
+  <p>
+    In Chrome/Firefox DevTools: open chat.reddit.com, go to the Network
+    tab, filter for <code>matrix</code>, click any
+    <code>_matrix/client/*</code> request, copy the Authorization header
+    value (drop the <code>Bearer </code> prefix or leave it — we strip).
+  </p>
+  <form method="post" action="/auth">
+    <label>
+      New access token
+      <textarea name="access_token" rows="6" autocomplete="off" spellcheck="false" required></textarea>
+    </label>
+    <button type="submit">Probe &amp; save</button>
+  </form>
+</section>

@@ -2,6 +2,8 @@
 
 require "sinatra/base"
 require "securerandom"
+require "matrix/client"
+require "admin/actions"
 
 module Bridge
   module Web
@@ -53,6 +55,14 @@ module Bridge
         def logout!
           session.delete(:admin_user_id)
           @current_user = nil
+        end
+
+        def admin_actions
+          factory = lambda { |token|
+            homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+            Matrix::Client.new(access_token: token, homeserver: homeserver)
+          }
+          Admin::Actions.new(matrix_client_factory: factory)
         end
       end
 
@@ -189,6 +199,30 @@ module Bridge
         @fields = SETTINGS_FIELDS.map { |f| f.merge(value: AppConfig.fetch(f[:key], "")) }
 
         erb(:settings)
+      end
+
+      get "/auth" do
+        erb(:auth)
+      end
+
+      post "/auth" do
+        token = params[:access_token].to_s.strip.sub(/\ABearer\s+/i, "")
+
+        if token.empty?
+          @error = "Paste an access token before submitting."
+          return erb(:auth)
+        end
+
+        begin
+          admin_actions.reauth(access_token: token)
+          @notice = "Token probed and saved. Matrix sync resumes on the next iteration."
+        rescue Matrix::TokenError => e
+          @error = "Reddit rejected that token: #{e.message}"
+        rescue Matrix::Error => e
+          @error = "Couldn't reach Reddit: #{e.message}"
+        end
+
+        erb(:auth)
       end
 
       BOOT_AT = Process.clock_gettime(Process::CLOCK_MONOTONIC)
