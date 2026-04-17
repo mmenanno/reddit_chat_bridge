@@ -40,11 +40,20 @@ RUN bundle install && \
 
 # ---- assets stage: Tailwind v4 via the standalone CLI, no Node.js ----
 FROM base AS assets
-ARG TAILWIND_VERSION=v4.1.14
-ARG TARGETARCH=amd64
-RUN curl -sSL -o /usr/local/bin/tailwindcss \
-      "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${TARGETARCH}" && \
-    chmod +x /usr/local/bin/tailwindcss
+ARG TAILWIND_VERSION=v4.2.2
+# Tailwind's release assets use GNU-style arch names (x64, arm64) rather than
+# Docker's TARGETARCH (amd64, arm64). Map Docker → Tailwind once.
+ARG TARGETARCH
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) tw_arch=x64 ;; \
+      arm64) tw_arch=arm64 ;; \
+      *) echo "unsupported arch: ${TARGETARCH}"; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /usr/local/bin/tailwindcss \
+      "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${tw_arch}"; \
+    chmod +x /usr/local/bin/tailwindcss; \
+    /usr/local/bin/tailwindcss --help >/dev/null
 COPY app ./app
 RUN mkdir -p app/assets/built && \
     tailwindcss \
