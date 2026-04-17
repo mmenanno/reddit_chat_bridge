@@ -5,4 +5,4 @@ set -euo pipefail
 # (Matrix::SyncLoop supervisor, Phase 2 Discord::Gateway) are wired up
 # inside config.ru so they share the process and persistence layer.
 
-exec bundle exec puma -e "${RACK_ENV:-production}" -p "${PORT:-4567}" -b "tcp://0.0.0.0:${PORT:-4567}"
+exec bundle exec puma -e "${RACK_ENV:-production}" -b "tcp://0.0.0.0:${PORT:-4567}"
