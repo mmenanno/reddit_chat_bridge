@@ -22,7 +22,12 @@ module Discord
         guild_id: "guild",
         category_id: "cat",
       )
-      @poster = Discord::Poster.new(client: @client, channel_index: @index)
+      @sleeps = []
+      @poster = Discord::Poster.new(
+        client: @client,
+        channel_index: @index,
+        sleeper: ->(s) { @sleeps << s },
+      )
       @index.stubs(:ensure_channel).returns(CHANNEL_ID)
     end
 
@@ -131,6 +136,86 @@ module Discord
 
       assert_raises(Discord::ServerError) { @poster.call([event(event_id: "$new")]) }
       assert_equal("$prev", room.reload.last_event_id)
+    end
+
+    # ---- idempotency ----
+
+    test "skips events already present in PostedEvent" do
+      PostedEvent.record!(event_id: "$seen", room_id: ROOM_ID)
+      @client.expects(:send_message).never
+
+      @poster.call([event(event_id: "$seen")])
+    end
+
+    test "records posted event_id so checkpoint rewinds don't cause duplicates" do
+      @client.stubs(:send_message).returns("m")
+
+      @poster.call([event(event_id: "$once")])
+      # Simulate a checkpoint rewind: same batch comes back on next iteration.
+      @poster.call([event(event_id: "$once")])
+
+      assert_equal(1, PostedEvent.where(event_id: "$once").count)
+    end
+
+    # ---- rate limit retry ----
+
+    test "retries on RateLimited and sleeps for retry_after_ms" do
+      raise_once = false
+      @client.stubs(:send_message).with do |*_|
+        if raise_once
+          true # succeed the second time
+        else
+          raise_once = true
+          raise(Discord::RateLimited.new("slow down", retry_after_ms: 2500))
+        end
+      end.returns("m")
+
+      @poster.call([event])
+
+      assert_equal([2.5], @sleeps)
+    end
+
+    test "gives up on persistent RateLimited after the attempt cap" do
+      @client.stubs(:send_message).raises(Discord::RateLimited.new("still", retry_after_ms: 100))
+
+      assert_raises(Discord::RateLimited) { @poster.call([event]) }
+    end
+
+    # ---- channel recovery on 404 ----
+
+    test "clears stale discord_channel_id and retries when Discord returns NotFound" do
+      room = Room.create!(
+        matrix_room_id: ROOM_ID,
+        discord_channel_id: "old_chan",
+        counterparty_username: "peer",
+      )
+      @index.unstub(:ensure_channel)
+      @index.stubs(:ensure_channel).returns(CHANNEL_ID)
+      @client.stubs(:send_message)
+        .raises(Discord::NotFound, "Unknown Channel")
+        .then
+        .returns("msg-id")
+
+      @poster.call([event])
+
+      # The recovery path cleared the stale id before the second ensure_channel
+      # call. In production ensure_channel would re-attach the new id; our stub
+      # doesn't, so observing nil proves the clear happened.
+      assert_nil(room.reload.discord_channel_id)
+    end
+
+    test "calls send_message twice when the first attempt hits NotFound and the second succeeds" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        discord_channel_id: "old_chan",
+        counterparty_username: "peer",
+      )
+      @client.expects(:send_message).twice
+        .raises(Discord::NotFound, "Unknown Channel")
+        .then
+        .returns("msg-id")
+
+      @poster.call([event])
     end
 
     test "resolves the channel via the channel index for each event" do
