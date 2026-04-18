@@ -118,23 +118,41 @@ module Discord
       payload
     end
 
-    # Cached per-process. A restart refreshes; the web UI's /auth flow
-    # can also clear the AppConfig rows manually if Reddit's display
-    # name or avatar changes and the operator wants a faster refresh.
+    # Cached per-process once a real display name resolves. Until then —
+    # e.g. when the first dispatch hits a transient Matrix /profile failure
+    # and we fall back to the Matrix localpart — every dispatch retries
+    # resolution so the channel stops showing `t2_...` once the API
+    # recovers. A restart or a manual /settings edit also refreshes.
     def own_identity
-      @own_identity ||= resolve_own_identity
+      return @own_identity if @own_identity && !fallback_identity?(@own_identity)
+
+      @own_identity = resolve_own_identity
     end
 
     def resolve_own_identity
-      name = AppConfig.fetch(OWN_DISPLAY_NAME_KEY, "")
-      avatar = AppConfig.fetch(OWN_AVATAR_URL_KEY, "")
+      # Any previously-persisted localpart is the fallback value masquerading
+      # as a real name (pre-fix rows) — discard so we retry proper resolution.
+      stored_name = AppConfig.fetch(OWN_DISPLAY_NAME_KEY, "").to_s
+      name = stored_name == localpart_fallback ? "" : stored_name
+      avatar = AppConfig.fetch(OWN_AVATAR_URL_KEY, "").to_s
 
       name, avatar = fill_from_matrix_profile(name, avatar) if name.empty? || avatar.empty?
       avatar = fill_from_reddit_profile(name) if avatar.empty? && name.present?
-      name = Matrix::Id.localpart(AppConfig.fetch("matrix_user_id", "")) if name.empty?
 
+      # Persist only resolved values; the localpart fallback is runtime-only
+      # so a later dispatch can retry once the profile lookup recovers.
       persist_identity(name, avatar)
+
+      name = localpart_fallback if name.empty?
       { name: name, avatar: avatar.presence }
+    end
+
+    def fallback_identity?(identity)
+      identity[:name] == localpart_fallback
+    end
+
+    def localpart_fallback
+      @localpart_fallback ||= Matrix::Id.localpart(AppConfig.fetch("matrix_user_id", ""))
     end
 
     def fill_from_matrix_profile(name, avatar)

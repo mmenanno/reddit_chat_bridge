@@ -156,6 +156,76 @@ module Discord
       dispatcher.dispatch(discord_message_hash("hi"))
     end
 
+    test "retries profile resolution on the next dispatch after an initial profile failure" do
+      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
+      AppConfig.set("own_display_name", "")
+      AppConfig.set("own_avatar_url", "")
+      media_resolver = mock("MediaResolver")
+      discord_client = mock("DiscordClient")
+      channel_index = mock("ChannelIndex")
+      channel_index.stubs(:ensure_webhook).returns(["wh", "tok"])
+      dispatcher = OutboundDispatcher.new(
+        matrix_client: @matrix,
+        discord_client: discord_client,
+        channel_index: channel_index,
+        media_resolver: media_resolver,
+        operator_discord_ids: [OP_USER_ID],
+      )
+
+      @matrix.expects(:send_message).twice.returns("$a", "$b")
+      # First call to profile blows up → identity falls back to the localpart.
+      # Second call recovers → identity resolves to the real name.
+      @matrix.expects(:profile)
+        .with(user_id: "@t2_me:reddit.com")
+        .twice
+        .raises(Matrix::Error.new("boom"))
+        .then
+        .returns("displayname" => "RonanWolfe", "avatar_url" => "mxc://srv/avatar")
+      media_resolver.expects(:resolve).with("mxc://srv/avatar").returns("https://cdn/avatar.png")
+
+      usernames = []
+      discord_client.expects(:execute_webhook).twice.with do |kwargs|
+        usernames << kwargs[:payload][:username]
+        true
+      end.returns("id" => "wm")
+      discord_client.stubs(:delete_message)
+
+      dispatcher.dispatch(discord_message_hash("one"))
+      dispatcher.dispatch(discord_message_hash("two"))
+
+      assert_equal("t2_me \u{1F4E4}", usernames.first)
+      assert_equal("RonanWolfe \u{1F4E4}", usernames.last)
+      assert_equal("RonanWolfe", AppConfig.fetch("own_display_name", ""))
+    end
+
+    test "ignores a previously-persisted localpart fallback in AppConfig and retries resolution" do
+      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
+      # Prior buggy run persisted the localpart as if it were a real name.
+      AppConfig.set("own_display_name", "t2_me")
+      AppConfig.set("own_avatar_url", "")
+      discord_client = mock("DiscordClient")
+      channel_index = mock("ChannelIndex")
+      channel_index.stubs(:ensure_webhook).returns(["wh", "tok"])
+      dispatcher = OutboundDispatcher.new(
+        matrix_client: @matrix,
+        discord_client: discord_client,
+        channel_index: channel_index,
+        operator_discord_ids: [OP_USER_ID],
+      )
+
+      @matrix.expects(:send_message).returns("$e")
+      @matrix.expects(:profile).with(user_id: "@t2_me:reddit.com").returns("displayname" => "RonanWolfe")
+
+      discord_client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "RonanWolfe \u{1F4E4}"
+      end.returns("id" => "wm")
+      discord_client.stubs(:delete_message)
+
+      dispatcher.dispatch(discord_message_hash("hi"))
+
+      assert_equal("RonanWolfe", AppConfig.fetch("own_display_name", ""))
+    end
+
     test "falls back to Matrix /profile when AppConfig has no cached own identity" do
       AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "")
