@@ -169,6 +169,17 @@ module Discord
 
     # ---- idempotency ----
 
+    test "skips own events whose event_id is in the sent registry (Discord-originated echo)" do
+      registry = mock("Registry")
+      registry.stubs(:sent_by_us?).with("$echo").returns(true)
+      poster = Poster.new(client: @client, channel_index: @index, sent_registry: registry, sleeper: ->(s) {})
+      @client.expects(:send_message).never
+
+      poster.call([event(event_id: "$echo", sender: OWN, body: "hi")])
+
+      assert(PostedEvent.posted?("$echo"))
+    end
+
     test "skips events already present in PostedEvent" do
       PostedEvent.record!(event_id: "$seen", room_id: ROOM_ID)
       @client.expects(:send_message).never

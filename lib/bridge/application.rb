@@ -4,8 +4,11 @@ require "matrix/client"
 require "matrix/event_normalizer"
 require "matrix/media_resolver"
 require "matrix/sync_loop"
+require "dedup/sent_registry"
 require "discord/client"
 require "discord/channel_index"
+require "discord/gateway"
+require "discord/outbound_dispatcher"
 require "discord/poster"
 require "discord/admin_notifier"
 require "discord/logger"
@@ -33,7 +36,7 @@ module Bridge
       "discord_admin_logs_channel_id",
     ].freeze
 
-    attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger, :admin_actions, :journal
+    attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger, :admin_actions, :journal, :gateway
 
     @mutex = Mutex.new
 
@@ -90,28 +93,34 @@ module Bridge
       @admin_notifier = build_admin_notifier
       @logger = build_logger
       @journal = Bridge::Journal.new(admin_notifier: @admin_notifier, logger: @logger)
+      @sent_registry = Dedup::SentRegistry.new
+      @outbound_dispatcher = build_outbound_dispatcher
       @poster = build_poster
       @sync_loop = build_sync_loop
       @admin_actions = build_admin_actions
       @supervisor = build_supervisor
+      @gateway = build_gateway
     end
 
     def start!
       @stopped = false
-      @thread = Thread.new do # rubocop:disable ThreadSafety/NewThread
+      @supervisor_thread = Thread.new do # rubocop:disable ThreadSafety/NewThread
         Thread.current.name = "reddit_chat_bridge-supervisor"
         @supervisor.run_forever(stop_signal: -> { @stopped })
       end
-      @thread
+      start_gateway_thread_if_configured
+      @supervisor_thread
     end
 
     def stop!
       @stopped = true
-      @thread&.join(30)
+      @gateway&.stop!
+      @gateway_thread&.join(10)
+      @supervisor_thread&.join(30)
     end
 
     def running?
-      @thread&.alive? || false
+      @supervisor_thread&.alive? || false
     end
 
     private
@@ -152,7 +161,37 @@ module Bridge
         channel_index: channel_index,
         matrix_client: @matrix_client,
         logger: @logger,
+        sent_registry: @sent_registry,
       )
+    end
+
+    def build_outbound_dispatcher
+      operator_ids = AppConfig.fetch("discord_operator_user_ids", "").to_s.split(/[,\s]+/)
+      Discord::OutboundDispatcher.new(
+        matrix_client: @matrix_client,
+        operator_discord_ids: operator_ids,
+        journal: @journal,
+      )
+    end
+
+    def build_gateway
+      bot_token = AppConfig.fetch("discord_bot_token", "")
+      return if bot_token.empty?
+
+      Discord::Gateway.new(
+        bot_token: bot_token,
+        on_message_create: ->(msg) { @outbound_dispatcher.dispatch(msg) },
+        journal: @journal,
+      )
+    end
+
+    def start_gateway_thread_if_configured
+      return unless @gateway
+
+      @gateway_thread = Thread.new do # rubocop:disable ThreadSafety/NewThread
+        Thread.current.name = "reddit_chat_bridge-discord-gateway"
+        @gateway.run(stop_signal: -> { @stopped })
+      end
     end
 
     def build_sync_loop

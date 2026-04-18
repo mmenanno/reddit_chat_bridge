@@ -340,6 +340,13 @@ module Bridge
           default: "",
           secret: false,
         },
+        {
+          key: "discord_operator_user_ids",
+          label: "Operator Discord user IDs",
+          hint: "Comma- or space-separated list. Only messages typed by these users in a dm-* channel get relayed back to Reddit. Leave empty to accept any non-bot author (single-user deployments).",
+          default: "",
+          secret: false,
+        },
       ].freeze
 
       get "/settings" do

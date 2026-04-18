@@ -27,11 +27,12 @@ module Discord
     RATE_LIMIT_MAX_ATTEMPTS   = 3
     RATE_LIMIT_FALLBACK_SLEEP = 1.0
 
-    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sleeper: Kernel.method(:sleep))
+    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, sleeper: Kernel.method(:sleep)) # rubocop:disable Metrics/ParameterLists
       @client = client
       @channel_index = channel_index
       @matrix_client = matrix_client
       @logger = logger
+      @sent_registry = sent_registry
       @sleeper = sleeper
     end
 
@@ -43,6 +44,7 @@ module Discord
 
     def post_one(event)
       return if PostedEvent.posted?(event.event_id)
+      return if echo_of_our_send?(event)
 
       room = Room.find_or_create_by_matrix_id!(event.room_id)
       refresh_counterparty_and_channel!(room, event)
@@ -54,6 +56,22 @@ module Discord
       @logger&.warn("Discord rejected event #{event.event_id} (400): #{e.message}")
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room&.advance_event!(event.event_id)
+    end
+
+    # When the operator types in Discord, we relay that to Reddit and record
+    # the returned Matrix event_id in SentRegistry. /sync later ships back
+    # the same event to us — skipping here prevents a double-post back into
+    # Discord. PostedEvent still records it so a future rewind stays idempotent.
+    def echo_of_our_send?(event)
+      return false unless @sent_registry
+      return false unless event.own?
+
+      if @sent_registry.sent_by_us?(event.event_id)
+        PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
+        true
+      else
+        false
+      end
     end
 
     # Keeps the Room's counterparty metadata current, fetches the peer's
