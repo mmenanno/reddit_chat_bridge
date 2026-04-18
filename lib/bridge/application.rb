@@ -12,6 +12,7 @@ require "discord/outbound_dispatcher"
 require "discord/poster"
 require "discord/admin_notifier"
 require "discord/logger"
+require "discord/slash_command_router"
 require "admin/actions"
 require "auth/refresh_flow"
 require "bridge/journal"
@@ -181,8 +182,30 @@ module Bridge
       Discord::Gateway.new(
         bot_token: bot_token,
         on_message_create: ->(msg) { @outbound_dispatcher.dispatch(msg) },
+        on_interaction_create: ->(interaction) { handle_gateway_interaction(interaction) },
         journal: @journal,
       )
+    end
+
+    # Gateway-delivered slash commands. When Discord's Interactions Endpoint
+    # URL is blank (e.g. tailnet-only deployments), Discord ships each
+    # command over the websocket as INTERACTION_CREATE. We reply via the
+    # REST callback endpoint. Same router as the HTTP path — the transport
+    # differs, the dispatch table doesn't.
+    def handle_gateway_interaction(payload)
+      router = Discord::SlashCommandRouter.new(
+        admin_actions: @admin_actions,
+        guild_id: AppConfig.fetch("discord_guild_id", ""),
+        commands_channel_id: AppConfig.fetch("discord_admin_commands_channel_id", ""),
+      )
+      response = router.dispatch(payload)
+      @discord_client.create_interaction_response(
+        interaction_id: payload["id"],
+        interaction_token: payload["token"],
+        payload: response,
+      )
+    rescue Discord::Error => e
+      @journal&.warn("Gateway interaction callback failed: #{e.class}: #{e.message}", source: "gateway")
     end
 
     def start_gateway_thread_if_configured

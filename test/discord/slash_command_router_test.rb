@@ -73,6 +73,14 @@ module Discord
       assert_equal(64, response[:data][:flags])
     end
 
+    test "dispatch is transport-agnostic — same payload works from gateway or HTTP" do
+      # Identical payload shape, no transport-specific wrapper
+      gateway_response = @router.dispatch(interaction(name: "ping"))
+      http_response    = @router.dispatch(interaction(name: "ping"))
+
+      assert_equal(gateway_response, http_response)
+    end
+
     private
 
     def interaction(name:, guild: GUILD, channel: CHAN)

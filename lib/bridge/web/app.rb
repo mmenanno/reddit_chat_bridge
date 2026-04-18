@@ -336,7 +336,7 @@ module Bridge
         {
           key: "discord_public_key",
           label: "Discord application public key",
-          hint: "Developer Portal → General Information → Public Key. Required to verify slash-command interaction signatures.",
+          hint: "Only needed if you're exposing /discord/interactions publicly. Tailnet-only deployments can leave this blank — the bot delivers slash commands over its gateway websocket instead.",
           default: "",
           secret: false,
         },

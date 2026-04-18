@@ -97,9 +97,12 @@
     <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/refresh_token</code>,
     and <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/ping</code>
     on the configured guild. Safe to re-run — Discord's bulk endpoint is idempotent.
-    Before this works, paste the app's <strong>Public Key</strong> + <strong>Application ID</strong> on <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">Settings</a>,
-    and set the Developer Portal's <em>Interactions Endpoint URL</em> to
-    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">https://reddit-chat-bridge.<your-tailnet>.ts.net/discord/interactions</code>.
+    Paste the app's <strong>Application ID</strong> on <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">Settings</a> first.
+  </p>
+  <p class="mt-3 text-sm text-[color:var(--color-bone-mute)] max-w-3xl leading-relaxed">
+    <strong class="text-[color:var(--color-bone)]">Tailnet-only deployments:</strong> leave the Developer Portal's
+    <em>Interactions Endpoint URL</em> blank. Commands flow in over the bot's websocket gateway — the same one
+    Phase 2 uses — and no public HTTP endpoint is required.
   </p>
   <form method="post" action="/actions/register_slash_commands" class="mt-4">
     <button type="submit" class="btn btn-outline">Register now</button>

@@ -74,6 +74,19 @@ module Discord
       handle(response).body
     end
 
+    # Completes a gateway-delivered interaction. Discord's public docs call
+    # this the "create interaction response" endpoint. No bot-token header
+    # (the interaction id + token pair is the authorization). Expected to
+    # return 204 within 3s of the gateway dispatch.
+    def create_interaction_response(interaction_id:, interaction_token:, payload:)
+      path = "interactions/#{interaction_id}/#{interaction_token}/callback"
+      response = @conn.post(path) do |req|
+        req.body = payload
+      end
+      handle(response)
+      :ok
+    end
+
     private
 
     def post(path, payload:)

@@ -24,9 +24,10 @@ module Discord
     # Bitfield: GUILDS (1<<0) | GUILD_MESSAGES (1<<9) | MESSAGE_CONTENT (1<<15).
     DEFAULT_INTENTS = (1 << 0) | (1 << 9) | (1 << 15)
 
-    def initialize(bot_token:, on_message_create:, journal: nil, intents: DEFAULT_INTENTS, url: URL)
+    def initialize(bot_token:, on_message_create:, on_interaction_create: nil, journal: nil, intents: DEFAULT_INTENTS, url: URL) # rubocop:disable Metrics/ParameterLists
       @bot_token = bot_token
       @on_message_create = on_message_create
+      @on_interaction_create = on_interaction_create
       @journal = journal
       @intents = intents
       @url = url
@@ -97,9 +98,12 @@ module Discord
     end
 
     def on_dispatch(payload)
-      return unless payload["t"] == "MESSAGE_CREATE"
-
-      @on_message_create.call(payload["d"])
+      case payload["t"]
+      when "MESSAGE_CREATE"
+        @on_message_create.call(payload["d"])
+      when "INTERACTION_CREATE"
+        @on_interaction_create&.call(payload["d"])
+      end
     end
 
     def start_heartbeat(interval_ms)
