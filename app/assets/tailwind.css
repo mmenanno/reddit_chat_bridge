@@ -821,6 +821,158 @@
     color: var(--color-rust);
   }
 
+  /* Rooms page sub-sections. When archived or hidden rooms are present the
+   * grid splits into labelled bands. The active band stays visually
+   * dominant; archived/hidden get a muted wrapper so the eye lands on
+   * live conversations first. Headers use the kicker vocabulary (mono
+   * small-caps) with a color-tick and a count pill for scannability. */
+  .rooms-section + .rooms-section {
+    margin-top: 2.75rem;
+  }
+
+  .rooms-section__header {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px dashed oklch(28% 0.014 55);
+  }
+
+  .rooms-section__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-bone);
+    line-height: 1;
+  }
+
+  .rooms-section__tick {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--color-moss);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-moss) 20%, transparent);
+    flex-shrink: 0;
+  }
+
+  .rooms-section__tick--warning {
+    background: oklch(78% 0.14 72);
+    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(78% 0.14 72) 20%, transparent);
+  }
+
+  .rooms-section__tick--danger {
+    background: var(--color-rust);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust) 20%, transparent);
+  }
+
+  .rooms-section__count {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    color: var(--color-bone-mute);
+    background: oklch(22% 0.012 55);
+    border: 1px solid oklch(28% 0.014 55);
+  }
+
+  .rooms-section__note {
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--color-bone-mute);
+    max-width: 58ch;
+  }
+
+  /* Shelved bands (archived + hidden) live under the active group and get
+   * a subtle washed-out card treatment so the attention ordering is clear:
+   * live work on top, paused work below. */
+  .rooms-section--muted .rooms-section__grid {
+    opacity: 0.88;
+    filter: saturate(0.94);
+  }
+
+  /* Paired outbound-link chips in the transcript header. Each chip carries
+   * a short label (Profile / Chat) over the domain name it's headed to, so
+   * the destination is unambiguous before a click. Hover lifts the border
+   * to ember and slides the arrow, mirroring the card name-link motion. */
+  .reddit-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.9rem;
+  }
+
+  .reddit-link {
+    display: inline-grid;
+    grid-template-columns: auto auto auto;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid oklch(28% 0.014 55);
+    border-radius: 999px;
+    background: oklch(19% 0.011 55);
+    text-decoration: none;
+    color: var(--color-bone);
+    transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 80ms ease;
+  }
+
+  .reddit-link:hover,
+  .reddit-link:focus-visible {
+    border-color: color-mix(in oklab, var(--color-ember) 65%, var(--color-line));
+    background: color-mix(in oklab, var(--color-ember) 8%, oklch(19% 0.011 55));
+    color: var(--color-ember);
+    outline: none;
+  }
+
+  .reddit-link:active {
+    transform: translateY(1px);
+  }
+
+  .reddit-link__label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: inherit;
+  }
+
+  .reddit-link__domain {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    color: var(--color-bone-mute);
+    padding-left: 0.45rem;
+    border-left: 1px solid oklch(28% 0.014 55);
+  }
+
+  .reddit-link:hover .reddit-link__domain,
+  .reddit-link:focus-visible .reddit-link__domain {
+    color: color-mix(in oklab, var(--color-ember) 70%, var(--color-bone-mute));
+    border-left-color: color-mix(in oklab, var(--color-ember) 40%, transparent);
+  }
+
+  .reddit-link__arrow {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-bone-mute);
+    transition: transform 200ms cubic-bezier(0.2, 0.65, 0.2, 1), color 160ms ease;
+  }
+
+  .reddit-link:hover .reddit-link__arrow,
+  .reddit-link:focus-visible .reddit-link__arrow {
+    color: var(--color-ember);
+    transform: translate(0.2rem, -0.2rem);
+  }
+
   /* Transcript — the single-room message viewer. Layout leans editorial-
    * chat-app: peer messages left, own messages right, with a shared rail
    * hairline, day dividers in mono caps, and bubbles that pick up the
@@ -946,6 +1098,52 @@
 
   .transcript__row--own .transcript__meta-name {
     color: var(--color-ember-soft);
+  }
+
+  /* Names that are real Reddit handles turn into links to the sender's
+   * profile. At rest they read as plain text (no default link color)
+   * so the transcript stays quiet — a subtle dotted underline appears
+   * on hover, matching the editorial footnote feel rather than a
+   * generic <a>. An ↗ glyph trails the name to make the off-site
+   * nature of the click legible. */
+  .transcript__meta-name--link {
+    position: relative;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: color 140ms ease;
+  }
+
+  .transcript__meta-name--link::after {
+    content: "↗";
+    display: inline-block;
+    margin-left: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.7em;
+    color: var(--color-bone-mute);
+    opacity: 0;
+    transform: translate(-0.15rem, -0.05rem);
+    transition: opacity 160ms ease, transform 200ms cubic-bezier(0.2, 0.65, 0.2, 1), color 140ms ease;
+  }
+
+  .transcript__meta-name--link:hover,
+  .transcript__meta-name--link:focus-visible {
+    color: var(--color-ember);
+    outline: none;
+  }
+
+  .transcript__meta-name--link:hover::after,
+  .transcript__meta-name--link:focus-visible::after {
+    opacity: 1;
+    color: var(--color-ember);
+    transform: translate(0, -0.05rem);
+  }
+
+  .transcript__meta-name--link:focus-visible {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--color-ember) 60%, transparent);
+    text-decoration-style: dotted;
+    text-underline-offset: 0.2em;
   }
 
   .transcript__meta-time {

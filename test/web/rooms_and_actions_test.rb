@@ -75,6 +75,34 @@ module Bridge
         assert_match(/deleted-marker/, last_response.body)
       end
 
+      test "GET /rooms groups archived and hidden rooms under their own labelled sections" do
+        Room.create!(matrix_room_id: "!active:reddit.com", counterparty_username: "alice", discord_channel_id: "100")
+        Room.create!(matrix_room_id: "!shelved:reddit.com", counterparty_username: "bob", archived_at: Time.current)
+        Room.create!(matrix_room_id: "!gone:reddit.com", counterparty_username: "carol", terminated_at: Time.current)
+
+        get "/rooms"
+
+        # The three section labels render in source order: active first, then
+        # archived below it, then hidden at the bottom — so the index reads
+        # top-to-bottom as live → shelved → buried.
+        body = last_response.body
+        active_idx = body.index("Active")
+        archived_idx = body.index("Archived")
+        hidden_idx = body.index("Hidden")
+
+        assert_operator(active_idx, :<, archived_idx)
+        assert_operator(archived_idx, :<, hidden_idx)
+      end
+
+      test "GET /rooms omits section headers when only active rooms exist" do
+        Room.create!(matrix_room_id: "!active:reddit.com", counterparty_username: "alice", discord_channel_id: "100")
+
+        get "/rooms"
+
+        # With a single group, the active-section kicker would be visual noise.
+        refute_match(/rooms-section__label/, last_response.body)
+      end
+
       test "GET /rooms marks rooms without a discord channel as 'not created'" do
         Room.create!(
           matrix_room_id: "!one:reddit.com",
@@ -223,6 +251,56 @@ module Bridge
         get "/rooms/#{room.id}?from=prev_cursor"
 
         assert_requested(stubbed)
+      end
+
+      test "GET /rooms/:id shows Reddit profile + chat links in the header when the counterparty is resolved" do
+        room = Room.create!(matrix_room_id: "!abc:reddit.com", counterparty_username: "testuser")
+        seed_matrix_auth
+        stub_matrix_messages(room_id: "!abc:reddit.com", chunk: [])
+
+        get "/rooms/#{room.id}"
+
+        assert_match(%r{href="https://www\.reddit\.com/user/testuser"}, last_response.body)
+        assert_match(%r{href="https://chat\.reddit\.com/user/testuser"}, last_response.body)
+      end
+
+      test "GET /rooms/:id hides the profile link for deleted Reddit accounts but keeps the chat link" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+          counterparty_deleted_at: Time.current,
+        )
+        seed_matrix_auth
+        stub_matrix_messages(room_id: "!abc:reddit.com", chunk: [])
+
+        get "/rooms/#{room.id}"
+
+        refute_match(%r{href="https://www\.reddit\.com/user/testuser"}, last_response.body)
+        assert_match(%r{href="https://chat\.reddit\.com/user/testuser"}, last_response.body)
+      end
+
+      test "GET /rooms/:id links the sender name above each message to the Reddit profile" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+          counterparty_matrix_id: "@t2_peer:reddit.com",
+        )
+        seed_matrix_auth
+        stub_matrix_messages(
+          room_id: "!abc:reddit.com",
+          chunk: [{
+            "type" => "m.room.message",
+            "event_id" => "$e",
+            "sender" => "@t2_peer:reddit.com",
+            "origin_server_ts" => 1_776_400_000_000,
+            "content" => { "msgtype" => "m.text", "body" => "hi" },
+          }],
+        )
+
+        get "/rooms/#{room.id}"
+
+        # Name renders as an anchor with the profile URL, not plain text.
+        assert_match(%r{class="transcript__meta-name transcript__meta-name--link"[^>]*href="https://www\.reddit\.com/user/testuser"}, last_response.body)
       end
 
       test "GET /rooms/:id surfaces a transcript error banner on non-auth Matrix errors" do

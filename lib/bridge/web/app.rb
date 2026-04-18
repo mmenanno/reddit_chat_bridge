@@ -148,6 +148,20 @@ module Bridge
           )
         end
 
+        # Populates the four ivars the /rooms view renders: the full list
+        # (for the empty-state check) plus three partitioned groups —
+        # active conversations, archived (Discord channel removed but
+        # matrix link live), and hidden (local termination of a DM room).
+        # Called by the index GET and by every POST action that falls
+        # back to rendering :rooms so the layout stays consistent.
+        def load_rooms_for_index!
+          all_rooms = Room.order(:counterparty_username).to_a
+          @rooms = all_rooms
+          @active_rooms = all_rooms.reject { |room| room.archived? || room.terminated? }
+          @archived_rooms = all_rooms.select { |room| room.archived? && !room.terminated? }
+          @hidden_rooms = all_rooms.select(&:terminated?)
+        end
+
         def settings_fields_with_values
           App::SETTINGS_FIELDS.map do |field|
             stored = AppConfig.get(field[:key])
@@ -205,6 +219,30 @@ module Bridge
           return Matrix::Id.localpart(room.counterparty_matrix_id) if room.counterparty_matrix_id.present?
 
           room.matrix_room_id
+        end
+
+        # A "real" Reddit handle is anything that isn't our `t2_<id>`
+        # localpart fallback — those aren't valid /user/ URLs. Also excludes
+        # the system sender label so the bridge's own `Reddit` bot doesn't
+        # get linked. Used to decide whether sender names become anchors in
+        # the transcript and to guard the profile/chat link block.
+        def linkable_reddit_handle?(name)
+          return false if name.nil?
+
+          trimmed = name.to_s.strip
+          return false if trimmed.empty?
+          return false if trimmed == "Reddit"
+          return false if trimmed.start_with?("t2_")
+
+          true
+        end
+
+        def reddit_profile_url(username)
+          "https://www.reddit.com/user/#{CGI.escape(username.to_s)}"
+        end
+
+        def reddit_chat_url(username)
+          "https://chat.reddit.com/user/#{CGI.escape(username.to_s)}"
         end
 
         # Matrix ships `origin_server_ts` in milliseconds-since-epoch. These
@@ -490,7 +528,7 @@ module Bridge
       end
 
       get "/rooms" do
-        @rooms = Room.order(:counterparty_username).to_a
+        load_rooms_for_index!
         erb(:rooms)
       end
 
@@ -590,7 +628,7 @@ module Bridge
           end
         end
 
-        @rooms = Room.order(:counterparty_username).to_a
+        load_rooms_for_index!
         erb(:rooms)
       end
 
@@ -610,7 +648,7 @@ module Bridge
           end
         end
 
-        @rooms = Room.order(:counterparty_username).to_a
+        load_rooms_for_index!
         erb(:rooms)
       end
 
@@ -631,7 +669,7 @@ module Bridge
           end
         end
 
-        @rooms = Room.order(:counterparty_username).to_a
+        load_rooms_for_index!
         erb(:rooms)
       end
 
@@ -649,7 +687,7 @@ module Bridge
           end
         end
 
-        @rooms = Room.order(:counterparty_username).to_a
+        load_rooms_for_index!
         erb(:rooms)
       end
 
@@ -671,7 +709,7 @@ module Bridge
           end
         end
 
-        @rooms = Room.order(:counterparty_username).to_a
+        load_rooms_for_index!
         erb(:rooms)
       end
 

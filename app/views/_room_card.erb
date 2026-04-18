@@ -1,0 +1,145 @@
+<article class="room-card">
+  <header class="flex items-start justify-between gap-3">
+    <div class="min-w-0">
+      <p class="room-card__label">Counterparty</p>
+      <a href="/rooms/<%= room.id %>" class="room-card__name-link mt-1"
+         title="Open transcript for this chat">
+        <% if room.counterparty_username %>
+          <h2 class="room-card__name"><%= room.counterparty_username %></h2>
+        <% elsif room.counterparty_matrix_id %>
+          <h2 class="room-card__name room-card__name--placeholder">
+            <%= Matrix::Id.localpart(room.counterparty_matrix_id) %>
+          </h2>
+        <% else %>
+          <h2 class="room-card__name room-card__name--placeholder">unknown</h2>
+        <% end %>
+        <% if room.counterparty_deleted? %>
+          <span class="deleted-marker" title="Reddit account deleted">
+            <span class="deleted-marker__dot" aria-hidden="true"></span>
+            deleted
+          </span>
+        <% end %>
+        <span class="room-card__name-arrow" aria-hidden="true">→</span>
+        <span class="sr-only">Open transcript</span>
+      </a>
+    </div>
+    <% if room.terminated? %>
+      <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-1">hidden</span>
+    <% elsif room.archived? %>
+      <span class="status-pill status-pill--warning text-[0.65rem] px-2 py-1">archived</span>
+    <% elsif room.discord_channel_id %>
+      <span class="status-pill status-pill--healthy text-[0.65rem] px-2 py-1">linked</span>
+    <% else %>
+      <span class="status-pill status-pill--idle text-[0.65rem] px-2 py-1">pending</span>
+    <% end %>
+  </header>
+
+  <div class="grid gap-3">
+    <div class="room-card__meta">
+      <span class="room-card__label">Matrix room</span>
+      <code class="room-card__mono"><%= room.matrix_room_id %></code>
+    </div>
+
+    <% if room.counterparty_matrix_id %>
+      <div class="room-card__meta">
+        <span class="room-card__label">Counterparty ID</span>
+        <code class="room-card__mono"><%= room.counterparty_matrix_id %></code>
+      </div>
+    <% end %>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div class="room-card__meta">
+        <span class="room-card__label">Discord channel</span>
+        <% if room.discord_channel_id %>
+          <code class="room-card__mono"><%= room.discord_channel_id %></code>
+        <% else %>
+          <span class="text-xs italic text-[color:var(--color-bone-mute)]">not created</span>
+        <% end %>
+      </div>
+      <div class="room-card__meta">
+        <span class="room-card__label">Last event</span>
+        <% if room.last_event_id %>
+          <code class="room-card__mono"><%= room.last_event_id.to_s[0, 24] %>…</code>
+        <% else %>
+          <span class="text-xs italic text-[color:var(--color-bone-mute)]">—</span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <footer class="room-card__footer">
+    <span class="kicker">room #<%= room.id %></span>
+    <div class="room-card__toolbar">
+      <% if room.terminated? %>
+        <form method="post" action="/rooms/<%= room.id %>/restore">
+          <button type="submit"
+                  class="btn-chip btn-chip--primary"
+                  title="Un-hide this chat. The next Reddit message creates a fresh Discord channel.">
+            <span class="btn-chip__glyph" aria-hidden="true">↺</span>
+            Restore
+          </button>
+        </form>
+      <% elsif room.archived? %>
+        <form method="post" action="/rooms/<%= room.id %>/unarchive">
+          <input type="hidden" name="backfill" value="1">
+          <button type="submit"
+                  class="btn-chip btn-chip--primary"
+                  title="Unarchive, recreate the channel, and replay recent history into it.">
+            <span class="btn-chip__glyph" aria-hidden="true">⟲</span>
+            Replay
+          </button>
+        </form>
+        <form method="post" action="/rooms/<%= room.id %>/unarchive">
+          <button type="submit"
+                  class="btn-chip"
+                  title="Unarchive with an empty channel; future messages flow in as they arrive.">
+            <span class="btn-chip__glyph" aria-hidden="true">↺</span>
+            Unarchive
+          </button>
+        </form>
+      <% else %>
+        <form method="post" action="/rooms/<%= room.id %>/refresh">
+          <button type="submit"
+                  class="btn-chip btn-chip--primary"
+                  title="Re-fetch the counterparty profile, rename the channel if needed, and replay recent history.">
+            <span class="btn-chip__glyph" aria-hidden="true">↻</span>
+            Refresh
+          </button>
+        </form>
+        <% if room.discord_channel_id %>
+          <form method="post"
+                action="/rooms/<%= room.id %>/archive"
+                data-confirm="Deletes the Discord channel for this room. The Matrix side stays linked, so a new channel is auto-recreated the moment you click Unarchive or the next message arrives."
+                data-confirm-title="Archive <%= room.counterparty_username || "this room" %>?"
+                data-confirm-kicker="Archive · room #<%= room.id %>"
+                data-confirm-label="⎘ Archive room"
+                data-confirm-icon="reversible">
+            <button type="submit"
+                    class="btn-chip"
+                    title="Delete the Discord channel; keeps the Matrix room linked so new messages trigger auto-unarchive.">
+              <span class="btn-chip__glyph" aria-hidden="true">⎘</span>
+              Archive
+            </button>
+          </form>
+        <% end %>
+      <% end %>
+
+      <% unless room.terminated? %>
+        <form method="post"
+              action="/rooms/<%= room.id %>/end"
+              data-confirm="Deletes the Discord channel and hides this conversation — every future event in this Matrix room is silently dropped until you click Restore. Reddit's own UI only offers a Hide action too; their server refuses a real Matrix /leave on DM rooms, so this is the closest we can get. Reversible: Restore re-bridges the chat and the next message creates a fresh Discord channel."
+              data-confirm-title="End chat with <%= room.counterparty_username || "this room" %>?"
+              data-confirm-kicker="End chat · reversible"
+              data-confirm-label="✕ End chat"
+              data-confirm-icon="reversible">
+          <button type="submit"
+                  class="btn-chip btn-chip--danger"
+                  title="Hide this chat locally — same as Reddit's Hide chat action. Click Restore later to re-bridge.">
+            <span class="btn-chip__glyph" aria-hidden="true">✕</span>
+            End
+          </button>
+        </form>
+      <% end %>
+    </div>
+  </footer>
+</article>

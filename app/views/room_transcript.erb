@@ -44,6 +44,27 @@
       <p class="mt-2 font-mono text-xs text-[color:var(--color-bone-mute)] break-all">
         <%= @room.matrix_room_id %>
       </p>
+      <% peer_handle = @room.counterparty_username %>
+      <% if linkable_reddit_handle?(peer_handle) %>
+        <nav class="reddit-links" aria-label="Open on Reddit">
+          <% unless @room.counterparty_deleted? %>
+            <a class="reddit-link" href="<%= reddit_profile_url(peer_handle) %>"
+               target="_blank" rel="noopener noreferrer"
+               title="Open <%= peer_handle %>'s Reddit profile in a new tab">
+              <span class="reddit-link__label">Profile</span>
+              <span class="reddit-link__domain">reddit.com</span>
+              <span class="reddit-link__arrow" aria-hidden="true">↗</span>
+            </a>
+          <% end %>
+          <a class="reddit-link" href="<%= reddit_chat_url(peer_handle) %>"
+             target="_blank" rel="noopener noreferrer"
+             title="Open this chat on Reddit's web client in a new tab">
+            <span class="reddit-link__label">Chat</span>
+            <span class="reddit-link__domain">chat.reddit.com</span>
+            <span class="reddit-link__arrow" aria-hidden="true">↗</span>
+          </a>
+        </nav>
+      <% end %>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
       <span class="status-pill status-pill--<%= status_pill[0] %>">
@@ -151,7 +172,16 @@
                   <%= sender_name.to_s[0, 1].upcase %>
                 </span>
               <% end %>
-              <span class="transcript__meta-name"><%= sender_name %></span>
+              <% if linkable_reddit_handle?(sender_name) %>
+                <a class="transcript__meta-name transcript__meta-name--link"
+                   href="<%= reddit_profile_url(sender_name) %>"
+                   target="_blank" rel="noopener noreferrer"
+                   title="Open <%= sender_name %> on Reddit in a new tab">
+                  <%= sender_name %>
+                </a>
+              <% else %>
+                <span class="transcript__meta-name"><%= sender_name %></span>
+              <% end %>
               <time class="transcript__meta-time"
                     datetime="<%= Time.at(event.origin_server_ts.to_i / 1000.0).utc.iso8601 %>"
                     title="<%= Time.at(event.origin_server_ts.to_i / 1000.0).utc.iso8601 %>">
