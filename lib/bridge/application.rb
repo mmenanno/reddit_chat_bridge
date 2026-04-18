@@ -173,8 +173,17 @@ module Bridge
 
     def build_outbound_dispatcher
       operator_ids = AppConfig.fetch("discord_operator_user_ids", "").to_s.split(/[,\s]+/)
+      homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
       Discord::OutboundDispatcher.new(
         matrix_client: @matrix_client,
+        discord_client: @discord_client,
+        channel_index: Discord::ChannelIndex.new(
+          client: @discord_client,
+          guild_id: AppConfig.fetch("discord_guild_id"),
+          category_id: AppConfig.fetch("discord_dms_category_id"),
+        ),
+        media_resolver: Matrix::MediaResolver.new(homeserver: homeserver),
+        reddit_profile_client: Reddit::ProfileClient.new,
         operator_discord_ids: operator_ids,
         journal: @journal,
       )

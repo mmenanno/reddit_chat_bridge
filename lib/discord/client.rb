@@ -86,6 +86,14 @@ module Discord
       :ok
     end
 
+    def delete_message(channel_id:, message_id:)
+      response = @conn.delete("channels/#{channel_id}/messages/#{message_id}") do |req|
+        req.headers["Authorization"] = "Bot #{@bot_token}"
+      end
+      handle(response)
+      :ok
+    end
+
     # Bulk-replaces the guild's registered slash commands. One POST
     # with the full command list is the idempotent pattern Discord
     # documents — no need to compare/ diff on our side.

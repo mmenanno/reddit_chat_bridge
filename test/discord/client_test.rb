@@ -157,6 +157,16 @@ module Discord
       assert_raises(Discord::NotFound) { @client.delete_channel(channel_id: CHANNEL) }
     end
 
+    # ---- delete_message ----
+
+    test "delete_message DELETEs the specific message with the bot token" do
+      stub_request(:delete, "#{BASE}/channels/#{CHANNEL}/messages/msg_1")
+        .with(headers: { "Authorization" => "Bot #{TOKEN}" })
+        .to_return(status: 204, body: "")
+
+      assert_equal(:ok, @client.delete_message(channel_id: CHANNEL, message_id: "msg_1"))
+    end
+
     # ---- webhooks ----
 
     test "create_webhook POSTs to the channel and returns the webhook id + token" do
