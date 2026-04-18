@@ -226,6 +226,66 @@ module Discord
       assert_equal("RonanWolfe", AppConfig.fetch("own_display_name", ""))
     end
 
+    test "treats a Matrix displayname that echoes the localpart as unresolved and falls through to Reddit profile" do
+      # Reddit's Matrix server sometimes returns displayname = "t2_<id>" (the
+      # localpart itself) rather than the real Reddit handle. Accepting that
+      # blindly would pin "t2_me" as the operator's name forever.
+      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
+      AppConfig.set("own_display_name", "")
+      AppConfig.set("own_avatar_url", "")
+      reddit_profile = mock("RedditProfileClient")
+      # Stay silent — without a real Reddit handle we have nothing to ask about.
+      reddit_profile.stubs(:fetch_avatar_url).returns("")
+      discord_client = mock("DiscordClient")
+      channel_index = mock("ChannelIndex")
+      channel_index.stubs(:ensure_webhook).returns(["wh", "tok"])
+      dispatcher = OutboundDispatcher.new(
+        matrix_client: @matrix,
+        discord_client: discord_client,
+        channel_index: channel_index,
+        reddit_profile_client: reddit_profile,
+        operator_discord_ids: [OP_USER_ID],
+      )
+
+      @matrix.expects(:send_message).returns("$e")
+      @matrix.expects(:profile).with(user_id: "@t2_me:reddit.com").returns("displayname" => "t2_me")
+      discord_client.stubs(:execute_webhook).returns("id" => "wm")
+      discord_client.stubs(:delete_message)
+
+      dispatcher.dispatch(discord_message_hash("hi"))
+
+      # Name stays empty in AppConfig — the localpart echo is runtime-only.
+      # Runtime fallback uses the localpart, but nothing leaks to persistence.
+      assert_equal("", AppConfig.fetch("own_display_name", ""))
+    end
+
+    test "never writes the localpart fallback to AppConfig even when it survives resolution" do
+      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
+      AppConfig.set("own_display_name", "")
+      AppConfig.set("own_avatar_url", "")
+      discord_client = mock("DiscordClient")
+      channel_index = mock("ChannelIndex")
+      channel_index.stubs(:ensure_webhook).returns(["wh", "tok"])
+      dispatcher = OutboundDispatcher.new(
+        matrix_client: @matrix,
+        discord_client: discord_client,
+        channel_index: channel_index,
+        operator_discord_ids: [OP_USER_ID],
+      )
+
+      @matrix.expects(:send_message).returns("$e")
+      # Matrix returns the localpart as the "displayname" — the defensive
+      # guard in persist_identity is what catches this if upstream layers
+      # were ever to slip a bad name through.
+      @matrix.expects(:profile).with(user_id: "@t2_me:reddit.com").returns("displayname" => "t2_me")
+      discord_client.stubs(:execute_webhook).returns("id" => "wm")
+      discord_client.stubs(:delete_message)
+
+      dispatcher.dispatch(discord_message_hash("hi"))
+
+      assert_equal("", AppConfig.fetch("own_display_name", ""))
+    end
+
     test "falls back to Matrix /profile when AppConfig has no cached own identity" do
       AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "")

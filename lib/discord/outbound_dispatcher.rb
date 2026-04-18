@@ -162,7 +162,14 @@ module Discord
       profile = fetch_profile_safely(user_id)
       return [name, avatar] unless profile.is_a?(Hash)
 
-      name = profile["displayname"].to_s if name.empty?
+      # Reddit's Matrix server sometimes echoes the localpart ("t2_abc") back
+      # as the displayname when the real Reddit handle isn't set at the
+      # Matrix layer. Treat that as no-resolution so we fall through to the
+      # Reddit /about.json lookup for the real username.
+      if name.empty?
+        displayname = profile["displayname"].to_s
+        name = displayname if displayname.present? && displayname != localpart_fallback
+      end
       if avatar.empty?
         mxc = profile["avatar_url"].to_s
         resolved = @media_resolver&.resolve(mxc) if mxc.start_with?("mxc://")
@@ -178,8 +185,13 @@ module Discord
     end
 
     def persist_identity(name, avatar)
-      AppConfig.set(OWN_DISPLAY_NAME_KEY, name) if name.present? && AppConfig.fetch(OWN_DISPLAY_NAME_KEY, "") != name
-      AppConfig.set(OWN_AVATAR_URL_KEY, avatar) if avatar.present? && AppConfig.fetch(OWN_AVATAR_URL_KEY, "") != avatar
+      # Belt-and-suspenders guard: never write the localpart fallback — it's
+      # a runtime-only stand-in and must stay out of AppConfig so a later
+      # dispatch keeps retrying resolution once the real name is available.
+      AppConfig.set(OWN_DISPLAY_NAME_KEY, name) if name.present? && name != localpart_fallback && AppConfig.fetch(OWN_DISPLAY_NAME_KEY, "") != name
+      return unless avatar.present? && AppConfig.fetch(OWN_AVATAR_URL_KEY, "") != avatar
+
+      AppConfig.set(OWN_AVATAR_URL_KEY, avatar)
     end
 
     def fetch_profile_safely(user_id)
