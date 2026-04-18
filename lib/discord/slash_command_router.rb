@@ -80,13 +80,27 @@ module Discord
     # the Matrix room, deletes the Discord channel, wipes local state);
     # a future DM from the same user comes in as a fresh message request.
     def endchat_handler(payload)
-      channel_id = payload["channel_id"].to_s
-      room = Room.find_by(discord_channel_id: channel_id)
-      return "🚫 Run this inside a `#dm-*` channel — no bridged room matches this channel." unless room
+      per_channel_room(payload) do |room|
+        display = room.counterparty_username || room.matrix_room_id
+        @admin_actions.end_chat!(matrix_room_id: room.matrix_room_id)
+        "✅ Ended chat with **#{display}**. Future messages arrive as a new message request."
+      end
+    end
 
-      display = room.counterparty_username || room.matrix_room_id
-      @admin_actions.end_chat!(matrix_room_id: room.matrix_room_id)
-      "✅ Ended chat with **#{display}**. Future messages arrive as a new message request."
+    # Archive the current `#dm-*` channel's room. Deletes the Discord
+    # channel, marks the Room archived, but keeps us joined to the
+    # Matrix room — so a future Reddit message from this user auto-
+    # unarchives and mints a fresh channel.
+    def archive_handler(payload)
+      per_channel_room(payload) do |room|
+        display = room.counterparty_username || room.matrix_room_id
+        result = @admin_actions.archive_room!(matrix_room_id: room.matrix_room_id)
+        if result == :already_archived
+          "ℹ️ **#{display}** was already archived."
+        else
+          "✅ Archived **#{display}** — Discord channel deleted; a new message will auto-unarchive."
+        end
+      end
     end
 
     def unknown_command(_router, payload)
@@ -101,7 +115,8 @@ module Discord
       { name: "reconcile",     description: "Sweep every room and rename channels to current usernames" },
       { name: "refresh_token", description: "Mint a fresh Matrix JWT from the stored Reddit cookies" },
       { name: "ping",          description: "Health check — replies pong" },
-      { name: "endchat",       description: "End this chat — leave the Matrix room and delete the channel (run inside the #dm-* channel)" },
+      { name: "endchat",       description: "Hide this chat — delete the channel and drop future events (run inside the #dm-* channel)" },
+      { name: "archive",       description: "Archive this chat — delete the channel but auto-recreate on next message (run inside the #dm-* channel)" },
     ].freeze
 
     COMMANDS = {
@@ -111,14 +126,25 @@ module Discord
       "refresh_token" => ->(r, p) { r.refresh_token_handler(p) },
       "ping" => ->(r, p) { r.ping_handler(p) },
       "endchat" => ->(r, p) { r.endchat_handler(p) },
+      "archive" => ->(r, p) { r.archive_handler(p) },
     }.freeze
 
     # Commands that are meant to be invoked from a `#dm-*` channel rather
     # than from #commands — they derive their target from the current
     # channel_id, so forcing them into #commands would defeat the point.
-    UNRESTRICTED_CHANNEL_COMMANDS = ["endchat"].freeze
+    UNRESTRICTED_CHANNEL_COMMANDS = ["endchat", "archive"].freeze
 
     private
+
+    # Shared lookup for per-room slash commands: resolves the channel
+    # the interaction fired in to a Room and yields. Returns a polite
+    # error string when the channel isn't bridged.
+    def per_channel_room(payload)
+      room = Room.find_by(discord_channel_id: payload["channel_id"].to_s)
+      return "🚫 Run this inside a `#dm-*` channel — no bridged room matches this channel." unless room
+
+      yield(room)
+    end
 
     # Only accept commands from the configured guild — and, if an admin
     # channel id is configured, only from that channel. Anywhere else

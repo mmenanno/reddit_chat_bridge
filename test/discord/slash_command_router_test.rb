@@ -108,6 +108,43 @@ module Discord
       assert_match(/no bridged room matches/i, response[:data][:content])
     end
 
+    # ---- /archive (per-room command, runs in the target #dm-* channel) ----
+
+    test "runs /archive from inside a #dm-* channel and delegates to Admin::Actions" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "testuser", discord_channel_id: "dm_555")
+      @actions.expects(:archive_room!).with(matrix_room_id: "!r:reddit.com").returns(:archived)
+
+      response = @router.dispatch(interaction(name: "archive", channel: "dm_555"))
+
+      assert_match(/Archived \*\*testuser\*\*/, response[:data][:content])
+    end
+
+    test "runs /archive even when the channel isn't #commands (per-room override)" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "peer", discord_channel_id: "dm_not_commands")
+      @actions.expects(:archive_room!).returns(:archived)
+
+      response = @router.dispatch(interaction(name: "archive", channel: "dm_not_commands"))
+
+      refute_match(/must be run in the configured/i, response[:data][:content])
+    end
+
+    test "reports when /archive hits an already-archived room" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "peer", discord_channel_id: "dm_555")
+      @actions.expects(:archive_room!).returns(:already_archived)
+
+      response = @router.dispatch(interaction(name: "archive", channel: "dm_555"))
+
+      assert_match(/already archived/i, response[:data][:content])
+    end
+
+    test "returns a helpful error when /archive fires in an unbridged channel" do
+      @actions.expects(:archive_room!).never
+
+      response = @router.dispatch(interaction(name: "archive", channel: "random_channel"))
+
+      assert_match(/no bridged room matches/i, response[:data][:content])
+    end
+
     test "still rejects /endchat from a different guild" do
       Room.create!(matrix_room_id: "!r:reddit.com", discord_channel_id: "dm_555")
       @actions.expects(:end_chat!).never
