@@ -424,6 +424,17 @@ module Bridge
         erb(:actions)
       end
 
+      post "/actions/rebuild_all" do
+        begin
+          stats = admin_actions.rebuild_all!
+          @notice = "Rebuild: refreshed #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors). " \
+                    "Channels are current; recent history replayed where needed."
+        rescue Admin::Actions::NotConfiguredError => e
+          @error = e.message
+        end
+        erb(:actions)
+      end
+
       post "/actions/full_resync" do
         stats = admin_actions.full_resync!
         @notice = "Full resync: cleared Discord channel refs on #{stats[:rooms_reset]} room(s), " \

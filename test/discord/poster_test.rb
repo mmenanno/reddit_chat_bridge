@@ -302,6 +302,55 @@ module Discord
       assert(PostedEvent.posted?("$bad"))
     end
 
+    # ---- permissions (Manage Webhooks missing on bot role) ----
+
+    test "does not re-raise AuthError — swallows so the sync loop keeps advancing" do
+      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+
+      # No exception should bubble up.
+      assert_nothing_raised { @poster.call([event(event_id: "$p1"), event(event_id: "$p2")]) }
+    end
+
+    test "records AuthError-blocked events as posted so they don't replay every tick" do
+      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+
+      @poster.call([event(event_id: "$p1")])
+
+      assert(PostedEvent.posted?("$p1"))
+    end
+
+    test "sets the global permissions-blocked flag when AuthError hits" do
+      AppConfig.set("discord_permissions_blocked_at", "")
+      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+
+      @poster.call([event])
+
+      refute_empty(AppConfig.fetch("discord_permissions_blocked_at", ""))
+    end
+
+    test "clears the permissions-blocked flag after a successful post" do
+      AppConfig.set("discord_permissions_blocked_at", "2026-04-17T12:00:00Z")
+      @client.stubs(:execute_webhook).returns("m")
+
+      @poster.call([event])
+
+      assert_equal("", AppConfig.fetch("discord_permissions_blocked_at", ""))
+    end
+
+    test "logs exactly one warn per batch even when every event hits AuthError" do
+      logger = mock("Logger")
+      logger.expects(:warn).once
+      poster = Discord::Poster.new(
+        client: @client,
+        channel_index: @index,
+        logger: logger,
+        sleeper: ->(_) {},
+      )
+      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+
+      poster.call([event(event_id: "$a"), event(event_id: "$b"), event(event_id: "$c")])
+    end
+
     # ---- matrix_id fallback when username can't be resolved ----
 
     test "records counterparty_matrix_id even when sender_username is nil" do

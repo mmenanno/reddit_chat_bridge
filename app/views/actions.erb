@@ -88,6 +88,22 @@
 </section>
 
 <section class="console-card p-6 rise rise-delay-3">
+  <p class="kicker">Rebuild everything</p>
+  <h2 class="section-title mt-1">Refresh every room and backfill recent history</h2>
+  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
+    Runs the per-room Refresh action on every room in one pass: re-fetches each counterparty's
+    Reddit profile, renames channels, pulls the last 50 events from Matrix, and replays any
+    that aren't already in the dedup cache. Safe to run anytime — nothing is deleted and
+    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">PostedEvent</code>
+    keeps replays idempotent. Use this after fixing a Discord permissions issue to backfill
+    messages that the bot couldn't post while blocked.
+  </p>
+  <form method="post" action="/actions/rebuild_all" class="mt-4">
+    <button type="submit" class="btn btn-outline">Rebuild all rooms</button>
+  </form>
+</section>
+
+<section class="console-card p-6 rise rise-delay-3">
   <p class="kicker">Slash commands</p>
   <h2 class="section-title mt-1">Register commands with Discord</h2>
   <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">

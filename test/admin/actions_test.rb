@@ -167,6 +167,29 @@ module Admin
       assert_equal(0, stats[:rebuild_errors])
     end
 
+    # ---- rebuild_all! (non-destructive) ----
+
+    test "rebuild_all! requires a reconciler" do
+      assert_raises(Admin::Actions::NotConfiguredError) { @actions.rebuild_all! }
+    end
+
+    test "rebuild_all! runs refresh_one on every room and returns counts" do
+      Room.create!(matrix_room_id: "!a:reddit.com")
+      Room.create!(matrix_room_id: "!b:reddit.com")
+
+      reconciler = mock("Reconciler")
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").returns(renamed: true, posted_attempted: 2)
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 0)
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      assert_equal({ rebuilt: 2, rebuild_errors: 0 }, actions.rebuild_all!)
+    end
+
     test "full_resync! counts rebuild failures without aborting the loop" do
       Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")

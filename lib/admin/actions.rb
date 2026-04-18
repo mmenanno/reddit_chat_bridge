@@ -91,6 +91,15 @@ module Admin
       @reconciler.refresh_one(matrix_room_id: matrix_room_id)
     end
 
+    # Non-destructive counterpart of full_resync!: iterates every room and
+    # runs it through refresh_one (rename + backfill), but doesn't touch
+    # the PostedEvent cache or sync checkpoint. Use after fixing a Discord
+    # permissions issue or to catch up history without losing dedup state.
+    def rebuild_all!
+      require_reconciler!
+      rebuild_all_rooms!
+    end
+
     private
 
     def nuke_persisted_state!

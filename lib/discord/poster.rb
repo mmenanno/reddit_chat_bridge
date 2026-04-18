@@ -29,6 +29,10 @@ module Discord
     RATE_LIMIT_MAX_ATTEMPTS   = 3
     RATE_LIMIT_FALLBACK_SLEEP = 1.0
 
+    # AppConfig flag set whenever we 403 on a webhook op; the dashboard
+    # reads this to show an actionable "enable Manage Webhooks" banner.
+    PERMISSIONS_FLAG_KEY = "discord_permissions_blocked_at"
+
     def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, sleeper: Kernel.method(:sleep)) # rubocop:disable Metrics/ParameterLists
       @client = client
       @channel_index = channel_index
@@ -39,6 +43,7 @@ module Discord
     end
 
     def call(events)
+      @auth_warned_this_batch = false
       events.each { |event| post_one(event) }
     end
 
@@ -51,11 +56,20 @@ module Discord
       room = Room.find_or_create_by_matrix_id!(event.room_id)
       refresh_counterparty_and_channel!(room, event)
       send_with_recovery(room, event)
+      clear_permissions_flag!
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room.advance_event!(event.event_id)
     rescue Discord::BadRequest => e
       # Unrecoverable request-shape error. Record anyway so we don't loop.
       @logger&.warn("Discord rejected event #{event.event_id} (400): #{e.message}")
+      PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
+      room&.advance_event!(event.event_id)
+    rescue Discord::AuthError => e
+      # Almost always "Missing Permissions" — the bot role lacks Manage
+      # Webhooks. Recording as posted prevents the sync loop from hammering
+      # the same event every tick; after the operator fixes the role,
+      # clicking "Rebuild all rooms" on /actions backfills from /messages.
+      mark_permissions_blocked!(e)
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room&.advance_event!(event.event_id)
     end
@@ -211,6 +225,25 @@ module Discord
       return if event.sender.blank?
 
       room.ensure_counterparty!(matrix_id: event.sender, username: event.sender_username.presence)
+    end
+
+    def mark_permissions_blocked!(error)
+      AppConfig.set(PERMISSIONS_FLAG_KEY, Time.current.utc.iso8601)
+      return if @auth_warned_this_batch
+
+      @auth_warned_this_batch = true
+      @logger&.warn(
+        "Discord rejected webhook post: #{error.message}. " \
+        "Enable 'Manage Webhooks' on the bot role, then click 'Rebuild all rooms' on /actions.",
+      )
+    end
+
+    def clear_permissions_flag!
+      # Only touch AppConfig when it's actually set — cheap read, avoids
+      # write churn on the common hot path.
+      return if AppConfig.fetch(PERMISSIONS_FLAG_KEY, "").empty?
+
+      AppConfig.set(PERMISSIONS_FLAG_KEY, "")
     end
   end
 end

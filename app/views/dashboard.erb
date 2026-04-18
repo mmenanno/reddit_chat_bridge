@@ -1,6 +1,7 @@
 <% status = dashboard_sync_status %>
 <% checkpoint = SyncCheckpoint.current %>
 <% auth = AuthState.current %>
+<% discord_blocked_at = AppConfig.fetch(Discord::Poster::PERMISSIONS_FLAG_KEY, "") %>
 
 <section class="rise">
   <p class="kicker">§01 / Overview</p>
@@ -14,6 +15,21 @@
     and delivered to Discord. Everything below is live state from the database.
   </p>
 </section>
+
+<% unless discord_blocked_at.empty? %>
+  <div role="alert" class="banner banner--error rise rise-delay-1">
+    <span class="banner__icon">!</span>
+    <div class="flex flex-col gap-2">
+      <p class="font-semibold">Discord is rejecting webhook posts — 'Manage Webhooks' permission missing.</p>
+      <p class="text-sm opacity-90">
+        Open your Discord server → Settings → Roles → the bot's role →
+        enable <strong>Manage Webhooks</strong>. Then come back and click
+        <a href="/actions" class="underline">Rebuild all rooms</a> to backfill anything the bot couldn't post while blocked.
+        Last blocked at <code class="font-mono text-xs"><%= discord_blocked_at %></code>.
+      </p>
+    </div>
+  </div>
+<% end %>
 
 <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
   <div class="metric rise rise-delay-1">
