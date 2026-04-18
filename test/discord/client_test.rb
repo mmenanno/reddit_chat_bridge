@@ -141,6 +141,23 @@ module Discord
       end
     end
 
+    # ---- delete_channel ----
+
+    test "delete_channel DELETEs the channel with the bot token" do
+      stub_request(:delete, "#{BASE}/channels/#{CHANNEL}")
+        .with(headers: { "Authorization" => "Bot #{TOKEN}" })
+        .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+      assert_equal(:ok, @client.delete_channel(channel_id: CHANNEL))
+    end
+
+    test "delete_channel raises Discord::NotFound when the channel is already gone" do
+      stub_request(:delete, "#{BASE}/channels/#{CHANNEL}")
+        .to_return(status: 404, body: { message: "Unknown Channel" }.to_json)
+
+      assert_raises(Discord::NotFound) { @client.delete_channel(channel_id: CHANNEL) }
+    end
+
     # ---- webhooks ----
 
     test "create_webhook POSTs to the channel and returns the webhook id + token" do

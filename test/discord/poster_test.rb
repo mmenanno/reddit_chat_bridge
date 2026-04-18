@@ -302,6 +302,22 @@ module Discord
       assert(PostedEvent.posted?("$bad"))
     end
 
+    # ---- archive auto-unarchive ----
+
+    test "auto-unarchives a room when a new event arrives" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "testuser",
+        archived_at: 1.day.ago,
+      )
+      @client.stubs(:execute_webhook).returns("m")
+
+      @poster.call([event(body: "ping")])
+
+      refute_predicate(Room.first, :archived?)
+    end
+
     # ---- permissions (Manage Webhooks missing on bot role) ----
 
     test "does not re-raise AuthError — swallows so the sync loop keeps advancing" do

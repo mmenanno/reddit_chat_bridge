@@ -46,7 +46,9 @@
               <h2 class="room-card__name room-card__name--placeholder mt-1">unknown</h2>
             <% end %>
           </div>
-          <% if room.discord_channel_id %>
+          <% if room.archived? %>
+            <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-1">archived</span>
+          <% elsif room.discord_channel_id %>
             <span class="status-pill status-pill--healthy text-[0.65rem] px-2 py-1">linked</span>
           <% else %>
             <span class="status-pill status-pill--idle text-[0.65rem] px-2 py-1">pending</span>
@@ -88,13 +90,44 @@
 
         <footer class="room-card__footer">
           <span class="kicker">room #<%= room.id %></span>
-          <form method="post" action="/rooms/<%= room.id %>/refresh">
-            <button type="submit"
-                    class="btn btn-outline btn-xs"
-                    title="Re-fetch profile, rename if needed, re-examine recent history">
-              ↻ Refresh
-            </button>
-          </form>
+          <div class="flex items-center gap-2 flex-wrap">
+            <% if room.archived? %>
+              <form method="post" action="/rooms/<%= room.id %>/unarchive">
+                <button type="submit"
+                        class="btn btn-outline btn-xs"
+                        title="Clear archive flag; channel recreates when the next message arrives">
+                  ↺ Unarchive
+                </button>
+              </form>
+              <form method="post" action="/rooms/<%= room.id %>/unarchive">
+                <input type="hidden" name="backfill" value="1">
+                <button type="submit"
+                        class="btn btn-primary btn-xs"
+                        title="Unarchive and backfill recent history immediately">
+                  ⟲ Restore history
+                </button>
+              </form>
+            <% else %>
+              <form method="post" action="/rooms/<%= room.id %>/refresh">
+                <button type="submit"
+                        class="btn btn-outline btn-xs"
+                        title="Re-fetch profile, rename if needed, re-examine recent history">
+                  ↻ Refresh
+                </button>
+              </form>
+              <% if room.discord_channel_id %>
+                <form method="post"
+                      action="/rooms/<%= room.id %>/archive"
+                      onsubmit="return confirm('Delete the Discord channel and archive this room? A new channel is recreated when the next message arrives.');">
+                  <button type="submit"
+                          class="btn btn-outline btn-xs"
+                          title="Delete the Discord channel; keeps the Matrix room linked">
+                    ⌫ Archive
+                  </button>
+                </form>
+              <% end %>
+            <% end %>
+          </div>
         </footer>
       </article>
     <% end %>

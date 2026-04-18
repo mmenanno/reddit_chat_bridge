@@ -100,6 +100,16 @@ module Admin
       rebuild_all_rooms!
     end
 
+    def archive_room!(matrix_room_id:)
+      require_reconciler!
+      @reconciler.archive!(matrix_room_id: matrix_room_id)
+    end
+
+    def unarchive_room!(matrix_room_id:, backfill: false)
+      require_reconciler!
+      @reconciler.unarchive!(matrix_room_id: matrix_room_id, backfill: backfill)
+    end
+
     private
 
     def nuke_persisted_state!

@@ -54,6 +54,7 @@ module Discord
       return if echo_of_our_send?(event)
 
       room = Room.find_or_create_by_matrix_id!(event.room_id)
+      auto_unarchive!(room)
       refresh_counterparty_and_channel!(room, event)
       send_with_recovery(room, event)
       clear_permissions_flag!
@@ -225,6 +226,17 @@ module Discord
       return if event.sender.blank?
 
       room.ensure_counterparty!(matrix_id: event.sender, username: event.sender_username.presence)
+    end
+
+    # New activity on an archived room flips it back to active. The channel
+    # was deleted on archive so ensure_channel will mint a fresh one; the
+    # empty channel is intentional — the admin can click "Restore history"
+    # on /rooms to backfill if they want the old messages back.
+    def auto_unarchive!(room)
+      return unless room.archived?
+
+      room.unarchive!
+      @logger&.info("Room #{room.matrix_room_id} unarchived — new activity from counterparty.")
     end
 
     def mark_permissions_blocked!(error)

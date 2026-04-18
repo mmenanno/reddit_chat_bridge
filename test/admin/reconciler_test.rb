@@ -170,5 +170,60 @@ module Admin
 
       assert(result[:renamed])
     end
+
+    # ---- archive / unarchive ----
+
+    test "archive! deletes the Discord channel and flags the room archived" do
+      room = Room.create!(
+        matrix_room_id: ROOM_ID,
+        discord_channel_id: CHANNEL_ID,
+        discord_webhook_id: "wh",
+        discord_webhook_token: "tok",
+      )
+      @discord_client.expects(:delete_channel).with(channel_id: CHANNEL_ID).returns(:ok)
+
+      assert_equal(:archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
+
+      refute_predicate(room.reload, :discord_channel_id)
+      assert_predicate(room, :archived?)
+    end
+
+    test "archive! tolerates a channel that Discord already forgot" do
+      Room.create!(matrix_room_id: ROOM_ID, discord_channel_id: CHANNEL_ID)
+      @discord_client.stubs(:delete_channel).raises(Discord::NotFound, "Unknown Channel")
+
+      assert_equal(:archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
+    end
+
+    test "archive! short-circuits when the room is already archived" do
+      Room.create!(matrix_room_id: ROOM_ID, archived_at: 1.day.ago)
+      @discord_client.expects(:delete_channel).never
+
+      assert_equal(:already_archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
+    end
+
+    test "unarchive! clears the archived flag without pulling history by default" do
+      room = Room.create!(matrix_room_id: ROOM_ID, archived_at: 1.day.ago)
+      @matrix_client.expects(:room_messages).never
+      @poster.expects(:call).never
+
+      result = @reconciler.unarchive!(matrix_room_id: ROOM_ID)
+
+      refute_predicate(room.reload, :archived?)
+      assert_equal({ posted_attempted: 0 }, result)
+    end
+
+    test "unarchive! with backfill:true pulls recent messages through the poster" do
+      Room.create!(matrix_room_id: ROOM_ID, archived_at: 1.day.ago)
+      @matrix_client.expects(:room_messages)
+        .with(room_id: ROOM_ID, dir: "b", limit: 50)
+        .returns("chunk" => [{ "type" => "m.room.message", "event_id" => "$e" }], "state" => [])
+      @normalizer.expects(:normalize).returns([:fake_event])
+      @poster.expects(:call).with([:fake_event])
+
+      result = @reconciler.unarchive!(matrix_room_id: ROOM_ID, backfill: true)
+
+      assert_equal(1, result[:posted_attempted])
+    end
   end
 end

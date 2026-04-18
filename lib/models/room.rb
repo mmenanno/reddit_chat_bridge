@@ -51,4 +51,25 @@ class Room < ApplicationRecord
   def advance_event!(event_id)
     update!(last_event_id: event_id)
   end
+
+  def archived?
+    archived_at.present?
+  end
+
+  # Archive: mark and drop the cached Discord identifiers. The Poster
+  # treats this as a trigger to create a fresh channel the next time a
+  # message arrives — or the operator can explicitly unarchive with a
+  # backfill via the UI.
+  def archive!
+    update!(
+      archived_at: Time.current,
+      discord_channel_id: nil,
+      discord_webhook_id: nil,
+      discord_webhook_token: nil,
+    )
+  end
+
+  def unarchive!
+    update!(archived_at: nil)
+  end
 end

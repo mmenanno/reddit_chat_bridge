@@ -54,6 +54,32 @@ module Admin
       { renamed: renamed, posted_attempted: posted }
     end
 
+    # Archive: delete the Discord channel (if any) and mark the room archived.
+    # Room metadata is kept so the slug survives for the eventual unarchive.
+    # NotFound on delete is benign — the channel was already gone on Discord's
+    # side, so the local archive flag is the only thing left to flip.
+    def archive!(matrix_room_id:)
+      room = Room.find_by(matrix_room_id: matrix_room_id)
+      raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
+      return :already_archived if room.archived?
+
+      delete_discord_channel!(room)
+      room.archive!
+      :archived
+    end
+
+    # Unarchive with an optional full-history backfill. Without backfill,
+    # the room is just un-flagged — the next inbound message creates a
+    # fresh channel via the normal Poster path.
+    def unarchive!(matrix_room_id:, backfill: false, history_limit: DEFAULT_HISTORY_LIMIT)
+      room = Room.find_by(matrix_room_id: matrix_room_id)
+      raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
+
+      room.unarchive!
+      posted = backfill ? backfill_history(room, limit: history_limit) : 0
+      { posted_attempted: posted }
+    end
+
     private
 
     # Returns :renamed or :skipped — the tally keys used by `reconcile_all`.
@@ -77,6 +103,15 @@ module Admin
     rescue Discord::NotFound
       room.update!(discord_channel_id: nil)
       @channel_index.ensure_channel(room: room)
+    end
+
+    def delete_discord_channel!(room)
+      return unless room.discord_channel_id
+
+      @discord_client.delete_channel(channel_id: room.discord_channel_id)
+    rescue Discord::NotFound
+      # Already gone on Discord's side; nothing to undo.
+      nil
     end
 
     def fetch_profile_username(matrix_id)

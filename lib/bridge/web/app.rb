@@ -403,6 +403,48 @@ module Bridge
         erb(:rooms)
       end
 
+      post "/rooms/:id/archive" do
+        room = Room.find_by(id: params[:id])
+
+        if room.nil?
+          @error = "Room not found."
+        else
+          begin
+            result = admin_actions.archive_room!(matrix_room_id: room.matrix_room_id)
+            @notice = result == :already_archived ? "Room was already archived." : "Archived #{room.counterparty_username || room.matrix_room_id} — Discord channel deleted."
+          rescue Admin::Actions::NotConfiguredError => e
+            @error = e.message
+          rescue Matrix::Error, Discord::Error => e
+            @error = "Archive failed: #{e.class}: #{e.message}"
+          end
+        end
+
+        @rooms = Room.order(:counterparty_username).to_a
+        erb(:rooms)
+      end
+
+      post "/rooms/:id/unarchive" do
+        room = Room.find_by(id: params[:id])
+        backfill = params["backfill"] == "1"
+
+        if room.nil?
+          @error = "Room not found."
+        else
+          begin
+            result = admin_actions.unarchive_room!(matrix_room_id: room.matrix_room_id, backfill: backfill)
+            label = backfill ? "restored with #{result[:posted_attempted]} event(s) replayed" : "unarchived — channel will recreate on next message"
+            @notice = "#{room.counterparty_username || room.matrix_room_id} #{label}."
+          rescue Admin::Actions::NotConfiguredError => e
+            @error = e.message
+          rescue Matrix::Error, Discord::Error => e
+            @error = "Unarchive failed: #{e.class}: #{e.message}"
+          end
+        end
+
+        @rooms = Room.order(:counterparty_username).to_a
+        erb(:rooms)
+      end
+
       get "/actions" do
         erb(:actions)
       end
