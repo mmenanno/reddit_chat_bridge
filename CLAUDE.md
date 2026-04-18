@@ -128,12 +128,12 @@ lib/
     └── web/app.rb             # Sinatra::Base subclass with all routes
 ```
 
-## Database schema (migrations 0001–0015)
+## Database schema (migrations 0001–0016)
 
 - `app_configs` (key, value) — /settings fields + session_secret + `discord_permissions_blocked_at` + `own_display_name` + `own_avatar_url` + `reddit_session_warned_expires_at`
 - `auth_state` (singleton) — access_token, user_id, paused flag, reddit_cookie_jar (encrypted), reddit_session_expires_at
 - `sync_checkpoints` (singleton) — next_batch_token, last_batch_at
-- `rooms` — matrix_room_id (unique), discord_channel_id, discord_webhook_id + token, counterparty_matrix_id, counterparty_username, counterparty_avatar_url + _checked_at, last_event_id, archived_at, terminated_at, last_activity_at, is_direct
+- `rooms` — matrix_room_id (unique), discord_channel_id, discord_webhook_id + token, counterparty_matrix_id, counterparty_username, counterparty_avatar_url + _checked_at, counterparty_deleted_at, last_event_id, archived_at, terminated_at, last_activity_at, is_direct
 - `admin_users` — username (unique), password_digest (bcrypt)
 - `posted_events` — event_id (unique), room_id, posted_at
 - `event_log_entries` — level, source, message, context (json), created_at (ring-buffer capped at 2000)

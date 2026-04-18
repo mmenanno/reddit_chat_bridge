@@ -58,6 +58,48 @@ class RoomTest < ActiveSupport::TestCase
     assert_predicate(room, :is_direct?)
   end
 
+  test "ensure_counterparty! with the Reddit [deleted] sentinel flags the room as deleted" do
+    room = Room.create!(matrix_room_id: MATRIX_ROOM_ID, counterparty_matrix_id: "@t2_peer:reddit.com", counterparty_username: "RealName")
+
+    room.ensure_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "[deleted]")
+
+    assert_predicate(room.reload, :counterparty_deleted?)
+  end
+
+  test "ensure_counterparty! with [deleted] preserves the last known username instead of overwriting it" do
+    room = Room.create!(matrix_room_id: MATRIX_ROOM_ID, counterparty_matrix_id: "@t2_peer:reddit.com", counterparty_username: "RealName")
+
+    changes = room.ensure_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "[deleted]")
+
+    assert_equal("RealName", room.reload.counterparty_username)
+    refute(changes.key?(:counterparty_username))
+  end
+
+  test "ensure_counterparty! with [deleted] twice in a row doesn't churn the deletion timestamp" do
+    room = Room.create!(matrix_room_id: MATRIX_ROOM_ID, counterparty_matrix_id: "@t2_peer:reddit.com")
+    room.ensure_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "[deleted]")
+    first_stamp = room.reload.counterparty_deleted_at
+
+    changes = room.ensure_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "[deleted]")
+
+    refute(changes.key?(:counterparty_deleted_at))
+    assert_equal(first_stamp, room.reload.counterparty_deleted_at)
+  end
+
+  test "ensure_counterparty! with a real name after [deleted] clears the deleted flag" do
+    room = Room.create!(
+      matrix_room_id: MATRIX_ROOM_ID,
+      counterparty_matrix_id: "@t2_peer:reddit.com",
+      counterparty_username: "OldName",
+      counterparty_deleted_at: 1.day.ago,
+    )
+
+    room.ensure_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "NewName")
+
+    refute_predicate(room.reload, :counterparty_deleted?)
+    assert_equal("NewName", room.counterparty_username)
+  end
+
   test "archive! clears PostedEvent rows so Restore history can replay into the recreated channel" do
     room = Room.create!(matrix_room_id: MATRIX_ROOM_ID, discord_channel_id: "123")
     PostedEvent.record!(event_id: "$a", room_id: MATRIX_ROOM_ID)

@@ -34,6 +34,12 @@
     <div class="min-w-0 flex-1">
       <h1 class="page-title">
         <em><%= display_name %></em>
+        <% if @room.counterparty_deleted? %>
+          <span class="deleted-marker deleted-marker--heading" title="Reddit account deleted">
+            <span class="deleted-marker__dot" aria-hidden="true"></span>
+            deleted
+          </span>
+        <% end %>
       </h1>
       <p class="mt-2 font-mono text-xs text-[color:var(--color-bone-mute)] break-all">
         <%= @room.matrix_room_id %>

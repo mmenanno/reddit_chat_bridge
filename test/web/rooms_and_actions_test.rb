@@ -45,6 +45,36 @@ module Bridge
         assert_match(/!one:reddit\.com/, last_response.body)
       end
 
+      test "GET /rooms shows the preserved username + deleted marker for rooms flagged as deleted" do
+        Room.create!(
+          matrix_room_id: "!one:reddit.com",
+          counterparty_matrix_id: "@t2_goner:reddit.com",
+          counterparty_username: "Relative-Bee-4118",
+          counterparty_deleted_at: Time.current,
+        )
+
+        get "/rooms"
+
+        assert_match(/Relative-Bee-4118/, last_response.body)
+        assert_match(/deleted-marker/, last_response.body)
+      end
+
+      test "GET /rooms falls back to the matrix_id localpart when a deleted room has no preserved username" do
+        Room.create!(
+          matrix_room_id: "!one:reddit.com",
+          counterparty_matrix_id: "@t2_24t6x7wqhl:reddit.com",
+          counterparty_deleted_at: Time.current,
+        )
+
+        get "/rooms"
+
+        # Legacy rows where the buggy "[deleted]" overwrite wiped the real
+        # name — the UI now shows the Reddit localpart (t2_24t6x7wqhl)
+        # instead of a bare "unresolved" placeholder.
+        assert_match(/t2_24t6x7wqhl/, last_response.body)
+        assert_match(/deleted-marker/, last_response.body)
+      end
+
       test "GET /rooms marks rooms without a discord channel as 'not created'" do
         Room.create!(
           matrix_room_id: "!one:reddit.com",

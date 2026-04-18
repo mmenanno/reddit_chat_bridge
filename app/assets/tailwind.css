@@ -598,6 +598,56 @@
     font-variation-settings: "opsz" 72, "wght" 400;
   }
 
+  /* Inline "this Reddit account was deleted" marker. Visually echoes the
+   * status-pill vocabulary (mono small-caps, bordered pill) but shrunk
+   * to sit beside a name or a heading. Not a button — purely a read-only
+   * indicator. Pairs a quiet red dot with a lowercase-on-uppercase label
+   * for instant legibility without shouting. */
+  .deleted-marker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.5rem 0.15rem 0.4rem;
+    border: 1px solid color-mix(in oklab, var(--color-rust) 45%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--color-rust) 12%, transparent);
+    color: var(--color-rust);
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    line-height: 1;
+    vertical-align: middle;
+    white-space: nowrap;
+    cursor: default;
+    user-select: none;
+  }
+
+  .deleted-marker__dot {
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 999px;
+    background: var(--color-rust);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-rust) 22%, transparent);
+    flex-shrink: 0;
+  }
+
+  /* Slightly larger footprint for page-title contexts (transcript header) so
+   * the pill reads at the same optical weight as the serif display type. */
+  .deleted-marker--heading {
+    padding: 0.25rem 0.65rem 0.25rem 0.55rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    gap: 0.45rem;
+    vertical-align: 0.22em;
+  }
+
+  .deleted-marker--heading .deleted-marker__dot {
+    width: 0.42rem;
+    height: 0.42rem;
+  }
+
   /* The whole name + arrow is one click target that leads to the transcript
    * view. At rest the arrow sits low-contrast next to the name; on hover
    * both the name and the arrow turn ember and the arrow slides right,

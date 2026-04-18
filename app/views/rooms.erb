@@ -43,9 +43,17 @@
               <% if room.counterparty_username %>
                 <h2 class="room-card__name"><%= room.counterparty_username %></h2>
               <% elsif room.counterparty_matrix_id %>
-                <h2 class="room-card__name room-card__name--placeholder">unresolved</h2>
+                <h2 class="room-card__name room-card__name--placeholder">
+                  <%= Matrix::Id.localpart(room.counterparty_matrix_id) %>
+                </h2>
               <% else %>
                 <h2 class="room-card__name room-card__name--placeholder">unknown</h2>
+              <% end %>
+              <% if room.counterparty_deleted? %>
+                <span class="deleted-marker" title="Reddit account deleted">
+                  <span class="deleted-marker__dot" aria-hidden="true"></span>
+                  deleted
+                </span>
               <% end %>
               <span class="room-card__name-arrow" aria-hidden="true">→</span>
               <span class="sr-only">Open transcript</span>
@@ -114,7 +122,7 @@
                         class="btn-chip btn-chip--primary"
                         title="Unarchive, recreate the channel, and replay recent history into it.">
                   <span class="btn-chip__glyph" aria-hidden="true">⟲</span>
-                  Restore history
+                  Replay
                 </button>
               </form>
               <form method="post" action="/rooms/<%= room.id %>/unarchive">

@@ -12,6 +12,12 @@
 class Room < ApplicationRecord
   self.table_name = "rooms"
 
+  # Reddit's Matrix server swaps a deleted user's displayname to this literal
+  # string. Treat it as a deletion signal rather than a new username — both
+  # so we preserve the last real name for the UI, and so the Discord channel
+  # slug + PostedEvent dedup don't all drift to "dm-deleted".
+  DELETED_USERNAME_SENTINEL = "[deleted]"
+
   validates(:matrix_room_id, presence: true, uniqueness: true)
 
   class << self
@@ -24,12 +30,26 @@ class Room < ApplicationRecord
   # counterparty. Matrix_id alone is better than nothing (at least the channel
   # slug is stable); username arrives later via profile fetch or member state
   # and overrides.
+  #
+  # A "[deleted]" username is Reddit's deletion marker — flip the deleted flag
+  # and preserve the last known real username rather than overwriting it.
   def ensure_counterparty!(matrix_id:, username: nil)
     changes = {}
     changes[:counterparty_matrix_id] = matrix_id if counterparty_matrix_id != matrix_id
-    changes[:counterparty_username] = username if username.present? && counterparty_username != username
+
+    if username == DELETED_USERNAME_SENTINEL
+      changes[:counterparty_deleted_at] = Time.current unless counterparty_deleted_at
+    elsif username.present?
+      changes[:counterparty_username] = username if counterparty_username != username
+      changes[:counterparty_deleted_at] = nil if counterparty_deleted_at
+    end
+
     update!(changes) if changes.any?
     changes
+  end
+
+  def counterparty_deleted?
+    counterparty_deleted_at.present?
   end
 
   def attach_discord_channel!(channel_id)
