@@ -2,6 +2,7 @@
 
 require "auth/refresh_flow"
 require "admin/reconciler"
+require "discord/client"
 
 module Admin
   # Single home for every admin operation. Web controllers and Discord slash
@@ -120,6 +121,26 @@ module Admin
     def restore_chat!(matrix_room_id:)
       require_reconciler!
       @reconciler.restore_chat!(matrix_room_id: matrix_room_id)
+    end
+
+    # Probes the Discord side end-to-end by posting a visible hello line
+    # to #app-status. Useful after changing the bot token or channel
+    # IDs on /settings — skips the "wait for the next sync tick to see
+    # if it worked" loop. Raises NotConfiguredError when Discord config
+    # isn't populated yet, and Discord::Error for any other API failure.
+    def test_discord!
+      token = AppConfig.fetch("discord_bot_token", "").to_s
+      raise(NotConfiguredError, "discord_bot_token is blank — set it on /settings first.") if token.empty?
+
+      channel_id = AppConfig.fetch("discord_admin_status_channel_id", "").to_s
+      raise(NotConfiguredError, "discord_admin_status_channel_id is blank — set it on /settings first.") if channel_id.empty?
+
+      client = Discord::Client.new(bot_token: token)
+      message_id = client.send_message(
+        channel_id: channel_id,
+        content: "✅ Connection probe from reddit_chat_bridge · #{Time.current.utc.iso8601}",
+      )
+      { channel_id: channel_id, message_id: message_id }
     end
 
     # Accept the Matrix invite so the next /sync carries the room's

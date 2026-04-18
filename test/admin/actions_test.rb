@@ -327,6 +327,32 @@ module Admin
       end
     end
 
+    # ---- test_discord! ----
+
+    test "test_discord! posts a probe to #app-status and returns channel/message ids" do
+      AppConfig.set("discord_bot_token", "bot_secret")
+      AppConfig.set("discord_admin_status_channel_id", "555")
+      Discord::Client.any_instance.expects(:send_message).with do |kwargs|
+        kwargs[:channel_id] == "555" && kwargs[:content].start_with?("✅ Connection probe from reddit_chat_bridge")
+      end.returns("msg_9")
+
+      assert_equal({ channel_id: "555", message_id: "msg_9" }, @actions.test_discord!)
+    end
+
+    test "test_discord! raises NotConfiguredError when the bot token is missing" do
+      AppConfig.set("discord_bot_token", "")
+      AppConfig.set("discord_admin_status_channel_id", "555")
+
+      assert_raises(Admin::Actions::NotConfiguredError) { @actions.test_discord! }
+    end
+
+    test "test_discord! raises NotConfiguredError when the status channel id is missing" do
+      AppConfig.set("discord_bot_token", "bot_secret")
+      AppConfig.set("discord_admin_status_channel_id", "")
+
+      assert_raises(Admin::Actions::NotConfiguredError) { @actions.test_discord! }
+    end
+
     # ---- message requests ----
 
     test "approve_message_request! joins the Matrix room and marks the request approved" do

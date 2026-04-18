@@ -586,6 +586,18 @@ module Bridge
         erb(:actions)
       end
 
+      post "/actions/test_discord" do
+        begin
+          admin_actions.test_discord!
+          @notice = "Posted a probe message to #app-status. If you see it, Discord config is good."
+        rescue Admin::Actions::NotConfiguredError => e
+          @error = e.message
+        rescue Discord::Error => e
+          @error = "Discord probe failed: #{e.class}: #{e.message}"
+        end
+        erb(:actions)
+      end
+
       post "/actions/rebuild_all" do
         begin
           stats = admin_actions.rebuild_all!

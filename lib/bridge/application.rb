@@ -121,6 +121,7 @@ module Bridge
       end
       # rubocop:enable ThreadSafety/NewThread
       start_gateway_thread_if_configured
+      announce_online
       @supervisor_thread
     end
 
@@ -269,6 +270,20 @@ module Bridge
         client: @discord_client,
         channel_id: AppConfig.fetch("discord_message_requests_channel_id", ""),
         fallback_channel_id: AppConfig.fetch("discord_admin_status_channel_id", ""),
+      )
+    end
+
+    # One-shot "the bridge is alive" notice the moment start! returns.
+    # Goes through the journal so it shows up both in the in-app event
+    # log and #app-logs on Discord. Fired once per process because
+    # start_if_configured! is mutex-guarded against re-entry.
+    def announce_online
+      homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+      user_id = AuthState.user_id.to_s.presence || "(no token yet)"
+      gateway_status = @gateway_thread&.alive? ? "websocket up" : "websocket disabled"
+      @journal&.info(
+        "reddit_chat_bridge online · matrix=#{homeserver} · user=#{user_id} · #{gateway_status}",
+        source: "application",
       )
     end
 

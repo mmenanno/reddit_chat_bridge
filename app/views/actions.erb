@@ -85,6 +85,22 @@
       <button type="submit" class="btn btn-outline">Reconcile now</button>
     </form>
   </div>
+
+  <div class="console-card p-6 flex flex-col gap-4">
+    <div>
+      <p class="kicker">Test Discord</p>
+      <h2 class="section-title mt-2">Probe the bot connection</h2>
+    </div>
+    <p class="text-sm text-[color:var(--color-bone-dim)]">
+      Posts a one-line probe to
+      <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">#app-status</code>
+      using the current bot token + channel ID. Use after changing either on <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">settings</a>
+      to verify the new config actually works without waiting for the next sync tick.
+    </p>
+    <form method="post" action="/actions/test_discord" class="mt-auto">
+      <button type="submit" class="btn btn-outline">Send probe</button>
+    </form>
+  </div>
 </section>
 
 <section class="console-card p-6 rise rise-delay-3">
@@ -118,6 +134,7 @@
       <code class="<%= code %>">/resync</code>,
       <code class="<%= code %>">/reconcile</code>,
       <code class="<%= code %>">/rebuild</code>,
+      <code class="<%= code %>">/test_discord</code>,
       <code class="<%= code %>">/refresh_token</code>,
       <code class="<%= code %>">/ping</code>.
     </li>

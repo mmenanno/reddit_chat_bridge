@@ -82,6 +82,13 @@ module Discord
       "✅ Rebuild: #{stats[:rebuilt]} room(s) refreshed (#{stats[:rebuild_errors]} errors)."
     end
 
+    # Probe Discord end-to-end by posting a visible hello to #app-status.
+    # Same as the Send probe button on /actions.
+    def test_discord_handler(_payload)
+      @admin_actions.test_discord!
+      "✅ Probe posted to #app-status. If you see it there, the bot config is working."
+    end
+
     # Invoked from inside a `#dm-*` channel — payload.channel_id is the
     # Discord channel tied to a Room, so we can resolve it without
     # asking the operator to type an argument. Ends the chat (leaves
@@ -164,6 +171,7 @@ module Discord
       { name: "refresh_token", description: "Mint a fresh Matrix JWT from the stored Reddit cookies" },
       { name: "ping",          description: "Health check - replies pong" },
       { name: "rebuild",       description: "Refresh every room - rename + replay recent history (non-destructive)" },
+      { name: "test_discord",  description: "Probe Discord by posting a hello line to #app-status" },
       { name: "refresh",       description: "Refresh this chat - rename + replay recent history (inside a #dm-* channel)" },
       { name: "archive",       description: "Archive this chat - channel deleted; auto-recreates on next message (inside #dm-*)" },
       { name: "endchat",       description: "Hide this chat - delete channel and drop future events (inside a #dm-* channel)" },
@@ -177,6 +185,7 @@ module Discord
       "refresh_token" => ->(r, p) { r.refresh_token_handler(p) },
       "ping" => ->(r, p) { r.ping_handler(p) },
       "rebuild" => ->(r, p) { r.rebuild_handler(p) },
+      "test_discord" => ->(r, p) { r.test_discord_handler(p) },
       "refresh" => ->(r, p) { r.refresh_handler(p) },
       "archive" => ->(r, p) { r.archive_handler(p) },
       "endchat" => ->(r, p) { r.endchat_handler(p) },

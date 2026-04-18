@@ -108,6 +108,16 @@ module Discord
       assert_match(/no bridged room matches/i, response[:data][:content])
     end
 
+    # ---- /test_discord (global) ----
+
+    test "runs /test_discord via Admin::Actions and reports success" do
+      @actions.expects(:test_discord!).returns(channel_id: "555", message_id: "m")
+
+      response = @router.dispatch(interaction(name: "test_discord"))
+
+      assert_match(/Probe posted/, response[:data][:content])
+    end
+
     # ---- /rebuild (global) ----
 
     test "runs /rebuild globally via Admin::Actions and reports the counts" do
