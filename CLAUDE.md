@@ -1,16 +1,21 @@
 # reddit_chat_bridge — Project Context for Claude Code
 
-Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process hosted on Unraid (Unraid). Built slice-by-slice via TDD; the current state is a functional Phase 1 with auto-refresh. Phase 2 (Discord → Reddit outbound) is not built yet.
+Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process hosted on Unraid (Unraid). Built slice-by-slice via TDD.
 
 ## Current state (April 2026)
 
 **Phase 0 — spike:** ✅ complete. Proved Ruby 4.0.2 gem compatibility, Matrix `/sync` + `PUT /rooms/.../send` both work with a bearer JWT, and (in a later spike) that Reddit re-mints JWTs on demand when you GET `/chat/` without the `token_v2` cookie. See `docs/phase-0-spike.md` and `docs/token-refresh-spike.md`.
 
-**Phase 1 — outbound + auto-refresh:** ✅ built and in production on Unraid. Receives Reddit chat events, posts to per-conversation Discord channels, refreshes the Matrix token automatically from stored Reddit session cookies.
+**Phase 1 — outbound (Reddit → Discord):** ✅ built and in production. Receives Reddit chat events, posts to per-conversation Discord channels via channel-owned webhooks (so each bubble looks like it came from the real Reddit user), refreshes the Matrix token automatically from stored Reddit session cookies, falls back to Reddit's public `/about.json` snoovatar when chat state has no avatar.
 
-**Phase 2 — inbound (Discord → Reddit):** ⛔ not started. Plan has the design; no code yet.
+**Phase 2 — inbound (Discord → Reddit):** ✅ built. `OutboundDispatcher` relays operator messages from `#dm-*` channels to Reddit via `PUT /rooms/.../send`, registers the event id in `SentRegistry` so `/sync` echoes don't double-post, and replaces the original Discord-typed bubble with a webhook repost under the operator's Reddit identity so the channel reads uniformly.
 
-**Phase 3 — polish (archival, media, edit/redaction sync):** ⛔ explicitly deferred.
+**Phase 2.5 — chat lifecycle:** ✅ built.
+- **Message requests:** strangers land in a pending `MessageRequest`; `#message-requests` channel surfaces each with Approve/Decline buttons. Approve joins the Matrix room; Decline leaves it (this works for invite-state rooms) and future DMs from the same user land as a fresh request.
+- **Archive:** delete the Discord channel, keep the Matrix link, auto-unarchive on next message.
+- **End chat (hide):** delete the channel, mark Room terminated, filter every future event for that matrix_room_id. Reddit's Matrix server refuses `/leave` on DM rooms (same limit their own "Hide chat" button has to live with), so this is a local-hide semantic with a Restore counterpart.
+
+**Phase 3 — polish:** partial. Media URLs resolve (images auto-embed). Edit/redaction sync, voice, E2E encryption — still out of scope forever.
 
 ## Non-negotiable decisions
 
@@ -73,45 +78,67 @@ The `.env` file is gitignored and holds real secrets. `.env.example` documents t
 
 ```
 lib/
-├── models/                    # ActiveRecord models
+├── models/
 │   ├── application_record.rb
 │   ├── app_config.rb          # key/value store backing /settings
 │   ├── auth_state.rb          # singleton: token, reddit cookie jar, paused state
 │   ├── sync_checkpoint.rb     # singleton: Matrix next_batch token
-│   ├── room.rb                # per-conversation: matrix_room_id ↔ discord_channel_id
-│   ├── posted_event.rb        # idempotency cache: event_id → posted_at
+│   ├── room.rb                # matrix_room_id ↔ discord_channel_id + webhook + archived_at + terminated_at + last_activity_at + counterparty_avatar_*
+│   ├── posted_event.rb        # idempotency cache; cleared on archive / channel recreate
+│   ├── event_log_entry.rb     # journal tail surfaced at /events
+│   ├── outbound_message.rb    # SentRegistry store: Discord msg id → Matrix event id
+│   ├── message_request.rb     # pending Reddit invite awaiting Approve/Decline
 │   └── admin_user.rb          # web-UI login, bcrypt passwords
 ├── matrix/
-│   ├── client.rb              # Faraday; whoami, sync, send_message, profile
-│   ├── event_normalizer.rb    # /sync body → NormalizedEvent value objects
-│   └── sync_loop.rb           # one-shot /sync round-trip w/ checkpoint advance
+│   ├── client.rb              # Faraday; whoami/sync/send_message/join_room/leave_room/profile/room_messages
+│   ├── event_normalizer.rb    # /sync body → NormalizedEvent value objects (with sender_avatar_url)
+│   ├── media_resolver.rb      # mxc:// → https:// download URL for auto-embed
+│   ├── sync_loop.rb           # /sync round-trip; hands invites to InviteHandler, dispatch to Poster
+│   └── invite_handler.rb      # rooms.invite → MessageRequest + notifier ping
 ├── discord/
-│   ├── client.rb              # Faraday; create_channel, send_message, rename_channel
-│   ├── channel_index.rb       # room → discord_channel_id, auto-creates
-│   ├── poster.rb              # NormalizedEvent → Discord post (the dispatcher)
-│   ├── admin_notifier.rb      # #app-status alerts
+│   ├── client.rb              # Faraday; channels, messages, webhooks, reorder, interactions, delete_message
+│   ├── channel_index.rb       # room → discord_channel_id + discord_webhook_id/token, auto-creates both
+│   ├── channel_reorderer.rb   # bulk PATCH /guilds/:id/channels — sorts #dm-* most-recent-first
+│   ├── poster.rb              # Inbound dispatcher: NormalizedEvent → webhook post under Reddit identity
+│   ├── outbound_dispatcher.rb # MESSAGE_CREATE → Matrix relay → delete original → webhook persona rewrite
+│   ├── gateway.rb             # Websocket (IDENTIFY/HEARTBEAT/DISPATCH/INTERACTION_CREATE)
+│   ├── slash_command_router.rb    # /status /resync /reconcile /rebuild /refresh_token /ping /test_discord
+│   │                              #  + per-#dm-*: /refresh /archive /endchat /room
+│   ├── message_component_router.rb# button clicks (mr:approve:<id> / mr:decline:<id>)
+│   ├── message_request_notifier.rb# posts embed + Approve/Decline buttons to #message-requests
+│   ├── interaction_verifier.rb    # Ed25519 sig check for HTTP-delivered interactions
+│   ├── admin_notifier.rb      # #app-status critical alerts
 │   └── logger.rb              # #app-logs operational lines
+├── reddit/
+│   └── profile_client.rb      # /user/<name>/about.json → snoovatar URL (avatar fallback)
 ├── auth/
-│   └── refresh_flow.rb        # /chat/ mint + Matrix /login registration
+│   └── refresh_flow.rb        # /chat/ JWT mint + Matrix /login registration
 ├── admin/
-│   └── actions.rb             # reauth / resync / set_reddit_cookies! / refresh_matrix_token!
+│   ├── actions.rb             # single home for admin ops (web + slash commands both call into it)
+│   └── reconciler.rb          # channel renames, backfill, archive/unarchive, end/restore, delete_all
+├── dedup/
+│   └── sent_registry.rb       # thin facade over OutboundMessage.posted_event?
 ├── retry/
 │   └── backoff.rb             # exponential-backoff helper
 └── bridge/
     ├── boot.rb                # AR connection + migrations
-    ├── application.rb         # process-wide singleton wiring the graph
-    ├── supervisor.rb          # runs SyncLoop#iterate forever + refresh tick
+    ├── application.rb         # process-wide singleton wiring the graph + announce_online
+    ├── journal.rb             # facade: writes EventLogEntry + forwards to admin_notifier/logger
+    ├── supervisor.rb          # SyncLoop#iterate forever + refresh tick + T-7 cookie warning + prune
     └── web/app.rb             # Sinatra::Base subclass with all routes
 ```
 
-## Database schema (migrations 0001–0007)
+## Database schema (migrations 0001–0015)
 
-- `app_configs` (key, value) — /settings fields + session_secret
-- `auth_state` (singleton row) — access_token + user_id + paused + reddit_cookie_jar (encrypted) + reddit_session_expires_at
-- `sync_checkpoints` (singleton row) — next_batch_token + last_batch_at
-- `rooms` — matrix_room_id (unique), discord_channel_id, counterparty_matrix_id, counterparty_username, last_event_id
+- `app_configs` (key, value) — /settings fields + session_secret + `discord_permissions_blocked_at` + `own_display_name` + `own_avatar_url` + `reddit_session_warned_expires_at`
+- `auth_state` (singleton) — access_token, user_id, paused flag, reddit_cookie_jar (encrypted), reddit_session_expires_at
+- `sync_checkpoints` (singleton) — next_batch_token, last_batch_at
+- `rooms` — matrix_room_id (unique), discord_channel_id, discord_webhook_id + token, counterparty_matrix_id, counterparty_username, counterparty_avatar_url + _checked_at, last_event_id, archived_at, terminated_at, last_activity_at, is_direct
 - `admin_users` — username (unique), password_digest (bcrypt)
-- `posted_events` — event_id (unique), room_id, posted_at (for idempotent Discord posting)
+- `posted_events` — event_id (unique), room_id, posted_at
+- `event_log_entries` — level, source, message, context (json), created_at (ring-buffer capped at 2000)
+- `outbound_messages` — txn_id, discord_message_id, matrix_room_id, matrix_event_id, status, last_error
+- `message_requests` — matrix_room_id (unique), inviter_matrix_id, inviter_username, inviter_avatar_url, preview_body, discord_message_id/channel_id, resolved_at, decision
 
 ## Non-obvious Reddit/Matrix quirks discovered
 
@@ -124,23 +151,42 @@ lib/
 - **Lazy-loaded member state:** on resume `/sync` requests, Matrix only ships `m.room.member` for users appearing in the timeline batch. For rooms where the first event we see is from us, the counterparty's member state might be absent. `Discord::Poster` falls back to `Matrix::Client#profile(user_id:)`.
 - **Matrix room versions are `org.matrix.msc3929`** — custom Reddit MSC. No impact today; noted for future debugging.
 - **Reddit chat is NOT end-to-end encrypted.** Plain `/sync` returns plaintext events. No Olm/Megolm work required.
+- **Reddit's Matrix server refuses `/leave` on DM rooms** (`M_FORBIDDEN: You cannot leave this room`). Their own UI only offers "Hide chat" for the same reason. `Reconciler#end_chat!` best-efforts `/leave`, swallows the failure, and falls back to local termination (filter future events for that matrix_room_id at the Poster + InviteHandler).
+- **Matrix `/leave` DOES work on invite-state rooms** — `MessageRequest`'s Decline path uses it successfully because the room is `rooms.invite`, not `rooms.join`.
+- **Reddit's chat avatar may be missing even when a snoovatar exists.** `Reddit::ProfileClient` fetches `/user/<name>/about.json` and prefers `snoovatar_img`, falling back to `icon_img` only when it's not the `avatar_default_*.png` placeholder.
 
 ## Discord API quirks
 
 - **Content cap is 2000 chars.** `Discord::Poster` truncates and appends `…[truncated]`.
-- **HTTP 400 ("Invalid Form Body") is not retryable.** `Discord::BadRequest` is caught in Poster, the event is marked posted (via `PostedEvent`), logged to `#app-logs`, and we skip forward. Otherwise the checkpoint never advances and the same bad event loops forever.
+- **HTTP 400 ("Invalid Form Body") is not retryable.** `Discord::BadRequest` is caught in Poster, the event is marked posted (via `PostedEvent`), logged to `#app-logs`, and we skip forward.
+- **Slash command description length cap is 100 chars.** Exceeding any one blows up the bulk-register call with `Invalid Form Body`. Keep `COMMAND_DEFINITIONS` descriptions ≤~95 chars; em-dashes occasionally trip certain locales, so prefer ASCII hyphens in command descriptions defensively.
 - **Rate limits:** Discord returns 429 with `retry_after` (seconds, as a float). `Discord::RateLimited` carries `retry_after_ms`. Poster respects it and retries up to 3 times.
-- **Channel deletion recovery:** Poster catches `Discord::NotFound` on post, clears the stale `room.discord_channel_id`, and calls `ensure_channel` again to create a new channel. Idempotent.
-- **Channel rename:** when `counterparty_username` resolves after the channel was created (e.g. first event lacked member state), Poster renames the Discord channel via `Discord::Client#rename_channel`.
+- **Channel deletion recovery:** Poster catches `Discord::NotFound`, clears the stale webhook first (then channel if that also 404s), re-ensures, and retries. Idempotent.
+- **Channel rename:** when `counterparty_username` resolves after the channel was created (e.g. first event lacked member state), Poster renames via `Discord::Client#rename_channel`. If rename returns 404 (manual delete), Reconciler's `rename_or_recreate!` clears PostedEvent for the room before recreating — otherwise backfill silently skips every event as "already posted."
+- **Permissions needed on the bot role:**
+  - `Manage Channels` — create/delete `#dm-*` channels
+  - `Manage Webhooks` — create webhooks per channel for the persona rewrites
+  - `Manage Messages` — delete the operator's Discord-typed bubble after outbound persona rewrite
+  - `Send Messages`, `Embed Links`, `Attach Files`, `Read Message History`, `Use Slash Commands` — baseline
+  When any are missing, Poster catches `Discord::AuthError`, sets `AppConfig["discord_permissions_blocked_at"]` (dashboard banner), records event as posted to avoid flood, warns once per batch.
+- **Webhook-per-channel architecture:** every inbound message posts through the room's cached webhook so bubbles show the sender's Reddit display name + snoovatar, not the bot. Outbound dispatches also use the webhook to replace the operator's Discord bubble with their Reddit identity. Own-message username gets a `📤` suffix so it's visually distinct from the native Discord user if they're both in the channel.
+- **Bulk channel reorder:** `PATCH /guilds/:id/channels` with `[{id, position}, ...]` — `Discord::ChannelReorderer` uses this to sort `#dm-*` most-recent-first on every material post. One call per sync batch, not per event.
+- **Long-lived pages + `mix-blend-mode: overlay` + SVG `feTurbulence` on `position: fixed` full-viewport element** make Safari reclaim the tab for memory. The grain overlay in `tailwind.css` uses a pre-rasterized tile (`app/assets/grain.png`) without blend mode to avoid this.
 
 ## Architecture touchpoints
 
-- `lib/bridge/application.rb` — wires threads + Puma + signal handlers. Read this first when making structural changes.
-- `lib/admin/actions.rb` — single home for admin operations. Web controllers and (future) Discord slash commands both call into it.
-- `lib/matrix/sync_loop.rb` — the long-poll /sync loop. Advances the checkpoint only after successful dispatch.
-- `lib/bridge/supervisor.rb` — wraps SyncLoop with retry, token-expiry checks (refresh when <1h remains), and paused-state handling.
-- `lib/discord/poster.rb` — all the defensive logic (truncation, idempotency, rate-limit retry, channel recovery, rename on username resolution). Expect more quirks to accumulate here.
+- `lib/bridge/application.rb` — wires threads (supervisor + gateway) + Puma + builds the service graph. `announce_online` emits a startup journal entry once per process. Read this first when making structural changes.
+- `lib/admin/actions.rb` — single home for admin operations. Web controllers AND Discord slash commands both call into it. Never duplicate admin logic between entry points.
+- `lib/admin/reconciler.rb` — per-room + bulk operations: rename, backfill, archive/unarchive, end_chat!/restore, delete_all_discord_channels!.
+- `lib/matrix/sync_loop.rb` — the long-poll `/sync` loop. Advances the checkpoint only after successful dispatch. Hands invites to `InviteHandler` before handing timeline to the Poster.
+- `lib/bridge/supervisor.rb` — wraps SyncLoop with retry, token-expiry auto-refresh (<1h left), T-7 cookie warning, hourly `PostedEvent.prune!`.
+- `lib/bridge/journal.rb` — calls to it write a row to `event_log_entries` AND forward to `admin_notifier`/`logger`. Always prefer `@journal.info/warn/error/critical` over direct notifier calls.
+- `lib/discord/poster.rb` — all the defensive logic: truncation, idempotency, rate-limit retry, webhook + channel 404 recovery, rename on username resolution, persona webhook with Reddit identity, auto-unarchive, terminated-room filter, AuthError → permissions-blocked flag + skip-to-avoid-flood, ChannelReorderer trigger at batch end.
+- `lib/discord/outbound_dispatcher.rb` — Discord → Matrix relay. Records in SentRegistry so `/sync` echoes don't double-post. Reposts under the operator's Reddit persona (Matrix /profile → AppConfig cache → Reddit snoovatar → matrix_id localpart). Deletes the operator's original Discord bubble after the webhook repost.
+- `lib/discord/channel_reorderer.rb` — sorts `#dm-*` most-recent-first via bulk reorder. Triggered from Poster (batch end) + OutboundDispatcher (per dispatch).
+- `lib/discord/slash_command_router.rb` — global + per-#dm-* slash commands. `UNRESTRICTED_CHANNEL_COMMANDS` allow-list routes `/refresh /archive /endchat /room` past the `#commands`-only gate.
 - `lib/auth/refresh_flow.rb` — mints a fresh JWT via `/chat/` + registers it with Matrix via `/login`. Both steps are required.
+- `app/views/layout.erb` — themed confirm dialog (all destructive forms use `data-confirm` attributes instead of `window.confirm`). Shift+R / Shift+C go through the same dialog via hidden forms.
 
 ## Style
 
@@ -198,7 +244,8 @@ lib/
 
 ## What's next (open items)
 
-- Warning alert at T-7 days before `reddit_session` expiry (the supervisor has `AuthState.reddit_session_expiring_soon?` — just needs a scheduled check that fires `admin_notifier.warn`). Not wired yet.
-- Phase 2: Discord → Reddit outbound. Design in `docs/plan.md`.
-- Discord slash commands (`/reauth`, `/resync`, etc.) — placeholders exist in the Discord server layout (`#commands` channel) but no handler code yet.
-- Retroactive cleanup: existing channels named with opaque room_id slugs will self-heal on next message (Poster renames them), but operator can also delete them manually; 404-recovery creates replacements with correct names.
+Most of the original plan's open items are done. Remaining:
+
+- **Phase 3 polish** — Reddit → Discord edit / redaction sync (if an operator edits or deletes on Reddit, we don't propagate).
+- **Reddit cookie auto-rotation** — supervisor warns at T-7 days before `reddit_session` JWT expires, but the operator still has to paste a fresh cookie jar manually. An automated refresh path from a long-lived credential (if Reddit exposes one) would close this loop.
+- **4-step setup wizard** — the plan originally spec'd a 4-step wizard (admin → Discord → Matrix → confirmation). We shipped step 1 + send the operator to `/settings` and `/auth`. Works; not a true wizard.
