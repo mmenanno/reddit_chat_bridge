@@ -67,10 +67,37 @@ module Bridge
 
       # ---- GET /rooms/:id transcript ----
 
-      test "GET /rooms/:id returns 404 when the room is unknown" do
+      test "GET /rooms/:id returns a themed 404 page when the room is unknown" do
         get "/rooms/9999"
 
+        # The themed 404 view carries the "Stray thread" kicker and echoes
+        # the bad id back — confirms we're rendering :not_found, not Sinatra's
+        # plain-text fallback, and that the /rooms/:id-specific reason wins
+        # over the generic one.
         assert_equal(404, last_response.status)
+        assert_match(%r{§404 / Stray thread.*id "9999"}m, last_response.body)
+      end
+
+      test "unknown routes render the themed 404 page instead of Sinatra's plaintext" do
+        get "/not-a-real-path"
+
+        assert_equal(404, last_response.status)
+        assert_match(%r{§404 / Stray thread.*/not-a-real-path}m, last_response.body)
+      end
+
+      test "unhandled exceptions render the themed 500 page instead of Puma's plaintext" do
+        # Tests default to raise_errors=true (tests want real exceptions
+        # surfaced by rack-test). Flip it off for this one test so the
+        # `error do` handler actually runs, then restore.
+        App.set(:raise_errors, false)
+        Room.stubs(:order).raises(StandardError, "synthetic boom")
+
+        get("/rooms")
+
+        assert_equal(500, last_response.status)
+        assert_match(%r{§500 / Snapped wire.*synthetic boom}m, last_response.body)
+      ensure
+        App.set(:raise_errors, true)
       end
 
       test "GET /rooms/:id shows the auth-paused banner without hitting Matrix when the token is missing" do

@@ -39,8 +39,12 @@ module Bridge
       configure do
         set :views, VIEWS_ROOT
         set :public_folder, PUBLIC_ROOT
+        # show_exceptions = false → no Sinatra dev error page.
+        # raise_errors   = false → exceptions don't propagate past Sinatra;
+        # the `error do` handler below catches them and renders the themed
+        # 500 view instead of Puma's plain-text fallback.
         set :show_exceptions, false
-        set :raise_errors, true
+        set :raise_errors, false
         enable :sessions
         set :session_secret, (
           ENV["SESSION_SECRET"] ||
@@ -54,6 +58,9 @@ module Bridge
         # Host mismatch, etc.). Production keeps the middleware on; tests
         # exercise the app directly.
         disable :protection
+        # Tests want real exceptions surfaced so failures pinpoint the
+        # offending assertion instead of a generic 500 page.
+        set :raise_errors, true
       end
 
       helpers do
@@ -496,7 +503,14 @@ module Bridge
       # surfaces an auth banner instead of a stale snapshot.
       get "/rooms/:id" do
         @room = Room.find_by(id: params[:id])
-        halt(404, "Room not found") unless @room
+        unless @room
+          # Ivars get picked up by the `not_found` handler below, which
+          # renders :not_found in the page's usual layout + chapter index.
+          @not_found_reason =
+            "No bridged room has id #{params[:id].inspect}. It may have been " \
+            "removed via a full resync, or the id in the URL is a typo."
+          halt 404
+        end
 
         @from_token = params[:from].presence
         @events = []
@@ -809,6 +823,35 @@ module Bridge
       end
 
       BOOT_AT = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      # Themed 404. Sinatra runs this block for any 404 response — both
+      # unknown routes and explicit `halt(404, …)` calls — so the ivars
+      # use `||=` to let in-route handlers (e.g. /rooms/:id) supply a more
+      # specific reason + attempted_path without this block overwriting
+      # them.
+      not_found do
+        @attempted_path ||= request.path_info
+        @not_found_reason ||=
+          "Nothing in this console answers to that path. It may have been " \
+          "renamed, or the link that brought you here is stale."
+        erb(:not_found)
+      end
+
+      # Themed 500. With raise_errors=false any unhandled exception lands
+      # here; the real error is in `sinatra.error` so we can surface the
+      # class + message + a truncated backtrace on the page. Best-effort
+      # logs the failure to the journal so #app-logs gets a breadcrumb.
+      error do
+        @server_error = env["sinatra.error"]
+        @attempted_path = request.path_info
+        Bridge::Application.instance&.journal&.error(
+          "web error on #{request.request_method} #{request.path_info} — " \
+          "#{@server_error&.class}: #{@server_error&.message}",
+          source: "web",
+        )
+        status 500
+        erb(:server_error)
+      end
     end
   end
 end

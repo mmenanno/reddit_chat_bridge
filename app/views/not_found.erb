@@ -1,0 +1,45 @@
+<%
+  attempted = (defined?(@attempted_path) && @attempted_path) || request&.path_info || ""
+  reason = (defined?(@not_found_reason) && @not_found_reason) ||
+           "Nothing in this console answers to that path."
+  suggestions = defined?(@not_found_links) && @not_found_links ? @not_found_links : [
+    ["/",         "Dashboard",  "live sync status + quick nav"],
+    ["/rooms",    "Rooms",      "every bridged conversation"],
+    ["/requests", "Requests",   "pending message-request approvals"],
+    ["/events",   "Events",     "operational log — warns, errors, milestones"],
+    ["/actions",  "Actions",    "resync, reconcile, full rebuild"],
+  ]
+%>
+<section class="rise">
+  <p class="kicker">§404 / Stray thread</p>
+  <h1 class="page-title mt-3">
+    <span>Nothing</span>
+    <em>here.</em>
+  </h1>
+  <p class="mt-5 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    <%= reason %>
+  </p>
+  <p class="mt-4 font-mono text-xs text-[color:var(--color-bone-mute)] break-all">
+    <span class="text-[color:var(--color-bone-dim)]">request ·</span>
+    <%= request&.request_method || "GET" %>
+    <span class="text-[color:var(--color-ember)]"><%= attempted %></span>
+  </p>
+</section>
+
+<nav class="chapter-index mt-8 rise rise-delay-1" aria-label="Recover">
+  <div class="chapter-index__header">
+    <p class="kicker">Try one of these</p>
+    <span class="chapter-index__header-hint">back on track</span>
+  </div>
+  <% suggestions.each do |href, title, hint| %>
+    <a href="<%= href %>" class="chapter-link">
+      <span class="chapter-link__number">→</span>
+      <span class="chapter-link__body">
+        <span class="chapter-link__title"><%= title %></span>
+        <span class="chapter-link__hint"><%= hint %></span>
+      </span>
+      <span class="chapter-link__route"><%= href %></span>
+      <span class="chapter-link__arrow" aria-hidden="true">→</span>
+    </a>
+  <% end %>
+</nav>
