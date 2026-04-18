@@ -1,6 +1,7 @@
 <% matrix_fields  = @fields.select { |f| f[:key].start_with?("matrix_") } %>
 <% bot_fields     = @fields.select { |f| ["discord_bot_token", "discord_guild_id"].include?(f[:key]) } %>
 <% channel_fields = @fields.select { |f| f[:key].end_with?("category_id", "channel_id") } %>
+<% slash_fields   = @fields.select { |f| ["discord_application_id", "discord_public_key", "discord_operator_user_ids"].include?(f[:key]) } %>
 
 <section class="rise">
   <p class="kicker">§05 / Settings</p>
@@ -83,6 +84,36 @@
     </header>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
       <% channel_fields.each do |field| %>
+        <div class="field">
+          <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
+          <input
+            id="<%= field[:key] %>"
+            type="<%= field[:secret] ? "password" : "text" %>"
+            name="<%= field[:key] %>"
+            value="<%= field[:value] %>"
+            autocomplete="off"
+            spellcheck="false"
+            class="field-input">
+          <span class="field-hint"><%= field[:hint] %></span>
+        </div>
+      <% end %>
+    </div>
+  </section>
+
+  <section class="console-card p-6 rise rise-delay-3">
+    <header class="mb-5">
+      <p class="kicker">Discord · slash commands &amp; outbound</p>
+      <h2 class="section-title mt-1">Interactions endpoint + operator allow-list</h2>
+      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
+        Needed for <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/status</code>,
+        <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/resync</code>,
+        <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/reconcile</code> in
+        <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">#commands</code>,
+        and for relaying Discord messages back to Reddit.
+      </p>
+    </header>
+    <div class="grid grid-cols-1 gap-5">
+      <% slash_fields.each do |field| %>
         <div class="field">
           <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
           <input
