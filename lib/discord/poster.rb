@@ -107,8 +107,10 @@ module Discord
     end
 
     # Keeps the Room's counterparty metadata current, fetches the peer's
-    # Matrix profile when needed, and renames the Discord channel if the
-    # slug would change as a result.
+    # Matrix profile when needed, and syncs the Discord channel's slug +
+    # topic if either would change as a result. The topic carries direct
+    # Reddit profile + chat URLs so it needs to re-push on a deletion flip
+    # even when the slug stays put.
     def refresh_counterparty_and_channel!(room, event)
       return if event.own? || event.system?
       return if event.sender.blank?
@@ -116,15 +118,21 @@ module Discord
       username = event.sender_username.presence || fetch_username_from_matrix(event.sender)
 
       old_slug = @channel_index.channel_name_for(room)
+      old_topic = @channel_index.topic_for(room)
       changes = room.ensure_counterparty!(matrix_id: event.sender, username: username)
 
-      # If the name changed and a channel already exists, rename it to match.
-      return unless changes[:counterparty_username] && room.discord_channel_id
+      return unless room.discord_channel_id
+      return unless changes[:counterparty_username] || changes.key?(:counterparty_deleted_at)
 
       new_slug = @channel_index.channel_name_for(room)
-      return if new_slug == old_slug
+      new_topic = @channel_index.topic_for(room)
+      return if new_slug == old_slug && new_topic == old_topic
 
-      rename_channel!(room.discord_channel_id, new_slug)
+      sync_channel_metadata!(
+        channel_id: room.discord_channel_id,
+        name: new_slug == old_slug ? nil : new_slug,
+        topic: new_topic == old_topic ? nil : new_topic,
+      )
     end
 
     def fetch_username_from_matrix(user_id)
@@ -137,10 +145,12 @@ module Discord
       nil
     end
 
-    def rename_channel!(channel_id, new_name)
-      @client.rename_channel(channel_id: channel_id, name: new_name)
+    def sync_channel_metadata!(channel_id:, name:, topic:)
+      @client.update_channel(channel_id: channel_id, name: name, topic: topic)
     rescue Discord::Error => e
-      @logger&.warn("channel rename #{channel_id} → #{new_name} failed: #{e.message}")
+      @logger&.warn(
+        "channel metadata update #{channel_id} (name=#{name.inspect} topic=#{topic && "(set)"}) failed: #{e.message}",
+      )
     end
 
     # Webhook delivery with two distinct recovery paths:

@@ -11,6 +11,7 @@ module Discord
   class ChannelIndex
     CHANNEL_PREFIX = "dm-"
     CHANNEL_NAME_MAX = 90 # leaves headroom under Discord's 100-char limit
+    CHANNEL_TOPIC_MAX = 1024 # Discord's documented topic cap
     WEBHOOK_NAME = "Reddit Chat Bridge"
 
     def initialize(client:, guild_id:, category_id:)
@@ -27,6 +28,7 @@ module Discord
         guild_id: @guild_id,
         name: name,
         parent_id: @category_id,
+        topic: topic_for(room),
       )
       room.attach_discord_channel!(channel_id)
       channel_id
@@ -62,6 +64,26 @@ module Discord
     def channel_name_for(room)
       slug = slug_source(room)
       "#{CHANNEL_PREFIX}#{sanitize(slug)}"[0, CHANNEL_NAME_MAX]
+    end
+
+    # Channel topic surfacing the direct Reddit links — helpful because
+    # the Discord channel is the operator's primary view of the chat, and
+    # a click-through to the original profile / conversation sidesteps
+    # our own transcript UI entirely. Returns nil while the counterparty
+    # username is still unresolved; Poster/Reconciler will backfill the
+    # topic via `update_channel` once the name lands.
+    def topic_for(room)
+      username = room.counterparty_username.to_s
+      return if username.empty?
+
+      lines = ["Reddit DM with u/#{username}"]
+      lines << if room.counterparty_deleted?
+        "Reddit account deleted"
+      else
+        "Profile: https://www.reddit.com/user/#{username}"
+      end
+      lines << "Chat: https://chat.reddit.com/user/#{username}"
+      lines.join("\n")[0, CHANNEL_TOPIC_MAX]
     end
 
     def slug_source(room)

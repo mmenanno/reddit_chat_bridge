@@ -30,11 +30,7 @@ module Discord
         matrix_room_id: "!r:reddit.com",
         counterparty_username: "nothnnn",
       )
-      @client.expects(:create_channel).with(
-        guild_id: GUILD,
-        name: "dm-nothnnn",
-        parent_id: CATEGORY,
-      ).returns("444")
+      @client.expects(:create_channel).with(has_entries(guild_id: GUILD, name: "dm-nothnnn", parent_id: CATEGORY)).returns("444")
 
       assert_equal("444", @index.ensure_channel(room: room))
     end
@@ -56,11 +52,7 @@ module Discord
         matrix_room_id: "!r:reddit.com",
         counterparty_username: "RonanWolfe",
       )
-      @client.expects(:create_channel).with(
-        guild_id: GUILD,
-        name: "dm-ronanwolfe",
-        parent_id: CATEGORY,
-      ).returns("444")
+      @client.expects(:create_channel).with(has_entries(guild_id: GUILD, name: "dm-ronanwolfe", parent_id: CATEGORY)).returns("444")
 
       @index.ensure_channel(room: room)
     end
@@ -70,11 +62,7 @@ module Discord
         matrix_room_id: "!r:reddit.com",
         counterparty_username: "weird name!!",
       )
-      @client.expects(:create_channel).with(
-        guild_id: GUILD,
-        name: "dm-weird-name",
-        parent_id: CATEGORY,
-      ).returns("444")
+      @client.expects(:create_channel).with(has_entries(guild_id: GUILD, name: "dm-weird-name", parent_id: CATEGORY)).returns("444")
 
       @index.ensure_channel(room: room)
     end
@@ -85,22 +73,14 @@ module Discord
         counterparty_matrix_id: "@t2_peer:reddit.com",
         counterparty_username: nil,
       )
-      @client.expects(:create_channel).with(
-        guild_id: GUILD,
-        name: "dm-t2-peer",
-        parent_id: CATEGORY,
-      ).returns("444")
+      @client.expects(:create_channel).with(has_entries(guild_id: GUILD, name: "dm-t2-peer", parent_id: CATEGORY)).returns("444")
 
       @index.ensure_channel(room: room)
     end
 
     test "falls back to a room-derived name when no counterparty info exists yet" do
       room = Room.create!(matrix_room_id: "!room_abc:reddit.com")
-      @client.expects(:create_channel).with(
-        guild_id: GUILD,
-        name: "dm-room-abc",
-        parent_id: CATEGORY,
-      ).returns("444")
+      @client.expects(:create_channel).with(has_entries(guild_id: GUILD, name: "dm-room-abc", parent_id: CATEGORY)).returns("444")
 
       @index.ensure_channel(room: room)
     end
@@ -153,6 +133,38 @@ module Discord
 
       assert_equal("999", room.reload.discord_channel_id)
       assert_equal("wh_2", room.discord_webhook_id)
+    end
+
+    test "seeds the channel topic with Reddit profile + chat URLs when username is known" do
+      room = Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "testuser")
+      @client.expects(:create_channel).with(has_entries(
+        topic: "Reddit DM with u/testuser\n" \
+               "Profile: https://www.reddit.com/user/testuser\n" \
+               "Chat: https://chat.reddit.com/user/testuser",
+      )).returns("444")
+
+      @index.ensure_channel(room: room)
+    end
+
+    test "passes a nil topic when the counterparty username hasn't resolved yet" do
+      room = Room.create!(matrix_room_id: "!r:reddit.com", counterparty_matrix_id: "@t2_p:reddit.com")
+      @client.expects(:create_channel).with(has_entries(topic: nil)).returns("444")
+
+      @index.ensure_channel(room: room)
+    end
+
+    test "topic_for replaces the profile link with a deleted-account note once the flag is set" do
+      room = Room.create!(
+        matrix_room_id: "!r:reddit.com",
+        counterparty_username: "testuser",
+        counterparty_deleted_at: Time.current,
+      )
+
+      topic = @index.topic_for(room)
+
+      assert_match(/Reddit account deleted/, topic)
+      refute_match(%r{Profile: https://www\.reddit\.com/user/testuser}, topic)
+      assert_match(%r{Chat: https://chat\.reddit\.com/user/testuser}, topic)
     end
 
     test "clears the stale discord_channel_id when Discord 404s on webhook creation" do

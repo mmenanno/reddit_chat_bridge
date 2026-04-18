@@ -543,7 +543,7 @@ module Discord
         discord_channel_id: "chan_123",
       )
       @client.expects(:execute_webhook).at_least_once.returns("m")
-      @client.expects(:rename_channel).with(channel_id: "chan_123", name: "dm-nothnnn").returns(:ok)
+      @client.expects(:update_channel).with(has_entries(channel_id: "chan_123", name: "dm-nothnnn")).returns(:ok)
 
       @poster.call([event(body: "hi", sender_username: "nothnnn")])
 

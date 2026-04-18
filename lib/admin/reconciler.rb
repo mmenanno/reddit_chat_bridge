@@ -177,8 +177,10 @@ module Admin
       username = fetch_profile_username(room.counterparty_matrix_id)
       room.ensure_counterparty!(matrix_id: room.counterparty_matrix_id, username: username)
 
-      new_slug = @channel_index.channel_name_for(room.reload)
-      rename_or_recreate!(room, new_slug)
+      fresh = room.reload
+      new_slug = @channel_index.channel_name_for(fresh)
+      new_topic = @channel_index.topic_for(fresh)
+      rename_or_recreate!(fresh, new_slug, new_topic)
       :renamed
     end
 
@@ -186,10 +188,10 @@ module Admin
     # operator. Clear the stale id, forget the dedup cache for this room
     # (old posted-events pointed at a channel that no longer exists —
     # keeping them makes backfills skip every event), then let ChannelIndex
-    # create a fresh channel. Name is already current so no follow-up
-    # rename is needed.
-    def rename_or_recreate!(room, new_slug)
-      @discord_client.rename_channel(channel_id: room.discord_channel_id, name: new_slug)
+    # create a fresh channel. Name + topic are both included so the topic
+    # links stay fresh without a follow-up PATCH.
+    def rename_or_recreate!(room, new_slug, new_topic)
+      @discord_client.update_channel(channel_id: room.discord_channel_id, name: new_slug, topic: new_topic)
     rescue Discord::NotFound
       room.update!(discord_channel_id: nil)
       room.forget_posted_events!

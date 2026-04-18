@@ -14,6 +14,11 @@ module Admin
       @matrix_client = mock("MatrixClient")
       @discord_client = mock("DiscordClient")
       @channel_index = mock("ChannelIndex")
+      # Most reconcile tests only care about the slug; topic_for is exercised
+      # separately in channel_index_test. Default to nil here so update_channel
+      # receives `topic: nil` and per-test `with(has_entries(...))` matchers
+      # can ignore the key.
+      @channel_index.stubs(:topic_for).returns(nil)
       @poster = mock("Poster")
       @normalizer = mock("Normalizer")
       @reconciler = Admin::Reconciler.new(
@@ -37,7 +42,7 @@ module Admin
       )
       @matrix_client.expects(:profile).with(user_id: PEER).returns("displayname" => "newname")
       @channel_index.expects(:channel_name_for).returns("dm-newname")
-      @discord_client.expects(:rename_channel).with(channel_id: CHANNEL_ID, name: "dm-newname")
+      @discord_client.expects(:update_channel).with(has_entries(channel_id: CHANNEL_ID, name: "dm-newname"))
 
       stats = @reconciler.reconcile_all
 
@@ -70,7 +75,7 @@ module Admin
       @matrix_client.expects(:profile).with(user_id: PEER).raises(Matrix::Error, "boom")
       @matrix_client.expects(:profile).with(user_id: other_peer).returns("displayname" => "good")
       @channel_index.expects(:channel_name_for).at_least_once.returns("dm-good")
-      @discord_client.expects(:rename_channel).with(channel_id: "666", name: "dm-good")
+      @discord_client.expects(:update_channel).with(has_entries(channel_id: "666", name: "dm-good"))
 
       stats = @reconciler.reconcile_all
 
@@ -86,7 +91,7 @@ module Admin
       )
       @matrix_client.expects(:profile).with(user_id: PEER).returns(nil)
       @channel_index.expects(:channel_name_for).returns("dm-existing")
-      @discord_client.expects(:rename_channel).with(channel_id: CHANNEL_ID, name: "dm-existing")
+      @discord_client.expects(:update_channel).with(has_entries(channel_id: CHANNEL_ID, name: "dm-existing"))
 
       stats = @reconciler.reconcile_all
 
@@ -104,7 +109,7 @@ module Admin
       )
       @matrix_client.expects(:profile).with(user_id: PEER).returns("displayname" => "nothnnn")
       @channel_index.expects(:channel_name_for).returns("dm-nothnnn")
-      @discord_client.expects(:rename_channel).with(channel_id: CHANNEL_ID, name: "dm-nothnnn")
+      @discord_client.expects(:update_channel).with(has_entries(channel_id: CHANNEL_ID, name: "dm-nothnnn"))
 
       messages_body = {
         "chunk" => [
@@ -141,8 +146,8 @@ module Admin
       )
       @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
       @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
-      @discord_client.expects(:rename_channel)
-        .with(channel_id: CHANNEL_ID, name: "dm-nothnnn")
+      @discord_client.expects(:update_channel)
+        .with(has_entries(channel_id: CHANNEL_ID, name: "dm-nothnnn"))
         .raises(Discord::NotFound, "Unknown Channel")
       @channel_index.expects(:ensure_channel).with { |args| args[:room].discord_channel_id.nil? }.returns("999")
 
@@ -162,7 +167,7 @@ module Admin
       end.returns("new_chan")
       @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
       @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
-      @discord_client.expects(:rename_channel).at_least_once
+      @discord_client.expects(:update_channel).at_least_once
       @matrix_client.expects(:room_messages).returns("chunk" => [], "state" => [])
       @normalizer.expects(:normalize).returns([])
       @poster.expects(:call)
@@ -177,7 +182,7 @@ module Admin
       PostedEvent.record!(event_id: "$old", room_id: ROOM_ID)
       @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
       @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
-      @discord_client.expects(:rename_channel).raises(Discord::NotFound, "Unknown Channel")
+      @discord_client.expects(:update_channel).raises(Discord::NotFound, "Unknown Channel")
       @channel_index.expects(:ensure_channel).returns("fresh")
       @matrix_client.expects(:room_messages).returns("chunk" => [], "state" => [])
       @normalizer.expects(:normalize).returns([])
@@ -197,7 +202,7 @@ module Admin
       )
       @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
       @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
-      @discord_client.expects(:rename_channel).raises(Discord::NotFound, "Unknown Channel")
+      @discord_client.expects(:update_channel).raises(Discord::NotFound, "Unknown Channel")
       @channel_index.expects(:ensure_channel).returns("999")
       @matrix_client.expects(:room_messages).returns("chunk" => [], "state" => [])
       @normalizer.expects(:normalize).returns([])

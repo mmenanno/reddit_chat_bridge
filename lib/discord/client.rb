@@ -38,9 +38,10 @@ module Discord
       @conn = conn || build_connection
     end
 
-    def create_channel(guild_id:, name:, parent_id: nil)
+    def create_channel(guild_id:, name:, parent_id: nil, topic: nil)
       payload = { name: name, type: CHANNEL_TYPE_TEXT }
       payload[:parent_id] = parent_id if parent_id
+      payload[:topic] = topic if topic
 
       post("guilds/#{guild_id}/channels", payload: payload).body.fetch("id")
     end
@@ -83,13 +84,25 @@ module Discord
       :ok
     end
 
-    def rename_channel(channel_id:, name:)
+    # Single PATCH that can carry any combination of name / topic — Discord
+    # accepts them together in one request so callers that need to rename
+    # + retopicalize don't burn a second rate-limit slot.
+    def update_channel(channel_id:, name: nil, topic: nil)
+      body = {}
+      body[:name] = name unless name.nil?
+      body[:topic] = topic unless topic.nil?
+      return :ok if body.empty?
+
       response = @conn.patch("channels/#{channel_id}") do |req|
         req.headers["Authorization"] = "Bot #{@bot_token}"
-        req.body = { name: name }
+        req.body = body
       end
       handle(response)
       :ok
+    end
+
+    def rename_channel(channel_id:, name:)
+      update_channel(channel_id: channel_id, name: name)
     end
 
     def delete_channel(channel_id:)
