@@ -381,6 +381,13 @@ module Bridge
         erb(:events)
       end
 
+      post "/events/clear" do
+        deleted = EventLogEntry.clear_all!
+        @entries = []
+        @notice = "Cleared #{deleted} log entr#{deleted == 1 ? "y" : "ies"}."
+        erb(:events)
+      end
+
       post "/rooms/:id/refresh" do
         room = Room.find_by(id: params[:id])
 

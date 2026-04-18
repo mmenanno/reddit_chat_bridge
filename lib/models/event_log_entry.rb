@@ -47,6 +47,12 @@ class EventLogEntry < ApplicationRecord
       where(arel_table[:created_at].lt(cutoff)).delete_all
     end
 
+    # Full wipe for the /events "Clear log" button. Returns the row count
+    # that was deleted so the UI can surface a concrete confirmation.
+    def clear_all!
+      delete_all
+    end
+
     private
 
     def serialize_context(context)

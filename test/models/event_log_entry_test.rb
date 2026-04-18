@@ -48,4 +48,12 @@ class EventLogEntryTest < ActiveSupport::TestCase
 
     assert_operator(EventLogEntry.count, :<=, stub_const)
   end
+
+  test "clear_all! wipes the table and returns the row count" do
+    EventLogEntry.record!(level: :info, message: "a")
+    EventLogEntry.record!(level: :warn, message: "b")
+
+    assert_equal(2, EventLogEntry.clear_all!)
+    assert_equal(0, EventLogEntry.count)
+  end
 end
