@@ -74,6 +74,14 @@ module Discord
       "🏓 pong"
     end
 
+    # Non-destructive refresh of every room. Same pass the per-card
+    # Refresh button does, applied in one sweep — useful after fixing a
+    # Discord permissions problem or just to catch up quietly.
+    def rebuild_handler(_payload)
+      stats = @admin_actions.rebuild_all!
+      "✅ Rebuild: #{stats[:rebuilt]} room(s) refreshed (#{stats[:rebuild_errors]} errors)."
+    end
+
     # Invoked from inside a `#dm-*` channel — payload.channel_id is the
     # Discord channel tied to a Room, so we can resolve it without
     # asking the operator to type an argument. Ends the chat (leaves
@@ -103,6 +111,42 @@ module Discord
       end
     end
 
+    # Refresh the current `#dm-*` room: re-fetch profile, rename channel
+    # if needed, replay recent history. Mirrors the per-card Refresh
+    # button on /rooms.
+    def refresh_handler(payload)
+      per_channel_room(payload) do |room|
+        display = room.counterparty_username || room.matrix_room_id
+        result = @admin_actions.refresh_room!(matrix_room_id: room.matrix_room_id)
+        rename_note = result[:renamed] ? "renamed" : "unchanged"
+        "✅ Refreshed **#{display}** — channel #{rename_note}, #{result[:posted_attempted]} event(s) re-examined."
+      end
+    end
+
+    # Dump the current `#dm-*` room's details ephemerally — useful for
+    # debugging when something looks off and you don't want to open the
+    # web UI.
+    def room_handler(payload)
+      per_channel_room(payload) do |room|
+        lines = ["**Room ##{room.id} · #{room.counterparty_username || "unresolved"}**"]
+        lines << "• Matrix ID: `#{room.matrix_room_id}`"
+        lines << "• Counterparty: `#{room.counterparty_matrix_id || "unknown"}`"
+        lines << "• Discord channel: `#{room.discord_channel_id || "—"}`"
+        lines << "• Webhook: #{room.discord_webhook_id ? "cached" : "not yet created"}"
+        lines << "• Last event: `#{room.last_event_id || "—"}`"
+        lines << "• State: #{room_state_label(room)}"
+        lines.join("\n")
+      end
+    end
+
+    def room_state_label(room)
+      return "terminated (hidden)" if room.terminated?
+      return "archived" if room.archived?
+      return "pending (no channel yet)" if room.discord_channel_id.nil?
+
+      "linked"
+    end
+
     def unknown_command(_router, payload)
       "❓ Unknown command `#{payload.dig("data", "name")}`"
     end
@@ -115,8 +159,11 @@ module Discord
       { name: "reconcile",     description: "Sweep every room and rename channels to current usernames" },
       { name: "refresh_token", description: "Mint a fresh Matrix JWT from the stored Reddit cookies" },
       { name: "ping",          description: "Health check — replies pong" },
-      { name: "endchat",       description: "Hide this chat — delete the channel and drop future events (run inside the #dm-* channel)" },
+      { name: "rebuild",       description: "Refresh every room — rename + replay recent history (non-destructive)" },
+      { name: "refresh",       description: "Refresh this chat — rename + replay recent history (run inside the #dm-* channel)" },
       { name: "archive",       description: "Archive this chat — delete the channel but auto-recreate on next message (run inside the #dm-* channel)" },
+      { name: "endchat",       description: "Hide this chat — delete the channel and drop future events (run inside the #dm-* channel)" },
+      { name: "room",          description: "Show diagnostic info for this chat (run inside the #dm-* channel)" },
     ].freeze
 
     COMMANDS = {
@@ -125,14 +172,17 @@ module Discord
       "reconcile" => ->(r, p) { r.reconcile_handler(p) },
       "refresh_token" => ->(r, p) { r.refresh_token_handler(p) },
       "ping" => ->(r, p) { r.ping_handler(p) },
-      "endchat" => ->(r, p) { r.endchat_handler(p) },
+      "rebuild" => ->(r, p) { r.rebuild_handler(p) },
+      "refresh" => ->(r, p) { r.refresh_handler(p) },
       "archive" => ->(r, p) { r.archive_handler(p) },
+      "endchat" => ->(r, p) { r.endchat_handler(p) },
+      "room" => ->(r, p) { r.room_handler(p) },
     }.freeze
 
     # Commands that are meant to be invoked from a `#dm-*` channel rather
     # than from #commands — they derive their target from the current
     # channel_id, so forcing them into #commands would defeat the point.
-    UNRESTRICTED_CHANNEL_COMMANDS = ["endchat", "archive"].freeze
+    UNRESTRICTED_CHANNEL_COMMANDS = ["endchat", "archive", "refresh", "room"].freeze
 
     private
 

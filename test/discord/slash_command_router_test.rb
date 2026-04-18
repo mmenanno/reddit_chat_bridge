@@ -108,6 +108,77 @@ module Discord
       assert_match(/no bridged room matches/i, response[:data][:content])
     end
 
+    # ---- /rebuild (global) ----
+
+    test "runs /rebuild globally via Admin::Actions and reports the counts" do
+      @actions.expects(:rebuild_all!).returns(rebuilt: 3, rebuild_errors: 1)
+
+      response = @router.dispatch(interaction(name: "rebuild"))
+
+      assert_match(/3 room\(s\) refreshed.*1 errors/, response[:data][:content])
+    end
+
+    # ---- /refresh (per-room, runs in the target #dm-* channel) ----
+
+    test "runs /refresh from inside a #dm-* channel and delegates to Admin::Actions" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "testuser", discord_channel_id: "dm_555")
+      @actions.expects(:refresh_room!).with(matrix_room_id: "!r:reddit.com").returns(renamed: true, posted_attempted: 12)
+
+      response = @router.dispatch(interaction(name: "refresh", channel: "dm_555"))
+
+      assert_match(/Refreshed \*\*testuser\*\*.*channel renamed.*12 event/, response[:data][:content])
+    end
+
+    test "reports 'unchanged' when /refresh didn't need to rename" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "peer", discord_channel_id: "dm_555")
+      @actions.expects(:refresh_room!).returns(renamed: false, posted_attempted: 0)
+
+      response = @router.dispatch(interaction(name: "refresh", channel: "dm_555"))
+
+      assert_match(/channel unchanged/, response[:data][:content])
+    end
+
+    test "runs /refresh outside #commands (per-room override)" do
+      Room.create!(matrix_room_id: "!r:reddit.com", discord_channel_id: "dm_elsewhere")
+      @actions.expects(:refresh_room!).returns(renamed: false, posted_attempted: 0)
+
+      response = @router.dispatch(interaction(name: "refresh", channel: "dm_elsewhere"))
+
+      refute_match(/must be run in the configured/i, response[:data][:content])
+    end
+
+    # ---- /room (per-room diagnostic) ----
+
+    test "/room dumps current room details for the channel it was invoked in" do
+      Room.create!(
+        matrix_room_id: "!r:reddit.com",
+        counterparty_username: "testuser",
+        counterparty_matrix_id: "@t2_testuser:reddit.com",
+        discord_channel_id: "dm_555",
+        discord_webhook_id: "wh_1",
+        discord_webhook_token: "tok_1",
+        last_event_id: "$abc",
+      )
+
+      body = @router.dispatch(interaction(name: "room", channel: "dm_555"))[:data][:content]
+
+      assert_match(/testuser.*!r:reddit\.com.*@t2_testuser:reddit\.com.*cached.*State:\s*linked/m, body)
+    end
+
+    test "/room labels archived rooms clearly" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "peer", discord_channel_id: "dm_555", archived_at: 1.day.ago)
+
+      response = @router.dispatch(interaction(name: "room", channel: "dm_555"))
+
+      assert_match(/State:\s*archived/, response[:data][:content])
+    end
+
+    test "/room errors politely when fired in a non-bridged channel" do
+      response = @router.dispatch(interaction(name: "room", channel: "some_random_channel"))
+
+      assert_match(/no bridged room matches/i, response[:data][:content])
+    end
+
     # ---- /archive (per-room command, runs in the target #dm-* channel) ----
 
     test "runs /archive from inside a #dm-* channel and delegates to Admin::Actions" do
