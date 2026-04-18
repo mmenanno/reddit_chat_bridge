@@ -81,5 +81,59 @@ module Bridge
 
       assert_nothing_raised { supervisor.one_tick }
     end
+
+    # ---- cookie expiry warning ----
+
+    test "warns exactly once when reddit_session enters the 7-day window" do
+      AppConfig.set("session_secret", "t" * 64)
+      AuthState.current.update_columns(reddit_session_expires_at: 3.days.from_now)
+      notifier = mock("notifier")
+      notifier.expects(:warn).with(regexp_matches(/expires/)).once
+      supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, admin_notifier: notifier)
+
+      supervisor.one_tick
+      supervisor.one_tick # second tick must not re-warn
+    end
+
+    test "re-warns when the expiry changes (cookie rotated)" do
+      AppConfig.set("session_secret", "t" * 64)
+      AuthState.current.update_columns(reddit_session_expires_at: 3.days.from_now)
+      notifier = mock("notifier")
+      notifier.expects(:warn).twice
+      supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, admin_notifier: notifier)
+
+      supervisor.one_tick
+      AuthState.current.update_columns(reddit_session_expires_at: 2.days.from_now)
+      supervisor.one_tick
+    end
+
+    test "does not warn when reddit_session is still weeks out" do
+      AppConfig.set("session_secret", "t" * 64)
+      AuthState.current.update_columns(reddit_session_expires_at: 30.days.from_now)
+      notifier = mock("notifier")
+      notifier.stubs(:warn).never
+      supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, admin_notifier: notifier)
+
+      supervisor.one_tick
+    end
+
+    # ---- PostedEvent pruning ----
+
+    test "prunes PostedEvent on the first tick and then skips for an hour" do
+      PostedEvent.expects(:prune!).once
+      supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {})
+
+      supervisor.one_tick
+      supervisor.one_tick # same tick window, no second prune
+    end
+
+    test "swallows prune failures and reports via admin_notifier" do
+      notifier = mock("notifier")
+      notifier.expects(:warn).with(regexp_matches(/prune/i))
+      PostedEvent.stubs(:prune!).raises(StandardError, "db gone")
+      supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, admin_notifier: notifier)
+
+      assert_nothing_raised { supervisor.one_tick }
+    end
   end
 end
