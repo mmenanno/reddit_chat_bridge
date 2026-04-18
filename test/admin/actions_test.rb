@@ -134,15 +134,57 @@ module Admin
       assert_equal("nothnnn", Room.first.counterparty_username)
     end
 
-    test "full_resync! returns counts of what it cleared" do
+    test "full_resync! returns counts of what it cleared and (with no reconciler) zero rebuilds" do
       Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
       PostedEvent.record!(event_id: "$a", room_id: "!a:reddit.com")
 
       stats = @actions.full_resync!
 
-      assert_equal(2, stats[:rooms_reset])
-      assert_equal(1, stats[:events_cleared])
+      assert_equal(
+        { rooms_reset: 2, events_cleared: 1, rebuilt: 0, rebuild_errors: 0 },
+        stats,
+      )
+    end
+
+    test "full_resync! rebuilds every room when a reconciler is wired" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
+
+      reconciler = mock("Reconciler")
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").returns(renamed: true, posted_attempted: 3)
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 5)
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      stats = actions.full_resync!
+
+      assert_equal(2, stats[:rebuilt])
+      assert_equal(0, stats[:rebuild_errors])
+    end
+
+    test "full_resync! counts rebuild failures without aborting the loop" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
+
+      reconciler = mock("Reconciler")
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").raises(RuntimeError, "boom")
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 0)
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      stats = actions.full_resync!
+
+      assert_equal(1, stats[:rebuilt])
+      assert_equal(1, stats[:rebuild_errors])
     end
 
     # ---- set_reddit_cookies! ----

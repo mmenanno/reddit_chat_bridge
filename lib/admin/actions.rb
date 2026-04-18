@@ -37,27 +37,18 @@ module Admin
       :ok
     end
 
-    # Destructive: wipes every Room's Discord channel id + last_event_id,
+    # Destructive: wipes every Room's Discord channel/webhook + last_event_id,
     # deletes the entire PostedEvent dedup cache, and clears the /sync
-    # checkpoint. Use when the Discord side has been nuked manually and
-    # the operator wants the bridge to recreate everything from scratch.
-    # Room rows themselves are kept so counterparty_username survives —
-    # new channels get their right names on first post, no profile round-
-    # trip required.
+    # checkpoint. Then — if a reconciler is wired — immediately iterates
+    # every room, recreates its channel + webhook, and backfills recent
+    # history so the operator doesn't have to wait for the next Reddit
+    # message to see the rebuild take effect. Room rows themselves are
+    # kept so counterparty_username survives; new channels get the right
+    # names immediately.
     def full_resync!
-      rooms_reset = 0
-      events_cleared = 0
-      ActiveRecord::Base.transaction do
-        rooms_reset = Room.update_all(
-          discord_channel_id: nil,
-          discord_webhook_id: nil,
-          discord_webhook_token: nil,
-          last_event_id: nil,
-        )
-        events_cleared = PostedEvent.delete_all
-        SyncCheckpoint.reset!
-      end
-      { rooms_reset: rooms_reset, events_cleared: events_cleared }
+      clear_stats = nuke_persisted_state!
+      rebuild_stats = rebuild_all_rooms!
+      clear_stats.merge(rebuild_stats)
     end
 
     # Persists the Reddit cookie jar AND uses it to mint a fresh Matrix JWT
@@ -101,6 +92,39 @@ module Admin
     end
 
     private
+
+    def nuke_persisted_state!
+      rooms_reset = 0
+      events_cleared = 0
+      ActiveRecord::Base.transaction do
+        rooms_reset = Room.update_all(
+          discord_channel_id: nil,
+          discord_webhook_id: nil,
+          discord_webhook_token: nil,
+          last_event_id: nil,
+        )
+        events_cleared = PostedEvent.delete_all
+        SyncCheckpoint.reset!
+      end
+      { rooms_reset: rooms_reset, events_cleared: events_cleared }
+    end
+
+    # Per-room rescue: one flaky Matrix/Discord call shouldn't abort the
+    # whole rebuild. The refresh_one call itself is idempotent — PostedEvent
+    # dedup keeps replay safe if the operator re-runs.
+    def rebuild_all_rooms!
+      return { rebuilt: 0, rebuild_errors: 0 } unless @reconciler
+
+      rebuilt = 0
+      errors = 0
+      Room.find_each do |room|
+        @reconciler.refresh_one(matrix_room_id: room.matrix_room_id)
+        rebuilt += 1
+      rescue StandardError
+        errors += 1
+      end
+      { rebuilt: rebuilt, rebuild_errors: errors }
+    end
 
     def require_reconciler!
       raise(NotConfiguredError, "Reconciler not configured — complete /settings first") unless @reconciler
