@@ -50,11 +50,13 @@ RUN apt-get update -qq && \
 COPY app ./app
 RUN npm init -y >/dev/null && \
     npm install --silent --no-save tailwindcss@^4 @tailwindcss/cli@^4 daisyui@^5 && \
-    mkdir -p app/assets/built && \
+    mkdir -p app/assets/built/icons && \
     npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
       -o app/assets/built/application.css \
-      --minify
+      --minify && \
+    cp app/assets/icons/*.png app/assets/built/icons/ && \
+    cp app/assets/icon.svg app/assets/built/icon.svg
 
 # ---- final runtime ----
 FROM base

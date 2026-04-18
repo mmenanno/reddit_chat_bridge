@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Reddit Chat Bridge">
+  <title>Reddit Chat Bridge</title>
+
+  <defs>
+    <!-- Warm base: deep charcoal with a subtle upward glow so the mark lifts. -->
+    <radialGradient id="tile" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#1F1812"/>
+      <stop offset="55%" stop-color="#0E0B08"/>
+      <stop offset="100%" stop-color="#060403"/>
+    </radialGradient>
+
+    <!-- Ember bridge: fades in from each endpoint, peaks at the center. -->
+    <linearGradient id="bridge" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%"   stop-color="#E85D20" stop-opacity="0"/>
+      <stop offset="12%"  stop-color="#E85D20" stop-opacity="0.85"/>
+      <stop offset="50%"  stop-color="#FFD48A"/>
+      <stop offset="88%"  stop-color="#E85D20" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#E85D20" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Central orb: hot core → ember → fades to transparent for a soft halo. -->
+    <radialGradient id="orb" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#FFEFD2"/>
+      <stop offset="22%"  stop-color="#FFB04A"/>
+      <stop offset="58%"  stop-color="#E85D20"/>
+      <stop offset="100%" stop-color="#B83810" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Endpoint cap: bone cream with a darker rim at the bottom. -->
+    <radialGradient id="node" cx="40%" cy="35%" r="75%">
+      <stop offset="0%"   stop-color="#FFF8EC"/>
+      <stop offset="70%"  stop-color="#F1E6D4"/>
+      <stop offset="100%" stop-color="#C9B89E"/>
+    </radialGradient>
+
+    <!-- Soft shadow tucked under the nodes so they lift off the tile. -->
+    <radialGradient id="nodeShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#000" stop-opacity="0.55"/>
+      <stop offset="70%"  stop-color="#000" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Very fine grain for texture; clipped to the tile via the clipPath below. -->
+    <filter id="grain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7"/>
+      <feColorMatrix values="0 0 0 0 0.95
+                             0 0 0 0 0.78
+                             0 0 0 0 0.55
+                             0 0 0 0.06 0"/>
+    </filter>
+
+    <!-- Rounded-square clip so the grain stays inside the tile. -->
+    <clipPath id="tileClip">
+      <rect width="1024" height="1024" rx="224" ry="224"/>
+    </clipPath>
+  </defs>
+
+  <!-- Everything is clipped to the tile so stray filter bleed can't spill out. -->
+  <g clip-path="url(#tileClip)">
+    <!-- 1. Tile -->
+    <rect width="1024" height="1024" fill="url(#tile)"/>
+
+    <!-- 2. Subtle guide grid — barely visible, adds depth at large sizes. -->
+    <g stroke="#F4EBDF" stroke-width="1" opacity="0.04">
+      <line x1="0" y1="256" x2="1024" y2="256"/>
+      <line x1="0" y1="512" x2="1024" y2="512"/>
+      <line x1="0" y1="768" x2="1024" y2="768"/>
+      <line x1="256" y1="0" x2="256" y2="1024"/>
+      <line x1="512" y1="0" x2="512" y2="1024"/>
+      <line x1="768" y1="0" x2="768" y2="1024"/>
+    </g>
+
+    <!-- 3. Ember halo behind the orb (painted early so bridge + nodes layer over). -->
+    <circle cx="512" cy="512" r="340" fill="url(#orb)" opacity="0.32"/>
+
+    <!-- 4. Bridge connector — capsule with a hot center. -->
+    <rect x="192" y="490" width="640" height="44" rx="22" fill="url(#bridge)"/>
+
+    <!-- 5. Left endpoint: node over a soft drop shadow. -->
+    <g>
+      <ellipse cx="232" cy="540" rx="108" ry="22" fill="url(#nodeShadow)"/>
+      <circle cx="232" cy="512" r="84" fill="url(#node)"/>
+      <circle cx="232" cy="512" r="84" fill="none" stroke="#0E0B08" stroke-width="4" opacity="0.25"/>
+    </g>
+
+    <!-- 6. Right endpoint -->
+    <g>
+      <ellipse cx="792" cy="540" rx="108" ry="22" fill="url(#nodeShadow)"/>
+      <circle cx="792" cy="512" r="84" fill="url(#node)"/>
+      <circle cx="792" cy="512" r="84" fill="none" stroke="#0E0B08" stroke-width="4" opacity="0.25"/>
+    </g>
+
+    <!-- 7. Central ember orb — three concentric layers for a hot-core look. -->
+    <circle cx="512" cy="512" r="156" fill="url(#orb)"/>
+    <circle cx="512" cy="512" r="104" fill="#FF9638" opacity="0.95"/>
+    <circle cx="512" cy="512" r="60"  fill="#FFD48A"/>
+    <circle cx="500" cy="500" r="22"  fill="#FFFBF5" opacity="0.9"/>
+
+    <!-- 8. Grain overlay — clipped with the rest so corners stay crisp. -->
+    <rect width="1024" height="1024" fill="#000" filter="url(#grain)" opacity="0.6"/>
+  </g>
+</svg>

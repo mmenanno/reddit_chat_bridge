@@ -1,0 +1,16 @@
+#!/bin/bash
+# Regenerate icon PNG exports from app/assets/icon.svg.
+# Requires ImageMagick (`magick`) on $PATH. Run after editing the SVG.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+src=app/assets/icon.svg
+out=app/assets/icons
+
+mkdir -p "$out"
+
+for size in 128 256 512 1024; do
+  magick -background none -density 300 "$src" -resize "${size}x${size}" "${out}/icon-${size}.png"
+  echo "wrote ${out}/icon-${size}.png"
+done
