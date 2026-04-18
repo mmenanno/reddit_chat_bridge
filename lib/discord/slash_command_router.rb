@@ -153,17 +153,21 @@ module Discord
 
     # Public specs Discord uses when the operator asks us to register
     # commands. Each entry is `{ name:, description: }`.
+    # Discord caps descriptions at 100 characters. Per-room commands
+    # also can't use an em-dash in descriptions safely in some locales;
+    # sticking to ASCII hyphens here keeps the bulk-register call from
+    # tripping "Invalid Form Body".
     COMMAND_DEFINITIONS = [
       { name: "status",        description: "Show the bridge's sync and auth state" },
       { name: "resync",        description: "Clear the /sync checkpoint and re-pull recent history" },
       { name: "reconcile",     description: "Sweep every room and rename channels to current usernames" },
       { name: "refresh_token", description: "Mint a fresh Matrix JWT from the stored Reddit cookies" },
-      { name: "ping",          description: "Health check — replies pong" },
-      { name: "rebuild",       description: "Refresh every room — rename + replay recent history (non-destructive)" },
-      { name: "refresh",       description: "Refresh this chat — rename + replay recent history (run inside the #dm-* channel)" },
-      { name: "archive",       description: "Archive this chat — delete the channel but auto-recreate on next message (run inside the #dm-* channel)" },
-      { name: "endchat",       description: "Hide this chat — delete the channel and drop future events (run inside the #dm-* channel)" },
-      { name: "room",          description: "Show diagnostic info for this chat (run inside the #dm-* channel)" },
+      { name: "ping",          description: "Health check - replies pong" },
+      { name: "rebuild",       description: "Refresh every room - rename + replay recent history (non-destructive)" },
+      { name: "refresh",       description: "Refresh this chat - rename + replay recent history (inside a #dm-* channel)" },
+      { name: "archive",       description: "Archive this chat - channel deleted; auto-recreates on next message (inside #dm-*)" },
+      { name: "endchat",       description: "Hide this chat - delete channel and drop future events (inside a #dm-* channel)" },
+      { name: "room",          description: "Show diagnostic info for this chat (inside a #dm-* channel)" },
     ].freeze
 
     COMMANDS = {
