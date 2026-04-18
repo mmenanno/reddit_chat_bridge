@@ -11,6 +11,7 @@ module Discord
   class ChannelIndex
     CHANNEL_PREFIX = "dm-"
     CHANNEL_NAME_MAX = 90 # leaves headroom under Discord's 100-char limit
+    WEBHOOK_NAME = "Reddit Chat Bridge"
 
     def initialize(client:, guild_id:, category_id:)
       @client = client
@@ -29,6 +30,31 @@ module Discord
       )
       room.attach_discord_channel!(channel_id)
       channel_id
+    end
+
+    # Returns the [id, token] pair for the room's webhook, creating one on the
+    # room's Discord channel if none is cached. If the underlying channel was
+    # deleted, Discord returns 404 on create — we clear the stale channel id
+    # and let the caller retry through ensure_channel.
+    def ensure_webhook(room:)
+      cached = webhook_pair(room)
+      return cached if cached
+
+      channel_id = ensure_channel(room: room)
+      hook = @client.create_webhook(channel_id: channel_id, name: WEBHOOK_NAME)
+      room.attach_webhook!(id: hook.fetch("id"), token: hook.fetch("token"))
+      [hook.fetch("id"), hook.fetch("token")]
+    rescue Discord::NotFound
+      # The stored discord_channel_id is gone; clear it and let the next
+      # ensure_channel call recreate the channel + webhook from scratch.
+      room.update!(discord_channel_id: nil)
+      raise
+    end
+
+    def webhook_pair(room)
+      return unless room.discord_webhook_id && room.discord_webhook_token
+
+      [room.discord_webhook_id, room.discord_webhook_token]
     end
 
     # Public so Poster can compare the slug before and after a counterparty

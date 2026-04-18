@@ -48,7 +48,12 @@ module Admin
       rooms_reset = 0
       events_cleared = 0
       ActiveRecord::Base.transaction do
-        rooms_reset = Room.update_all(discord_channel_id: nil, last_event_id: nil)
+        rooms_reset = Room.update_all(
+          discord_channel_id: nil,
+          discord_webhook_id: nil,
+          discord_webhook_token: nil,
+          last_event_id: nil,
+        )
         events_cleared = PostedEvent.delete_all
         SyncCheckpoint.reset!
       end

@@ -41,9 +41,9 @@ Still in the Developer Portal:
 
 1. **OAuth2 → URL Generator**
 2. Scopes: check **bot** and **applications.commands**
-3. Bot Permissions: check **Manage Channels**, **Send Messages**,
-   **Embed Links**, **Attach Files**, **Read Message History**, and
-   **Use Slash Commands**.
+3. Bot Permissions: check **Manage Channels**, **Manage Webhooks**,
+   **Send Messages**, **Embed Links**, **Attach Files**,
+   **Read Message History**, and **Use Slash Commands**.
 4. Copy the generated URL and open it in a browser. Pick the Reddit Chat
    Bridge server and authorize.
 

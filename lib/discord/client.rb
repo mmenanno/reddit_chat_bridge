@@ -74,6 +74,24 @@ module Discord
       handle(response).body
     end
 
+    # Creates a channel webhook the bridge uses to post with per-message
+    # username + avatar overrides. The returned token is a shared secret
+    # scoped to that webhook — store it like a credential.
+    def create_webhook(channel_id:, name:)
+      post("channels/#{channel_id}/webhooks", payload: { name: name }).body
+    end
+
+    # Posts through a previously-created webhook. `?wait=true` asks Discord
+    # to return the resulting message object so we can capture its id.
+    # No bot-token header — the webhook token in the URL is the auth.
+    def execute_webhook(webhook_id:, webhook_token:, payload:)
+      path = "webhooks/#{webhook_id}/#{webhook_token}?wait=true"
+      response = @conn.post(path) do |req|
+        req.body = payload
+      end
+      handle(response).body.fetch("id")
+    end
+
     # Completes a gateway-delivered interaction. Discord's public docs call
     # this the "create interaction response" endpoint. No bot-token header
     # (the interaction id + token pair is the authorization). Expected to

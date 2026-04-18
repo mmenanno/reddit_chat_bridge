@@ -113,5 +113,59 @@ module Discord
       assert_raises(Discord::AuthError) { @index.ensure_channel(room: room) }
       assert_nil(room.reload.discord_channel_id)
     end
+
+    # ---- webhooks ----
+
+    test "returns the cached webhook pair when the room already has one" do
+      room = Room.create!(
+        matrix_room_id: "!r:reddit.com",
+        discord_channel_id: "555",
+        discord_webhook_id: "wh_1",
+        discord_webhook_token: "tok_1",
+      )
+      @client.expects(:create_webhook).never
+
+      assert_equal(["wh_1", "tok_1"], @index.ensure_webhook(room: room))
+    end
+
+    test "creates a webhook on the channel the first time and persists id + token" do
+      room = Room.create!(
+        matrix_room_id: "!r:reddit.com",
+        discord_channel_id: "555",
+        counterparty_username: "testuser",
+      )
+      @client.expects(:create_webhook)
+        .with(channel_id: "555", name: "Reddit Chat Bridge")
+        .returns("id" => "wh_1", "token" => "tok_1")
+
+      assert_equal(["wh_1", "tok_1"], @index.ensure_webhook(room: room))
+      assert_equal("wh_1", room.reload.discord_webhook_id)
+      assert_equal("tok_1", room.discord_webhook_token)
+    end
+
+    test "creates the channel first when the room has no channel yet" do
+      room = Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "peer")
+      @client.expects(:create_channel).returns("999")
+      @client.expects(:create_webhook).with(channel_id: "999", name: "Reddit Chat Bridge").returns(
+        "id" => "wh_2", "token" => "tok_2",
+      )
+
+      @index.ensure_webhook(room: room)
+
+      assert_equal("999", room.reload.discord_channel_id)
+      assert_equal("wh_2", room.discord_webhook_id)
+    end
+
+    test "clears the stale discord_channel_id when Discord 404s on webhook creation" do
+      room = Room.create!(
+        matrix_room_id: "!r:reddit.com",
+        discord_channel_id: "gone",
+        counterparty_username: "peer",
+      )
+      @client.stubs(:create_webhook).raises(Discord::NotFound, "Unknown Channel")
+
+      assert_raises(Discord::NotFound) { @index.ensure_webhook(room: room) }
+      assert_nil(room.reload.discord_channel_id)
+    end
   end
 end

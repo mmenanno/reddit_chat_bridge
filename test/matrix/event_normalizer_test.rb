@@ -207,6 +207,49 @@ module Matrix
       refute_predicate(event, :media?)
     end
 
+    # ---- sender avatar resolution ----
+
+    test "resolves the sender's mxc avatar through the media resolver" do
+      resolver = mock("Resolver")
+      resolver.expects(:resolve).with("mxc://matrix.redditspace.com/peer-av").returns("https://cdn/p.png")
+      normalizer = EventNormalizer.new(own_user_id: OWN, media_resolver: resolver)
+      body = sync(join: {
+        "!room1:reddit.com" => room(
+          state: [member(user_id: PEER, displayname: "testuser", avatar_mxc: "mxc://matrix.redditspace.com/peer-av")],
+          timeline: [chat_message(sender: PEER, body: "hi")],
+        ),
+      })
+
+      assert_equal("https://cdn/p.png", normalizer.normalize(body).first.sender_avatar_url)
+    end
+
+    test "passes through an https snoovatar URL without hitting the media resolver" do
+      resolver = mock("Resolver")
+      resolver.expects(:resolve).never
+      normalizer = EventNormalizer.new(own_user_id: OWN, media_resolver: resolver)
+      body = sync(join: {
+        "!room1:reddit.com" => room(
+          state: [member(
+            user_id: PEER,
+            displayname: "testuser",
+            reddit_username: "testuser",
+            snoovatar_url: "https://styles.redditmedia.com/snoo.png",
+          )],
+          timeline: [chat_message(sender: PEER, body: "hi")],
+        ),
+      })
+
+      assert_equal("https://styles.redditmedia.com/snoo.png", normalizer.normalize(body).first.sender_avatar_url)
+    end
+
+    test "sender_avatar_url is nil when no member state carries an avatar" do
+      body = sync(join: {
+        "!r:reddit.com" => room(timeline: [chat_message(sender: PEER, body: "hi")]),
+      })
+
+      assert_nil(@normalizer.normalize(body).first.sender_avatar_url)
+    end
+
     private
 
     def image_message(filename, mxc_url, event_id: "$img", sender: PEER)
@@ -242,12 +285,18 @@ module Matrix
       }
     end
 
-    def member(user_id:, displayname:, reddit_username:)
+    def member(user_id:, displayname:, reddit_username: nil, avatar_mxc: nil, snoovatar_url: nil)
       content = {}
       content["displayname"] = displayname if displayname
+      content["avatar_url"] = avatar_mxc if avatar_mxc
 
       unsigned = {}
-      unsigned["m.relations"] = { "com.reddit.profile" => { "username" => reddit_username } } if reddit_username
+      if reddit_username || snoovatar_url
+        profile = {}
+        profile["username"] = reddit_username if reddit_username
+        profile["snoovatar_url"] = snoovatar_url if snoovatar_url
+        unsigned["m.relations"] = { "com.reddit.profile" => profile }
+      end
 
       {
         "type" => "m.room.member",

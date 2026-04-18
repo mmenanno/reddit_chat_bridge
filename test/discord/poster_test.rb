@@ -13,6 +13,8 @@ module Discord
     PEER = "@t2_peer:reddit.com"
     SYSTEM = "@t2_1qwk:reddit.com"
     CHANNEL_ID = "555555555555555555"
+    WEBHOOK_ID = "wh_1"
+    WEBHOOK_TOKEN = "tok_1"
 
     def setup
       super
@@ -29,18 +31,23 @@ module Discord
         sleeper: ->(s) { @sleeps << s },
       )
       @index.stubs(:ensure_channel).returns(CHANNEL_ID)
+      @index.stubs(:ensure_webhook).returns([WEBHOOK_ID, WEBHOOK_TOKEN])
     end
 
-    test "posts every event in the batch through the client" do
-      @client.expects(:send_message).with(channel_id: CHANNEL_ID, content: regexp_matches(/hi/)).returns("m1")
-      @client.expects(:send_message).with(channel_id: CHANNEL_ID, content: regexp_matches(/bye/)).returns("m2")
+    test "posts every event in the batch through the webhook" do
+      @client.expects(:execute_webhook)
+        .with(webhook_id: WEBHOOK_ID, webhook_token: WEBHOOK_TOKEN, payload: has_entry(content: regexp_matches(/hi/)))
+        .returns("m1")
+      @client.expects(:execute_webhook)
+        .with(webhook_id: WEBHOOK_ID, webhook_token: WEBHOOK_TOKEN, payload: has_entry(content: regexp_matches(/bye/)))
+        .returns("m2")
 
       @poster.call([event(body: "hi", event_id: "$1"), event(body: "bye", event_id: "$2")])
     end
 
     test "creates a Room row for a previously unseen matrix_room_id" do
       assert_equal(0, Room.count)
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(body: "first-sighting")])
 
@@ -49,7 +56,7 @@ module Discord
     end
 
     test "records the counterparty username the first time we see it" do
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(body: "hello", sender_username: "nothnnn")])
 
@@ -63,7 +70,7 @@ module Discord
         counterparty_matrix_id: PEER,
         counterparty_username: "oldname",
       )
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(body: "hi", sender_username: "newname")])
 
@@ -71,7 +78,7 @@ module Discord
     end
 
     test "does not record counterparty info from our own messages" do
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(sender: OWN, body: "self", sender_username: "RonanWolfe")])
 
@@ -79,61 +86,61 @@ module Discord
     end
 
     test "does not record counterparty info from the Reddit system account" do
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(sender: SYSTEM, body: "moderation", sender_username: "RedditSystem")])
 
       assert_nil(Room.first.counterparty_username)
     end
 
-    test "formats own messages with a 'You' prefix" do
-      @client.expects(:send_message).with(
-        channel_id: CHANNEL_ID,
-        content: regexp_matches(/You.*\n.*self/m),
-      ).returns("m")
+    # ---- username + avatar on the webhook payload ----
 
-      @poster.call([event(sender: OWN, body: "self")])
+    test "own messages post with the sender's name suffixed by 📤 so it's distinct from native Discord" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "RonanWolfe \u{1F4E4}" && kwargs[:payload][:content] == "self"
+      end.returns("m")
+
+      @poster.call([event(sender: OWN, body: "self", sender_username: "RonanWolfe")])
     end
 
-    test "formats system messages with a 'Reddit' prefix" do
-      @client.expects(:send_message).with(
-        channel_id: CHANNEL_ID,
-        content: regexp_matches(/Reddit.*\n.*notice/m),
-      ).returns("m")
+    test "system messages post as 'Reddit'" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "Reddit" && kwargs[:payload][:content] == "notice"
+      end.returns("m")
 
       @poster.call([event(sender: SYSTEM, body: "notice")])
     end
 
-    test "formats peer messages with the resolved username when present" do
-      @client.expects(:send_message).with(
-        channel_id: CHANNEL_ID,
-        content: regexp_matches(/nothnnn.*\n.*from peer/m),
-      ).returns("m")
+    test "peer messages post under the resolved counterparty username" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "nothnnn" && kwargs[:payload][:content] == "from peer"
+      end.returns("m")
 
       @poster.call([event(body: "from peer", sender_username: "nothnnn")])
     end
 
-    test "falls back to the matrix id in the prefix when no username is known" do
-      @client.expects(:send_message).with(
-        channel_id: CHANNEL_ID,
-        content: regexp_matches(/t2_peer.*\n.*anon/m),
-      ).returns("m")
+    test "falls back to the matrix_id localpart as the webhook username when no display name is known" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "t2_peer" && kwargs[:payload][:content] == "anon"
+      end.returns("m")
 
       @poster.call([event(body: "anon", sender_username: nil)])
     end
 
-    test "appends resolved media URLs to the Discord message so it auto-embeds" do
-      @client.expects(:send_message).with(
-        channel_id: CHANNEL_ID,
-        content: regexp_matches(%r{📎 photo\.jpg.*https://matrix\.redditspace\.com/_matrix/media}m),
-      ).returns("m")
+    test "passes sender_avatar_url through to the webhook when present" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:avatar_url] == "https://cdn/u.png"
+      end.returns("m")
 
-      @poster.call([event(
-        kind: :media,
-        body: "photo.jpg",
-        sender_username: "nothnnn",
-        media_url: "https://matrix.redditspace.com/_matrix/media/v3/download/matrix.redditspace.com/abc",
-      )])
+      @poster.call([event(body: "hi", sender_username: "nothnnn", sender_avatar_url: "https://cdn/u.png")])
+    end
+
+    test "omits avatar_url entirely when the sender has no resolved avatar" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        !kwargs[:payload].key?(:avatar_url)
+      end.returns("m")
+
+      @poster.call([event(body: "hi", sender_avatar_url: nil)])
     end
 
     test "uses the Room's stored counterparty_username when the event doesn't carry one" do
@@ -143,16 +150,32 @@ module Discord
         counterparty_username: "jinxieRay",
         discord_channel_id: CHANNEL_ID,
       )
-      @client.expects(:send_message).with(
-        channel_id: CHANNEL_ID,
-        content: regexp_matches(/jinxieRay.*\n.*later msg/m),
-      ).returns("m")
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "jinxieRay" && kwargs[:payload][:content] == "later msg"
+      end.returns("m")
 
       @poster.call([event(body: "later msg", sender_username: nil)])
     end
 
+    # ---- media rendering ----
+
+    test "appends resolved media URLs so Discord auto-embeds the image" do
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:content].match?(%r{📎 photo\.jpg.*https://matrix\.redditspace\.com/_matrix/media}m)
+      end.returns("m")
+
+      @poster.call([event(
+        kind: :media,
+        body: "photo.jpg",
+        sender_username: "nothnnn",
+        media_url: "https://matrix.redditspace.com/_matrix/media/v3/download/matrix.redditspace.com/abc",
+      )])
+    end
+
+    # ---- bookkeeping ----
+
     test "advances last_event_id after a successful post" do
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(event_id: "$evt_last")])
 
@@ -161,7 +184,7 @@ module Discord
 
     test "re-raises when the client fails and leaves last_event_id unchanged" do
       room = Room.create!(matrix_room_id: ROOM_ID, last_event_id: "$prev")
-      @client.stubs(:send_message).raises(Discord::ServerError, "503")
+      @client.stubs(:execute_webhook).raises(Discord::ServerError, "503")
 
       assert_raises(Discord::ServerError) { @poster.call([event(event_id: "$new")]) }
       assert_equal("$prev", room.reload.last_event_id)
@@ -173,7 +196,7 @@ module Discord
       registry = mock("Registry")
       registry.stubs(:sent_by_us?).with("$echo").returns(true)
       poster = Poster.new(client: @client, channel_index: @index, sent_registry: registry, sleeper: ->(s) {})
-      @client.expects(:send_message).never
+      @client.expects(:execute_webhook).never
 
       poster.call([event(event_id: "$echo", sender: OWN, body: "hi")])
 
@@ -182,13 +205,13 @@ module Discord
 
     test "skips events already present in PostedEvent" do
       PostedEvent.record!(event_id: "$seen", room_id: ROOM_ID)
-      @client.expects(:send_message).never
+      @client.expects(:execute_webhook).never
 
       @poster.call([event(event_id: "$seen")])
     end
 
     test "records posted event_id so checkpoint rewinds don't cause duplicates" do
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(event_id: "$once")])
       # Simulate a checkpoint rewind: same batch comes back on next iteration.
@@ -201,7 +224,7 @@ module Discord
 
     test "retries on RateLimited and sleeps for retry_after_ms" do
       raise_once = false
-      @client.stubs(:send_message).with do |*_|
+      @client.stubs(:execute_webhook).with do |*_|
         if raise_once
           true # succeed the second time
         else
@@ -216,42 +239,42 @@ module Discord
     end
 
     test "gives up on persistent RateLimited after the attempt cap" do
-      @client.stubs(:send_message).raises(Discord::RateLimited.new("still", retry_after_ms: 100))
+      @client.stubs(:execute_webhook).raises(Discord::RateLimited.new("still", retry_after_ms: 100))
 
       assert_raises(Discord::RateLimited) { @poster.call([event]) }
     end
 
-    # ---- channel recovery on 404 ----
+    # ---- webhook/channel recovery on 404 ----
 
-    test "clears stale discord_channel_id and retries when Discord returns NotFound" do
+    test "clears the stored webhook and retries when the first execute_webhook 404s" do
       room = Room.create!(
         matrix_room_id: ROOM_ID,
-        discord_channel_id: "old_chan",
+        discord_channel_id: CHANNEL_ID,
+        discord_webhook_id: WEBHOOK_ID,
+        discord_webhook_token: WEBHOOK_TOKEN,
         counterparty_username: "peer",
       )
-      @index.unstub(:ensure_channel)
-      @index.stubs(:ensure_channel).returns(CHANNEL_ID)
-      @client.stubs(:send_message)
-        .raises(Discord::NotFound, "Unknown Channel")
+      @client.stubs(:execute_webhook)
+        .raises(Discord::NotFound, "Unknown Webhook")
         .then
         .returns("msg-id")
 
       @poster.call([event])
 
-      # The recovery path cleared the stale id before the second ensure_channel
-      # call. In production ensure_channel would re-attach the new id; our stub
-      # doesn't, so observing nil proves the clear happened.
-      assert_nil(room.reload.discord_channel_id)
+      assert_nil(room.reload.discord_webhook_id)
+      assert_nil(room.discord_webhook_token)
     end
 
-    test "calls send_message twice when the first attempt hits NotFound and the second succeeds" do
+    test "calls execute_webhook twice when the first attempt hits NotFound and the second succeeds" do
       Room.create!(
         matrix_room_id: ROOM_ID,
-        discord_channel_id: "old_chan",
+        discord_channel_id: CHANNEL_ID,
+        discord_webhook_id: WEBHOOK_ID,
+        discord_webhook_token: WEBHOOK_TOKEN,
         counterparty_username: "peer",
       )
-      @client.expects(:send_message).twice
-        .raises(Discord::NotFound, "Unknown Channel")
+      @client.expects(:execute_webhook).twice
+        .raises(Discord::NotFound, "Unknown Webhook")
         .then
         .returns("msg-id")
 
@@ -261,8 +284,8 @@ module Discord
     # ---- content truncation + BadRequest handling ----
 
     test "truncates content longer than Discord's 2000-char cap" do
-      @client.expects(:send_message).with do |kwargs|
-        body = kwargs[:content]
+      @client.expects(:execute_webhook).with do |kwargs|
+        body = kwargs[:payload][:content]
         body.length <= 2000 && body.end_with?("…[truncated]")
       end.returns("m")
 
@@ -271,7 +294,7 @@ module Discord
     end
 
     test "records PostedEvent and skips forward on Discord::BadRequest instead of looping" do
-      @client.stubs(:send_message).raises(Discord::BadRequest, "Invalid Form Body")
+      @client.stubs(:execute_webhook).raises(Discord::BadRequest, "Invalid Form Body")
 
       @poster.call([event(event_id: "$bad")])
 
@@ -282,7 +305,7 @@ module Discord
     # ---- matrix_id fallback when username can't be resolved ----
 
     test "records counterparty_matrix_id even when sender_username is nil" do
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event(body: "hi", sender_username: nil)])
 
@@ -301,7 +324,7 @@ module Discord
         matrix_client: matrix_client,
         sleeper: ->(_) {},
       )
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
 
       poster.call([event(body: "hi", sender_username: nil)])
 
@@ -316,7 +339,7 @@ module Discord
         counterparty_matrix_id: PEER,
         discord_channel_id: "chan_123",
       )
-      @client.stubs(:send_message).returns("m")
+      @client.stubs(:execute_webhook).returns("m")
       @client.expects(:rename_channel).with(channel_id: "chan_123", name: "dm-nothnnn").returns(:ok)
 
       @poster.call([event(body: "hi", sender_username: "nothnnn")])
@@ -324,10 +347,10 @@ module Discord
       assert_equal("nothnnn", room.reload.counterparty_username)
     end
 
-    test "resolves the channel via the channel index for each event" do
-      @index.unstub(:ensure_channel)
-      @index.expects(:ensure_channel).with(has_entry(:room, instance_of(Room))).returns(CHANNEL_ID)
-      @client.stubs(:send_message).returns("m")
+    test "resolves the webhook via the channel index for each event" do
+      @index.unstub(:ensure_webhook)
+      @index.expects(:ensure_webhook).with(has_entry(:room, instance_of(Room))).returns([WEBHOOK_ID, WEBHOOK_TOKEN])
+      @client.stubs(:execute_webhook).returns("m")
 
       @poster.call([event])
     end
@@ -339,6 +362,7 @@ module Discord
       sender: PEER,
       body: "hello",
       sender_username: nil,
+      sender_avatar_url: nil,
       origin_server_ts: 1_776_400_000_000,
       kind: :message,
       media_url: nil,
@@ -350,6 +374,7 @@ module Discord
         kind: kind,
         sender: sender,
         sender_username: sender_username,
+        sender_avatar_url: sender_avatar_url,
         body: body,
         origin_server_ts: origin_server_ts,
         is_own: sender == OWN,

@@ -140,5 +140,68 @@ module Discord
         @client.get_channel(CHANNEL)
       end
     end
+
+    # ---- webhooks ----
+
+    test "create_webhook POSTs to the channel and returns the webhook id + token" do
+      stub_request(:post, "#{BASE}/channels/#{CHANNEL}/webhooks")
+        .with(
+          headers: { "Authorization" => "Bot #{TOKEN}" },
+          body: { name: "Reddit Chat Bridge" }.to_json,
+        )
+        .to_return(
+          status: 200,
+          body: { id: "wh_1", token: "tok_1", channel_id: CHANNEL }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      hook = @client.create_webhook(channel_id: CHANNEL, name: "Reddit Chat Bridge")
+
+      assert_equal("wh_1", hook["id"])
+      assert_equal("tok_1", hook["token"])
+    end
+
+    test "execute_webhook POSTs identity overrides and does not use the bot token" do
+      stub_request(:post, "#{BASE}/webhooks/wh_1/tok_1?wait=true")
+        .with(body: { content: "hi", username: "testuser", avatar_url: "https://img/h.png" }.to_json)
+        .with { |req| !req.headers.key?("Authorization") }
+        .to_return(
+          status: 200,
+          body: { id: "msg_9" }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      id = @client.execute_webhook(
+        webhook_id: "wh_1",
+        webhook_token: "tok_1",
+        payload: { content: "hi", username: "testuser", avatar_url: "https://img/h.png" },
+      )
+
+      assert_equal("msg_9", id)
+    end
+
+    test "execute_webhook raises Discord::NotFound when the webhook has been deleted" do
+      stub_request(:post, "#{BASE}/webhooks/wh_1/tok_1?wait=true")
+        .to_return(status: 404, body: { message: "Unknown Webhook" }.to_json)
+
+      assert_raises(Discord::NotFound) do
+        @client.execute_webhook(webhook_id: "wh_1", webhook_token: "tok_1", payload: { content: "x" })
+      end
+    end
+
+    test "execute_webhook surfaces Discord::RateLimited with retry_after_ms" do
+      stub_request(:post, "#{BASE}/webhooks/wh_1/tok_1?wait=true")
+        .to_return(
+          status: 429,
+          body: { retry_after: 0.25, message: "slow down" }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      error = assert_raises(Discord::RateLimited) do
+        @client.execute_webhook(webhook_id: "wh_1", webhook_token: "tok_1", payload: { content: "x" })
+      end
+
+      assert_equal(250, error.retry_after_ms)
+    end
   end
 end

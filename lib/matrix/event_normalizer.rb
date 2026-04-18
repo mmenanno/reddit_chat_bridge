@@ -10,6 +10,7 @@ module Matrix
     :kind,
     :sender,
     :sender_username,
+    :sender_avatar_url,
     :body,
     :origin_server_ts,
     :is_own,
@@ -63,18 +64,19 @@ module Matrix
     end
 
     def events_for(room_id, room)
-      usernames = usernames_in(room)
-      timeline(room).filter_map { |raw| build_event(room_id, raw, usernames) }
+      usernames, avatars = member_lookup_for(room)
+      timeline(room).filter_map { |raw| build_event(room_id, raw, usernames, avatars) }
     end
 
     def timeline(room)
       room.dig("timeline", "events") || []
     end
 
-    def usernames_in(room)
+    def member_lookup_for(room)
       state = room.dig("state", "events") || []
       timeline_events = timeline(room)
-      index = {}
+      usernames = {}
+      avatars = {}
 
       (state + timeline_events).each do |event|
         next unless event["type"] == "m.room.member"
@@ -83,10 +85,13 @@ module Matrix
         next unless user_id
 
         username = resolve_username(event)
-        index[user_id] = username if username
+        usernames[user_id] = username if username
+
+        avatar = resolve_avatar(event)
+        avatars[user_id] = avatar if avatar
       end
 
-      index
+      [usernames, avatars]
     end
 
     def resolve_username(member_event)
@@ -96,7 +101,18 @@ module Matrix
       member_event.dig("content", "displayname")
     end
 
-    def build_event(room_id, raw, usernames)
+    # Reddit ships both a stable mxc avatar on content.avatar_url and, for
+    # some accounts, a pre-rendered snoovatar URL on the profile relation.
+    # Prefer the relation's snoovatar (https, cache-friendly) and fall back
+    # to the mxc, which MediaResolver will turn into an https URL.
+    def resolve_avatar(member_event)
+      snoovatar = member_event.dig("unsigned", "m.relations", "com.reddit.profile", "snoovatar_url")
+      return snoovatar if snoovatar.to_s.start_with?("http")
+
+      member_event.dig("content", "avatar_url")
+    end
+
+    def build_event(room_id, raw, usernames, avatars)
       return unless raw["type"] == "m.room.message"
 
       sender = raw["sender"]
@@ -109,6 +125,7 @@ module Matrix
         kind: media_url ? :media : :message,
         sender: sender,
         sender_username: usernames[sender],
+        sender_avatar_url: resolve_avatar_url(avatars[sender]),
         body: raw.dig("content", "body"),
         origin_server_ts: raw["origin_server_ts"],
         is_own: sender == @own_user_id,
@@ -116,6 +133,14 @@ module Matrix
         media_url: media_url,
         media_mime: media_mime,
       )
+    end
+
+    def resolve_avatar_url(raw)
+      return if raw.nil? || raw.empty?
+      return raw if raw.start_with?("http")
+      return unless @media_resolver
+
+      @media_resolver.resolve(raw)
     end
 
     def resolve_media(raw)

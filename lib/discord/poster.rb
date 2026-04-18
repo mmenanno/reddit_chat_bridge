@@ -12,13 +12,15 @@ module Discord
   #   3. Rename an existing channel when the counterparty username resolves
   #      later than the channel's creation — so early "dm-t2_opaque" channels
   #      self-heal the first time the real username becomes known.
-  #   4. Post via Discord, retrying on rate limits and rebuilding the channel
-  #      on 404 (operator manually deleted it).
+  #   4. Post through the channel's webhook with a per-message username +
+  #      avatar_url override so each message looks like it came from the
+  #      real Reddit user, not from the bot. Recover from a deleted
+  #      webhook or channel by clearing the stale ids and retrying.
   #   5. Truncate content to Discord's 2000-char cap; skip (but still record)
   #      on 400 — bad content isn't retryable, looping makes it worse.
   class Poster
-    OWN_PREFIX    = "📤 **You**"
-    SYSTEM_PREFIX = "🤖 **Reddit**"
+    OWN_NAME_SUFFIX    = " \u{1F4E4}" # 📤 — disambiguates bridged-from-Reddit from native Discord.
+    SYSTEM_NAME        = "Reddit"
 
     DISCORD_MESSAGE_CAP = 2000
     TRUNCATION_NOTICE   = "\n…[truncated]"
@@ -48,7 +50,7 @@ module Discord
 
       room = Room.find_or_create_by_matrix_id!(event.room_id)
       refresh_counterparty_and_channel!(room, event)
-      send_with_channel_recovery(room, event)
+      send_with_recovery(room, event)
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room.advance_event!(event.event_id)
     rescue Discord::BadRequest => e
@@ -111,22 +113,34 @@ module Discord
       @logger&.warn("channel rename #{channel_id} → #{new_name} failed: #{e.message}")
     end
 
-    def send_with_channel_recovery(room, event)
-      channel_id = @channel_index.ensure_channel(room: room)
-      send_with_rate_limit_retry(channel_id: channel_id, content: format_content(event, room))
+    # Webhook delivery with two distinct recovery paths:
+    #   - webhook 404: the hook itself was deleted but the channel may still
+    #     exist. Clear the webhook id/token and re-ensure — ChannelIndex will
+    #     create a new webhook on the same channel.
+    #   - webhook 404 after re-ensure: the underlying channel is also gone.
+    #     ChannelIndex.ensure_webhook already cleared discord_channel_id in
+    #     that case, so re-ensuring now creates both channel and webhook.
+    def send_with_recovery(room, event)
+      execute_through_webhook(room, event)
     rescue Discord::NotFound
-      # Operator deleted the channel; forget the stale id and let
-      # ChannelIndex create a fresh one on the retry.
-      room.update!(discord_channel_id: nil)
-      channel_id = @channel_index.ensure_channel(room: room.reload)
-      send_with_rate_limit_retry(channel_id: channel_id, content: format_content(event, room))
+      room.clear_webhook!
+      execute_through_webhook(room.reload, event)
     end
 
-    def send_with_rate_limit_retry(channel_id:, content:)
+    def execute_through_webhook(room, event)
+      id, token = @channel_index.ensure_webhook(room: room.reload)
+      send_with_rate_limit_retry(
+        webhook_id: id,
+        webhook_token: token,
+        payload: build_payload(event, room),
+      )
+    end
+
+    def send_with_rate_limit_retry(webhook_id:, webhook_token:, payload:)
       attempt = 0
       begin
         attempt += 1
-        @client.send_message(channel_id: channel_id, content: content)
+        @client.execute_webhook(webhook_id: webhook_id, webhook_token: webhook_token, payload: payload)
       rescue Discord::RateLimited => e
         raise if attempt >= RATE_LIMIT_MAX_ATTEMPTS
 
@@ -136,8 +150,16 @@ module Discord
       end
     end
 
-    def format_content(event, room)
-      pieces = [prefix_for(event, room), body_for(event)]
+    def build_payload(event, room)
+      payload = { content: format_content(event) }
+      payload[:username] = username_for(event, room)
+      avatar = event.sender_avatar_url
+      payload[:avatar_url] = avatar if avatar.present?
+      payload
+    end
+
+    def format_content(event)
+      pieces = [body_for(event)]
       pieces << event.media_url if event.media?
       raw = pieces.compact.reject(&:empty?).join("\n")
       return raw if raw.length <= DISCORD_MESSAGE_CAP
@@ -155,11 +177,12 @@ module Discord
       "📎 #{event.body}"
     end
 
-    def prefix_for(event, room)
-      return OWN_PREFIX if event.own?
-      return SYSTEM_PREFIX if event.system?
+    def username_for(event, room)
+      return SYSTEM_NAME if event.system?
 
-      "**#{display_name_for(event, room)}**"
+      base = display_name_for(event, room)
+      base += OWN_NAME_SUFFIX if event.own?
+      base
     end
 
     # Order of preference for the counterparty's display name:
@@ -170,7 +193,7 @@ module Discord
     #      didn't carry it, so by the time we're formatting the prefix it's
     #      the authoritative name.
     #   3. The matrix_id localpart (e.g. `t2_abc123`) as a last resort so
-    #      we never post an empty `**` prefix.
+    #      we never post an empty username.
     def display_name_for(event, room)
       return event.sender_username if event.sender_username.present?
 

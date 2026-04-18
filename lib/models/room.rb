@@ -40,6 +40,14 @@ class Room < ApplicationRecord
     update!(discord_channel_id: channel_id)
   end
 
+  def attach_webhook!(id:, token:)
+    update!(discord_webhook_id: id, discord_webhook_token: token)
+  end
+
+  def clear_webhook!
+    update!(discord_webhook_id: nil, discord_webhook_token: nil)
+  end
+
   def advance_event!(event_id)
     update!(last_event_id: event_id)
   end
