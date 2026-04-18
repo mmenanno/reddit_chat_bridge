@@ -75,4 +75,25 @@ class RoomTest < ActiveSupport::TestCase
 
     assert_predicate(room, :is_direct?)
   end
+
+  test "archive! clears PostedEvent rows so Restore history can replay into the recreated channel" do
+    room = Room.create!(matrix_room_id: MATRIX_ROOM_ID, discord_channel_id: "123")
+    PostedEvent.record!(event_id: "$a", room_id: MATRIX_ROOM_ID)
+    PostedEvent.record!(event_id: "$b", room_id: MATRIX_ROOM_ID)
+    PostedEvent.record!(event_id: "$c", room_id: "!other:reddit.com") # unrelated — preserved
+
+    room.archive!
+
+    assert_equal(["$c"], PostedEvent.pluck(:event_id))
+  end
+
+  test "forget_posted_events! scopes to this room only" do
+    room = Room.create!(matrix_room_id: MATRIX_ROOM_ID)
+    PostedEvent.record!(event_id: "$a", room_id: MATRIX_ROOM_ID)
+    PostedEvent.record!(event_id: "$z", room_id: "!other:reddit.com")
+
+    room.forget_posted_events!
+
+    assert_equal(["$z"], PostedEvent.pluck(:event_id))
+  end
 end

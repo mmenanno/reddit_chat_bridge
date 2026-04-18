@@ -171,6 +171,22 @@ module Admin
       assert_equal("new_chan", room.reload.discord_channel_id)
     end
 
+    test "refresh_one clears PostedEvent dedup when the channel was manually deleted, so backfill can replay" do
+      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, counterparty_username: "nothnnn", discord_channel_id: CHANNEL_ID)
+      PostedEvent.record!(event_id: "$old", room_id: ROOM_ID)
+      @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
+      @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
+      @discord_client.expects(:rename_channel).raises(Discord::NotFound, "Unknown Channel")
+      @channel_index.expects(:ensure_channel).returns("fresh")
+      @matrix_client.expects(:room_messages).returns("chunk" => [], "state" => [])
+      @normalizer.expects(:normalize).returns([])
+      @poster.expects(:call)
+
+      @reconciler.refresh_one(matrix_room_id: ROOM_ID)
+
+      refute(PostedEvent.posted?("$old"))
+    end
+
     test "refresh_one recreates the channel before backfilling when the old one is gone" do
       Room.create!(
         matrix_room_id: ROOM_ID,

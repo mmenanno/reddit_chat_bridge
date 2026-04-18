@@ -123,12 +123,16 @@ module Admin
     end
 
     # Discord returns 404 on rename when the channel has been deleted by the
-    # operator. Clear the stale id and let ChannelIndex create a fresh one
-    # — name is already current so no follow-up rename is needed.
+    # operator. Clear the stale id, forget the dedup cache for this room
+    # (old posted-events pointed at a channel that no longer exists —
+    # keeping them makes backfills skip every event), then let ChannelIndex
+    # create a fresh channel. Name is already current so no follow-up
+    # rename is needed.
     def rename_or_recreate!(room, new_slug)
       @discord_client.rename_channel(channel_id: room.discord_channel_id, name: new_slug)
     rescue Discord::NotFound
       room.update!(discord_channel_id: nil)
+      room.forget_posted_events!
       @channel_index.ensure_channel(room: room)
     end
 

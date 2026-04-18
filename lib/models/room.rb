@@ -72,16 +72,31 @@ class Room < ApplicationRecord
   # treats this as a trigger to create a fresh channel the next time a
   # message arrives — or the operator can explicitly unarchive with a
   # backfill via the UI.
+  #
+  # Also clears PostedEvent rows for this room: the old Discord messages
+  # are gone, so the dedup entries that guarded them are meaningless and
+  # would cause "Restore history" to silently skip every event.
   def archive!
-    update!(
-      archived_at: Time.current,
-      discord_channel_id: nil,
-      discord_webhook_id: nil,
-      discord_webhook_token: nil,
-    )
+    ActiveRecord::Base.transaction do
+      update!(
+        archived_at: Time.current,
+        discord_channel_id: nil,
+        discord_webhook_id: nil,
+        discord_webhook_token: nil,
+      )
+      forget_posted_events!
+    end
   end
 
   def unarchive!
     update!(archived_at: nil)
+  end
+
+  # Wipe the dedup cache for this room. Used when the Discord channel
+  # is gone (archive) or just got recreated (manual delete detected
+  # via rename 404), so backfills can replay without the Poster
+  # skipping every event as "already posted".
+  def forget_posted_events!
+    PostedEvent.where(room_id: matrix_room_id).delete_all
   end
 end
