@@ -54,11 +54,25 @@ module Discord
       @socket&.close
     end
 
-    # The callback methods below (`handle_frame`, `stop_heartbeat!`,
-    # `journal_warn`) have to stay public: WebSocket::Client::Simple
-    # invokes its `on` blocks with an explicit receiver, and private
-    # methods in Ruby raise `NoMethodError` for explicit-receiver calls
-    # — the error would get swallowed in the websocket thread.
+    # The callback methods below (`dispatch_frame`, `handle_frame`,
+    # `stop_heartbeat!`, `journal_warn`) have to stay public:
+    # WebSocket::Client::Simple invokes its `on` blocks with an explicit
+    # receiver, and private methods in Ruby raise `NoMethodError` for
+    # explicit-receiver calls — the error would get swallowed in the
+    # websocket thread.
+
+    # websocket-client-simple emits every decoded frame through :message —
+    # text, binary, close, ping, pong. We only want to JSON-parse :text;
+    # close frames carry a UTF-8 reason that would otherwise reach
+    # handle_frame and trip the JSON parser (seen in the wild as "bad
+    # frame: unexpected character: 'Discord'" when Discord closed with
+    # an error reason like "Discord WebSocket: …").
+    def dispatch_frame(msg)
+      case msg.type
+      when :text then handle_frame(msg.data)
+      when :close then log_close(msg)
+      end
+    end
 
     def handle_frame(raw)
       payload = JSON.parse(raw)
@@ -70,11 +84,17 @@ module Discord
       when OP_HEARTBEAT_ACK then nil
       end
     rescue JSON::ParserError => e
-      journal_warn("bad frame: #{e.message}")
+      journal_warn("bad frame: #{e.message} (payload=#{raw.to_s[0, 80].inspect})")
     rescue StandardError => e
       # Any bug in on_hello/on_dispatch/handlers must not kill the
       # websocket thread silently. Log it and keep the socket alive.
       journal_warn("frame handler crashed: #{e.class}: #{e.message}")
+    end
+
+    def log_close(msg)
+      code = msg.respond_to?(:code) ? msg.code : nil
+      reason = msg.data.to_s
+      journal_warn("socket close frame: code=#{code.inspect} reason=#{reason.inspect}")
     end
 
     def stop_heartbeat!
@@ -94,7 +114,7 @@ module Discord
       @socket = WebSocket::Client::Simple.connect(@url)
 
       @socket.on(:message) do |msg|
-        gateway.handle_frame(msg.data)
+        gateway.dispatch_frame(msg)
       end
       @socket.on(:close) do
         gateway.stop_heartbeat!
