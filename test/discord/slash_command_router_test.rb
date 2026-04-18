@@ -80,6 +80,43 @@ module Discord
       assert_equal(gateway_response, http_response)
     end
 
+    # ---- /endchat (per-room command, runs in the target #dm-* channel) ----
+
+    test "runs /endchat from inside a #dm-* channel and delegates to Admin::Actions" do
+      Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "testuser", discord_channel_id: "dm_555")
+      @actions.expects(:end_chat!).with(matrix_room_id: "!r:reddit.com")
+
+      response = @router.dispatch(interaction(name: "endchat", channel: "dm_555"))
+
+      assert_match(/Ended chat with \*\*testuser\*\*/, response[:data][:content])
+    end
+
+    test "runs /endchat even when the channel isn't the #commands channel (per-room override)" do
+      Room.create!(matrix_room_id: "!r:reddit.com", discord_channel_id: "dm_not_commands")
+      @actions.expects(:end_chat!)
+
+      response = @router.dispatch(interaction(name: "endchat", channel: "dm_not_commands"))
+
+      refute_match(/must be run in the configured/i, response[:data][:content])
+    end
+
+    test "returns a helpful error when /endchat fires in a channel that isn't linked to a room" do
+      @actions.expects(:end_chat!).never
+
+      response = @router.dispatch(interaction(name: "endchat", channel: "some_random_channel"))
+
+      assert_match(/no bridged room matches/i, response[:data][:content])
+    end
+
+    test "still rejects /endchat from a different guild" do
+      Room.create!(matrix_room_id: "!r:reddit.com", discord_channel_id: "dm_555")
+      @actions.expects(:end_chat!).never
+
+      response = @router.dispatch(interaction(name: "endchat", channel: "dm_555", guild: "other"))
+
+      assert_match(/different guild|must be run in the configured/i, response[:data][:content])
+    end
+
     private
 
     def interaction(name:, guild: GUILD, channel: CHAN)
