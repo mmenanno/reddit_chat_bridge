@@ -92,37 +92,41 @@
 
         <footer class="room-card__footer">
           <span class="kicker">room #<%= room.id %></span>
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="room-card__toolbar">
             <% if room.terminated? %>
               <form method="post" action="/rooms/<%= room.id %>/restore">
                 <button type="submit"
-                        class="btn btn-primary btn-xs"
-                        title="Un-hide this chat. The next Reddit message in this room creates a fresh Discord channel.">
-                  ↺ Restore chat
+                        class="btn-chip btn-chip--primary"
+                        title="Un-hide this chat. The next Reddit message creates a fresh Discord channel.">
+                  <span class="btn-chip__glyph" aria-hidden="true">↺</span>
+                  Restore
                 </button>
               </form>
             <% elsif room.archived? %>
               <form method="post" action="/rooms/<%= room.id %>/unarchive">
+                <input type="hidden" name="backfill" value="1">
                 <button type="submit"
-                        class="btn btn-outline btn-xs"
-                        title="Recreate the Discord channel empty; new messages flow in as they arrive. Use Refresh &amp; restore history afterwards if you want old messages back.">
-                  ↺ Unarchive
+                        class="btn-chip btn-chip--primary"
+                        title="Unarchive, recreate the channel, and replay recent history into it.">
+                  <span class="btn-chip__glyph" aria-hidden="true">⟲</span>
+                  Restore history
                 </button>
               </form>
               <form method="post" action="/rooms/<%= room.id %>/unarchive">
-                <input type="hidden" name="backfill" value="1">
                 <button type="submit"
-                        class="btn btn-primary btn-xs"
-                        title="Unarchive, recreate the channel, and immediately replay recent history into it">
-                  ⟲ Restore history
+                        class="btn-chip"
+                        title="Unarchive with an empty channel; future messages flow in as they arrive.">
+                  <span class="btn-chip__glyph" aria-hidden="true">↺</span>
+                  Unarchive
                 </button>
               </form>
             <% else %>
               <form method="post" action="/rooms/<%= room.id %>/refresh">
                 <button type="submit"
-                        class="btn btn-outline btn-xs"
-                        title="Re-fetch profile, rename if needed, and replay recent history into the channel">
-                  ⟲ Refresh &amp; restore history
+                        class="btn-chip btn-chip--primary"
+                        title="Re-fetch the counterparty profile, rename the channel if needed, and replay recent history.">
+                  <span class="btn-chip__glyph" aria-hidden="true">↻</span>
+                  Refresh
                 </button>
               </form>
               <% if room.discord_channel_id %>
@@ -131,12 +135,13 @@
                       data-confirm="Deletes the Discord channel for this room. The Matrix side stays linked, so a new channel is auto-recreated the moment you click Unarchive or the next message arrives."
                       data-confirm-title="Archive <%= room.counterparty_username || "this room" %>?"
                       data-confirm-kicker="Archive · room #<%= room.id %>"
-                      data-confirm-label="⌫ Archive room"
+                      data-confirm-label="⎘ Archive room"
                       data-confirm-icon="reversible">
                   <button type="submit"
-                          class="btn btn-outline btn-xs"
-                          title="Delete the Discord channel; keeps the Matrix room linked">
-                    ⌫ Archive
+                          class="btn-chip"
+                          title="Delete the Discord channel; keeps the Matrix room linked so new messages trigger auto-unarchive.">
+                    <span class="btn-chip__glyph" aria-hidden="true">⎘</span>
+                    Archive
                   </button>
                 </form>
               <% end %>
@@ -145,15 +150,16 @@
             <% unless room.terminated? %>
               <form method="post"
                     action="/rooms/<%= room.id %>/end"
-                    data-confirm="Deletes the Discord channel and hides this conversation — every future event in this Matrix room is silently dropped until you click Restore. (Reddit's own UI only offers a Hide action too; their server refuses a real Matrix /leave on DM rooms, so this is the closest we can get.) Reversible: Restore re-bridges the chat and the next message creates a fresh Discord channel."
+                    data-confirm="Deletes the Discord channel and hides this conversation — every future event in this Matrix room is silently dropped until you click Restore. Reddit's own UI only offers a Hide action too; their server refuses a real Matrix /leave on DM rooms, so this is the closest we can get. Reversible: Restore re-bridges the chat and the next message creates a fresh Discord channel."
                     data-confirm-title="End chat with <%= room.counterparty_username || "this room" %>?"
                     data-confirm-kicker="End chat · reversible"
-                    data-confirm-label="⌫ End chat"
+                    data-confirm-label="✕ End chat"
                     data-confirm-icon="reversible">
                 <button type="submit"
-                        class="btn btn-error btn-xs"
+                        class="btn-chip btn-chip--danger"
                         title="Hide this chat locally — same as Reddit's Hide chat action. Click Restore later to re-bridge.">
-                  ⌫ End chat
+                  <span class="btn-chip__glyph" aria-hidden="true">✕</span>
+                  End
                 </button>
               </form>
             <% end %>

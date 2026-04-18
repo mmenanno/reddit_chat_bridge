@@ -618,9 +618,94 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    padding-top: 0.5rem;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
     border-top: 1px dashed oklch(28% 0.014 55);
+  }
+
+  .room-card__footer .kicker {
+    flex-shrink: 0;
+  }
+
+  /* Per-card action strip. Compact chips stay on one row until the card
+   * gets narrow, then wrap as a unit. Primary / destructive variants are
+   * distinguished by accent color on hover, not by loud default fills —
+   * the card is the focus, the controls sit under it quietly. */
+  .room-card__toolbar {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.4rem;
+  }
+
+  .btn-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: -0.002em;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--color-bone-dim);
+    background: oklch(19% 0.011 55);
+    border: 1px solid oklch(26% 0.014 55);
+    border-radius: 0.45rem;
+    cursor: pointer;
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease, transform 80ms ease;
+  }
+
+  .btn-chip:hover {
+    color: var(--color-bone);
+    background: oklch(23% 0.015 55);
+    border-color: oklch(38% 0.018 55);
+  }
+
+  .btn-chip:active { transform: translateY(1px); }
+
+  .btn-chip__glyph {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1;
+    opacity: 0.78;
+    transition: color 120ms ease, opacity 120ms ease;
+  }
+
+  .btn-chip:hover .btn-chip__glyph { opacity: 1; }
+
+  /* Primary: ember-accented border + glyph, so the eye lands on it first
+   * without a loud filled background that would fight the card itself. */
+  .btn-chip--primary {
+    color: var(--color-bone);
+    border-color: color-mix(in oklab, var(--color-ember) 38%, oklch(28% 0.014 55));
+    background: color-mix(in oklab, var(--color-ember) 5%, oklch(19% 0.011 55));
+  }
+
+  .btn-chip--primary .btn-chip__glyph {
+    color: var(--color-ember);
+    opacity: 1;
+  }
+
+  .btn-chip--primary:hover {
+    border-color: var(--color-ember);
+    color: var(--color-bone);
+    background: color-mix(in oklab, var(--color-ember) 12%, oklch(19% 0.011 55));
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-ember) 55%, transparent);
+  }
+
+  /* Destructive: neutral at rest, red on hover. Keeps the footer calm —
+   * the red only appears when the cursor commits to the intent. */
+  .btn-chip--danger:hover {
+    color: var(--color-rust);
+    border-color: color-mix(in oklab, var(--color-rust) 70%, var(--color-line));
+    background: color-mix(in oklab, var(--color-rust) 12%, oklch(19% 0.011 55));
+  }
+
+  .btn-chip--danger:hover .btn-chip__glyph {
+    color: var(--color-rust);
   }
 
   /* Divider with mono center-label */
