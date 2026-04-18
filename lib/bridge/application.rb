@@ -2,6 +2,7 @@
 
 require "matrix/client"
 require "matrix/event_normalizer"
+require "matrix/invite_handler"
 require "matrix/media_resolver"
 require "matrix/sync_loop"
 require "dedup/sent_registry"
@@ -12,6 +13,8 @@ require "discord/outbound_dispatcher"
 require "discord/poster"
 require "discord/admin_notifier"
 require "discord/logger"
+require "discord/message_request_notifier"
+require "discord/message_component_router"
 require "discord/slash_command_router"
 require "reddit/profile_client"
 require "admin/actions"
@@ -189,31 +192,67 @@ module Bridge
       )
     end
 
-    # Gateway-delivered slash commands. When Discord's Interactions Endpoint
-    # URL is blank (e.g. tailnet-only deployments), Discord ships each
-    # command over the websocket as INTERACTION_CREATE. We reply via the
-    # REST callback endpoint within 3 seconds. Same router as the HTTP
-    # path — the transport differs, the dispatch table doesn't.
+    # Gateway-delivered interactions. When Discord's Interactions Endpoint
+    # URL is blank (e.g. tailnet-only deployments), Discord ships every
+    # interaction — slash commands AND button clicks — over the websocket
+    # as INTERACTION_CREATE. We branch on payload.type to pick the right
+    # router and reply via the REST callback endpoint within 3 seconds.
     def handle_gateway_interaction(payload)
-      name = payload.dig("data", "name") || "(type=#{payload["type"]})"
-      @journal&.info("Interaction received: /#{name}", source: "gateway")
+      type = payload["type"]
+      @journal&.info("Interaction received: #{interaction_label(payload)}", source: "gateway")
 
-      router = Discord::SlashCommandRouter.new(
-        admin_actions: @admin_actions,
-        guild_id: AppConfig.fetch("discord_guild_id", ""),
-        commands_channel_id: AppConfig.fetch("discord_admin_commands_channel_id", ""),
-      )
-      response = router.dispatch(payload)
+      response = route_interaction(payload, type)
+      return unless response
+
       @discord_client.create_interaction_response(
         interaction_id: payload["id"],
         interaction_token: payload["token"],
         payload: response,
       )
-      @journal&.info("Interaction /#{name} answered", source: "gateway")
+      @journal&.info("Interaction answered: #{interaction_label(payload)}", source: "gateway")
     rescue StandardError => e
       @journal&.warn(
         "Gateway interaction callback failed: #{e.class}: #{e.message}",
         source: "gateway",
+      )
+    end
+
+    def route_interaction(payload, type)
+      case type
+      when 1, 2 then slash_command_router.dispatch(payload)
+      when 3 then message_component_router.dispatch(payload)
+      end
+    end
+
+    def interaction_label(payload)
+      case payload["type"]
+      when 1 then "PING"
+      when 2 then "/#{payload.dig("data", "name")}"
+      when 3 then "button #{payload.dig("data", "custom_id")}"
+      else "(type=#{payload["type"]})"
+      end
+    end
+
+    def slash_command_router
+      Discord::SlashCommandRouter.new(
+        admin_actions: @admin_actions,
+        guild_id: AppConfig.fetch("discord_guild_id", ""),
+        commands_channel_id: AppConfig.fetch("discord_admin_commands_channel_id", ""),
+      )
+    end
+
+    def message_component_router
+      Discord::MessageComponentRouter.new(
+        admin_actions: @admin_actions,
+        notifier: message_request_notifier,
+      )
+    end
+
+    def message_request_notifier
+      Discord::MessageRequestNotifier.new(
+        client: @discord_client,
+        channel_id: AppConfig.fetch("discord_message_requests_channel_id", ""),
+        fallback_channel_id: AppConfig.fetch("discord_admin_status_channel_id", ""),
       )
     end
 
@@ -228,13 +267,19 @@ module Bridge
 
     def build_sync_loop
       homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+      media_resolver = Matrix::MediaResolver.new(homeserver: homeserver)
       Matrix::SyncLoop.new(
         client: @matrix_client,
         normalizer: Matrix::EventNormalizer.new(
           own_user_id: AppConfig.fetch("matrix_user_id"),
-          media_resolver: Matrix::MediaResolver.new(homeserver: homeserver),
+          media_resolver: media_resolver,
         ),
         dispatcher: @poster,
+        invite_handler: Matrix::InviteHandler.new(
+          own_user_id: AppConfig.fetch("matrix_user_id"),
+          notifier: message_request_notifier,
+          media_resolver: media_resolver,
+        ),
       )
     end
 

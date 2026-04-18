@@ -112,7 +112,56 @@ module Admin
       @reconciler.unarchive!(matrix_room_id: matrix_room_id, backfill: backfill)
     end
 
+    # Accept the Matrix invite so the next /sync carries the room's
+    # timeline and the Poster starts bridging. Idempotent: calling a
+    # second time short-circuits once the request is resolved.
+    def approve_message_request!(id:)
+      resolve_message_request!(id: id, decision: MessageRequest::APPROVED) do |request|
+        matrix_client.join_room(room_id: request.matrix_room_id)
+      end
+    end
+
+    # Decline: leave the Matrix room. Reddit surfaces this to the sender
+    # as a declined request (matching native Reddit chat semantics).
+    def decline_message_request!(id:)
+      resolve_message_request!(id: id, decision: MessageRequest::DECLINED) do |request|
+        matrix_client.leave_room(room_id: request.matrix_room_id)
+      end
+    end
+
+    attr_writer :message_request_web_notifier
+
     private
+
+    def matrix_client
+      @matrix_client_factory.call(AuthState.access_token)
+    end
+
+    def resolve_message_request!(id:, decision:)
+      request = MessageRequest.find(id)
+      return request unless request.pending?
+
+      yield(request)
+      request.resolve!(decision: decision)
+      refresh_discord_message_after_resolve(request)
+      request
+    end
+
+    # When the operator resolved via the web UI (not a Discord button),
+    # the Discord message still shows the original Approve/Decline
+    # buttons — visit it via REST and rewrite it to match the resolution.
+    # No-op when there's no notifier (tests) or the request never made
+    # it into Discord (notifier channel was empty).
+    def refresh_discord_message_after_resolve(request)
+      return unless @message_request_web_notifier
+      return unless request.discord_channel_id && request.discord_message_id
+
+      @message_request_web_notifier.edit_resolution!(request)
+    rescue StandardError
+      # Failure to update the Discord card is cosmetic — the authoritative
+      # state is the DB row, which is already correct.
+      nil
+    end
 
     def delete_existing_discord_channels!
       return { channels_deleted: 0, channel_delete_errors: 0 } unless @reconciler

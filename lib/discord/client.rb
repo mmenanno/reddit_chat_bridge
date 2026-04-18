@@ -49,6 +49,22 @@ module Discord
       post("channels/#{channel_id}/messages", payload: { content: content }).body.fetch("id")
     end
 
+    # Full-payload variant of send_message — exposes the REST endpoint
+    # for callers that need embeds or message components (action rows,
+    # buttons). Returns the full message body so callers can capture
+    # the id for a later edit_message call.
+    def create_message(channel_id:, payload:)
+      post("channels/#{channel_id}/messages", payload: payload).body
+    end
+
+    def edit_message(channel_id:, message_id:, payload:)
+      response = @conn.patch("channels/#{channel_id}/messages/#{message_id}") do |req|
+        req.headers["Authorization"] = "Bot #{@bot_token}"
+        req.body = payload
+      end
+      handle(response).body
+    end
+
     def get_channel(channel_id)
       get("channels/#{channel_id}").body
     end

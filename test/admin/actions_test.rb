@@ -327,5 +327,37 @@ module Admin
         @actions.refresh_room!(matrix_room_id: "!r:reddit.com")
       end
     end
+
+    # ---- message requests ----
+
+    test "approve_message_request! joins the Matrix room and marks the request approved" do
+      AuthState.update_token!(access_token: NEW_TOKEN, user_id: NEW_USER)
+      request = MessageRequest.create!(matrix_room_id: "!invite:reddit.com")
+      @probe_client.expects(:join_room).with(room_id: "!invite:reddit.com")
+
+      returned = @actions.approve_message_request!(id: request.id)
+
+      assert_predicate(returned.reload, :approved?)
+      refute_predicate(returned, :pending?)
+    end
+
+    test "decline_message_request! leaves the Matrix room and marks the request declined" do
+      AuthState.update_token!(access_token: NEW_TOKEN, user_id: NEW_USER)
+      request = MessageRequest.create!(matrix_room_id: "!invite:reddit.com")
+      @probe_client.expects(:leave_room).with(room_id: "!invite:reddit.com")
+
+      @actions.decline_message_request!(id: request.id)
+
+      assert_predicate(request.reload, :declined?)
+    end
+
+    test "approve_message_request! is idempotent on an already-resolved request" do
+      AuthState.update_token!(access_token: NEW_TOKEN, user_id: NEW_USER)
+      request = MessageRequest.create!(matrix_room_id: "!invite:reddit.com")
+      request.resolve!(decision: MessageRequest::APPROVED)
+      @probe_client.expects(:join_room).never
+
+      @actions.approve_message_request!(id: request.id)
+    end
   end
 end

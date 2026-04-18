@@ -32,8 +32,13 @@
 
           <% if logged_in? %>
             <nav class="nav-primary" aria-label="Primary">
-              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/events", "Events"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label| %>
-                <a href="<%= href %>" class="nav-link"<%= ' aria-current="page"' if current_nav?(href) %>><%= label %></a>
+              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/requests", "Requests", MessageRequest.pending.count], ["/events", "Events"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label, badge| %>
+                <a href="<%= href %>" class="nav-link"<%= ' aria-current="page"' if current_nav?(href) %>>
+                  <%= label %>
+                  <% if badge.is_a?(Integer) && badge.positive? %>
+                    <span class="nav-link__badge" aria-label="<%= badge %> pending"><%= badge %></span>
+                  <% end %>
+                </a>
               <% end %>
             </nav>
 

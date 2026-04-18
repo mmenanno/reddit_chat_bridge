@@ -56,6 +56,15 @@ module Matrix
       post(path, payload: {}).body
     end
 
+    # Declines a pending invite (or leaves a joined room). Used by the
+    # message-request "Decline" path to stop `/sync` from surfacing the
+    # invite on the next tick — Reddit shows this as a declined request
+    # to the sender, mirroring native Reddit chat semantics.
+    def leave_room(room_id:)
+      path = "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/leave"
+      post(path, payload: {}).body
+    end
+
     # Pulls recent timeline events for a single room, used by the per-room
     # force-refresh action to re-examine history without replaying /sync.
     # `dir` is "b" (backward from the latest event) or "f" (forward from

@@ -149,30 +149,29 @@ module Matrix
       assert_equal("safe_point", SyncCheckpoint.next_batch_token)
     end
 
-    # ---- invite auto-accept ----
+    # ---- invite handling ----
 
-    test "iterate joins every invited room before dispatching" do
+    test "iterate hands invites to the invite_handler before dispatching" do
       body = empty_body("n1")
-      body["rooms"]["invite"] = {
-        "!invite_a:reddit.com" => { "invite_state" => { "events" => [] } },
-        "!invite_b:reddit.com" => { "invite_state" => { "events" => [] } },
-      }
+      body["rooms"]["invite"] = { "!invite_a:reddit.com" => { "invite_state" => { "events" => [] } } }
       @client.stubs(:sync).returns(body)
-      @client.expects(:join_room).with(room_id: "!invite_a:reddit.com").once
-      @client.expects(:join_room).with(room_id: "!invite_b:reddit.com").once
+      handler = mock("InviteHandler")
+      handler.expects(:call).with(body).once
+      loop_with_handler = Matrix::SyncLoop.new(
+        client: @client,
+        normalizer: @normalizer,
+        dispatcher: @dispatcher,
+        invite_handler: handler,
+      )
 
-      @loop.iterate
+      loop_with_handler.iterate
     end
 
-    test "iterate keeps going when a single join fails" do
+    test "iterate with no invite_handler does not auto-join or crash" do
       body = empty_body("n1")
-      body["rooms"]["invite"] = {
-        "!flaky:reddit.com" => { "invite_state" => { "events" => [] } },
-        "!good:reddit.com" => { "invite_state" => { "events" => [] } },
-      }
+      body["rooms"]["invite"] = { "!invite_a:reddit.com" => { "invite_state" => { "events" => [] } } }
       @client.stubs(:sync).returns(body)
-      @client.stubs(:join_room).with(room_id: "!flaky:reddit.com").raises(Matrix::Error, "boom")
-      @client.expects(:join_room).with(room_id: "!good:reddit.com").once
+      @client.expects(:join_room).never
 
       @loop.iterate
     end

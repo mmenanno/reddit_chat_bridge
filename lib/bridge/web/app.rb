@@ -8,6 +8,7 @@ require "discord/client"
 require "discord/channel_index"
 require "discord/interaction_verifier"
 require "discord/poster"
+require "discord/message_request_notifier"
 require "discord/slash_command_router"
 require "reddit/profile_client"
 require "admin/actions"
@@ -78,7 +79,20 @@ module Bridge
             homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
             Matrix::Client.new(access_token: token, homeserver: homeserver)
           }
-          Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+          actions = Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+          actions.message_request_web_notifier = build_message_request_notifier
+          actions
+        end
+
+        def build_message_request_notifier
+          return unless Bridge::Application.configured?
+
+          client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
+          Discord::MessageRequestNotifier.new(
+            client: client,
+            channel_id: AppConfig.fetch("discord_message_requests_channel_id", ""),
+            fallback_channel_id: AppConfig.fetch("discord_admin_status_channel_id", ""),
+          )
         end
 
         # Returns a Reconciler wired from live config, or nil when Discord +
@@ -161,6 +175,28 @@ module Bridge
           return "#{delta / 3600}h ago" if delta < 86_400
 
           time.utc.strftime("%Y-%m-%d")
+        end
+
+        # Shared handler body for /requests/:id/approve and /:id/decline —
+        # both routes have identical shape modulo the method name.
+        def handle_message_request_action(method_name, id)
+          request = MessageRequest.find_by(id: id)
+          verb = method_name == :approve_message_request! ? "Approve" : "Decline"
+
+          if request.nil?
+            @error = "Message request not found."
+          else
+            begin
+              admin_actions.public_send(method_name, id: request.id)
+              @notice = "#{verb}d message request from #{request.display_name}."
+            rescue Matrix::Error, Discord::Error => e
+              @error = "#{verb} failed: #{e.class}: #{e.message}"
+            end
+          end
+
+          @pending = MessageRequest.pending.to_a
+          @resolved = MessageRequest.recent_resolved.limit(20).to_a
+          erb(:requests)
         end
       end
 
@@ -329,6 +365,13 @@ module Bridge
           secret: false,
         },
         {
+          key: "discord_message_requests_channel_id",
+          label: "#message-requests channel ID",
+          hint: "Incoming Reddit message requests post here with Approve/Decline buttons. Falls back to #app-status if blank.",
+          default: "",
+          secret: false,
+        },
+        {
           key: "discord_application_id",
           label: "Discord application ID",
           hint: "Developer Portal → your app → General Information → Application ID.",
@@ -376,6 +419,20 @@ module Bridge
       get "/rooms" do
         @rooms = Room.order(:counterparty_username).to_a
         erb(:rooms)
+      end
+
+      get "/requests" do
+        @pending = MessageRequest.pending.to_a
+        @resolved = MessageRequest.recent_resolved.limit(20).to_a
+        erb(:requests)
+      end
+
+      post "/requests/:id/approve" do
+        handle_message_request_action(:approve_message_request!, params[:id])
+      end
+
+      post "/requests/:id/decline" do
+        handle_message_request_action(:decline_message_request!, params[:id])
       end
 
       get "/events" do
