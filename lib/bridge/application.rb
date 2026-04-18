@@ -20,6 +20,7 @@ require "discord/slash_command_router"
 require "reddit/profile_client"
 require "admin/actions"
 require "auth/refresh_flow"
+require "bridge/build_info"
 require "bridge/journal"
 require "bridge/supervisor"
 
@@ -288,11 +289,10 @@ module Bridge
     # log and #app-logs on Discord. Fired once per process because
     # start_if_configured! is mutex-guarded against re-entry.
     def announce_online
-      homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
-      user_id = AuthState.user_id.to_s.presence || "(no token yet)"
-      gateway_status = @gateway_thread&.alive? ? "websocket up" : "websocket disabled"
+      user_id = AuthState.user_id.to_s.presence || "no token yet"
+      gateway_status = @gateway_thread&.alive? ? "up" : "disabled"
       @journal&.info(
-        "reddit_chat_bridge online · matrix=#{homeserver} · user=#{user_id} · #{gateway_status}",
+        "Bridge online · #{Bridge::BuildInfo.label} · matrix user #{user_id} · discord gateway #{gateway_status}",
         source: "application",
       )
     end

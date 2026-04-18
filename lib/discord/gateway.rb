@@ -55,6 +55,10 @@ module Discord
       @socket&.close
     end
 
+    def stopping?
+      @stopped
+    end
+
     # The callback methods below (`dispatch_frame`, `handle_frame`,
     # `stop_heartbeat!`, `journal_warn`) have to stay public:
     # WebSocket::Client::Simple invokes its `on` blocks with an explicit
@@ -121,6 +125,11 @@ module Discord
         gateway.stop_heartbeat!
       end
       @socket.on(:error) do |e|
+        # Closing the socket from stop! races with the reader thread and
+        # surfaces here as IOError("stream closed in another thread"). That's
+        # how shutdown is supposed to end — stay silent on the way out.
+        next if gateway.stopping?
+
         gateway.journal_warn("socket error: #{e.message}")
       end
 

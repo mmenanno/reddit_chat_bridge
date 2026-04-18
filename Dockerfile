@@ -61,6 +61,11 @@ RUN npm init -y >/dev/null && \
 
 # ---- final runtime ----
 FROM base
+ARG BUILD_SHA=""
+ARG BUILD_REF=""
+ENV BUILD_SHA=$BUILD_SHA \
+    BUILD_REF=$BUILD_REF
+
 COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY . .
 COPY --from=assets /app/app/assets/built ./app/assets/built
