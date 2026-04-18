@@ -4,6 +4,7 @@ require "sinatra/base"
 require "securerandom"
 require "matrix/client"
 require "matrix/event_normalizer"
+require "matrix/media_resolver"
 require "discord/client"
 require "discord/channel_index"
 require "discord/interaction_verifier"
@@ -190,6 +191,49 @@ module Bridge
 
         def matrix_id_localpart(matrix_id)
           matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
+        end
+
+        # Matrix ships `origin_server_ts` in milliseconds-since-epoch. These
+        # two helpers turn that into the labels the transcript view uses for
+        # its day dividers and per-bubble timestamps.
+        def transcript_day_label(ts_ms)
+          return unless ts_ms
+
+          event_time = Time.at(ts_ms.to_i / 1000.0).in_time_zone
+          days_ago = ((Time.current.beginning_of_day - event_time.beginning_of_day) / 86_400).to_i
+          return "Today" if days_ago.zero?
+          return "Yesterday" if days_ago == 1
+          return event_time.strftime("%A") if days_ago < 7
+
+          event_time.strftime("%B %-d, %Y")
+        end
+
+        def transcript_time_label(ts_ms)
+          return unless ts_ms
+
+          Time.at(ts_ms.to_i / 1000.0).in_time_zone.strftime("%-l:%M %p")
+        end
+
+        # Deciding whether a message needs a sender-header (avatar + name +
+        # time) or whether it can ride as a continuation bubble under the
+        # previous message. Matches iMessage/Discord intuition: same sender,
+        # same day, within a short gap → group.
+        def transcript_new_group?(event, previous)
+          return true if previous.nil?
+          return true if event.sender != previous.sender
+          return true if (event.origin_server_ts.to_i - previous.origin_server_ts.to_i) > 5 * 60 * 1000
+
+          false
+        end
+
+        def transcript_new_day?(event, previous)
+          return true if previous.nil?
+
+          transcript_day_of(event.origin_server_ts) != transcript_day_of(previous.origin_server_ts)
+        end
+
+        def transcript_day_of(ts_ms)
+          Time.at(ts_ms.to_i / 1000.0).in_time_zone.to_date
         end
 
         # Shared handler body for /requests/:id/approve and /:id/decline —
@@ -434,6 +478,51 @@ module Bridge
       get "/rooms" do
         @rooms = Room.order(:counterparty_username).to_a
         erb(:rooms)
+      end
+
+      # Live-fetch transcript for a single bridged room. Pulls the last ~60
+      # events from Reddit's Matrix server on each load — we don't cache
+      # message bodies locally, so if the token is paused the transcript
+      # surfaces an auth banner instead of a stale snapshot.
+      get "/rooms/:id" do
+        @room = Room.find_by(id: params[:id])
+        halt(404, "Room not found") unless @room
+
+        @from_token = params[:from].presence
+        @events = []
+        @older_token = nil
+        @transcript_error = nil
+        @auth_paused = AuthState.paused? || AuthState.access_token.to_s.strip.empty?
+
+        if @auth_paused
+          @transcript_error = "Matrix auth is paused or missing — paste a token on /auth to load this transcript."
+        else
+          begin
+            homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+            client = Matrix::Client.new(access_token: -> { AuthState.access_token }, homeserver: homeserver)
+            raw = client.room_messages(room_id: @room.matrix_room_id, dir: "b", limit: 60, from: @from_token)
+            # dir=b returns newest first; reverse for chronological display.
+            chunk = (raw["chunk"] || []).reverse
+            media_resolver = Matrix::MediaResolver.new(homeserver: homeserver)
+            normalizer = Matrix::EventNormalizer.new(
+              own_user_id: AppConfig.fetch("matrix_user_id"),
+              media_resolver: media_resolver,
+            )
+            @events = normalizer.normalize_chunk(
+              room_id: @room.matrix_room_id,
+              chunk: chunk,
+              state: raw["state"],
+            )
+            @older_token = raw["end"] if chunk.any?
+          rescue Matrix::TokenError => e
+            @auth_paused = true
+            @transcript_error = "Matrix token rejected (#{e.message}) — refresh on /auth."
+          rescue Matrix::Error => e
+            @transcript_error = "Matrix /messages call failed: #{e.class}: #{e.message}"
+          end
+        end
+
+        erb(:room_transcript)
       end
 
       get "/requests" do

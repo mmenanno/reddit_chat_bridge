@@ -249,6 +249,67 @@ module Matrix
       assert_nil(@normalizer.normalize(body).first.sender_avatar_url)
     end
 
+    # ---- normalize_chunk (for /messages responses) ----
+
+    test "normalize_chunk returns one NormalizedEvent per message in the chunk" do
+      result = @normalizer.normalize_chunk(
+        room_id: "!r:reddit.com",
+        chunk: [
+          chat_message(event_id: "$a", sender: PEER, body: "first"),
+          chat_message(event_id: "$b", sender: PEER, body: "second"),
+        ],
+      )
+
+      assert_equal(["$a", "$b"], result.map(&:event_id))
+      assert_equal(["first", "second"], result.map(&:body))
+    end
+
+    test "normalize_chunk drops non-message events (members, state, etc.)" do
+      result = @normalizer.normalize_chunk(
+        room_id: "!r:reddit.com",
+        chunk: [
+          member(user_id: PEER, displayname: "peer"),
+          chat_message(event_id: "$m", sender: PEER, body: "real message"),
+        ],
+      )
+
+      assert_equal(1, result.size)
+      assert_equal("$m", result.first.event_id)
+    end
+
+    test "normalize_chunk resolves usernames from the state array when members aren't inline" do
+      result = @normalizer.normalize_chunk(
+        room_id: "!r:reddit.com",
+        chunk: [chat_message(sender: PEER, body: "hi")],
+        state: [member(user_id: PEER, displayname: "peer", reddit_username: "testuser")],
+      )
+
+      assert_equal("testuser", result.first.sender_username)
+    end
+
+    test "normalize_chunk marks own messages via is_own" do
+      result = @normalizer.normalize_chunk(
+        room_id: "!r:reddit.com",
+        chunk: [
+          chat_message(event_id: "$mine", sender: OWN, body: "from me"),
+          chat_message(event_id: "$peer", sender: PEER, body: "from peer"),
+        ],
+      )
+
+      assert_predicate(result.find { |e| e.event_id == "$mine" }, :own?)
+      refute_predicate(result.find { |e| e.event_id == "$peer" }, :own?)
+    end
+
+    test "normalize_chunk handles an empty chunk without blowing up" do
+      assert_empty(@normalizer.normalize_chunk(room_id: "!r:reddit.com", chunk: []))
+    end
+
+    test "normalize_chunk tolerates nil chunk and state arrays" do
+      result = @normalizer.normalize_chunk(room_id: "!r:reddit.com", chunk: nil, state: nil)
+
+      assert_empty(result)
+    end
+
     private
 
     def image_message(filename, mxc_url, event_id: "$img", sender: PEER)

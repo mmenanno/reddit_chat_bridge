@@ -1,0 +1,199 @@
+<%
+  display_name = @room.counterparty_username ||
+                 matrix_id_localpart(@room.counterparty_matrix_id) ||
+                 @room.matrix_room_id
+  own_display = AppConfig.fetch("own_display_name", "").to_s
+  own_display = "You" if own_display.empty?
+  own_avatar = AppConfig.fetch("own_avatar_url", "").to_s
+  counterparty_avatar = @room.counterparty_avatar_url.to_s
+
+  status_pill =
+    if @room.terminated?
+      ["danger", "hidden"]
+    elsif @room.archived?
+      ["warning", "archived"]
+    elsif @room.discord_channel_id
+      ["healthy", "linked"]
+    else
+      ["idle", "pending"]
+    end
+%>
+
+<section class="rise">
+  <p class="kicker">
+    <a href="/rooms" class="hover:text-[color:var(--color-bone)] transition">§02 / Rooms</a>
+    <span class="px-1 text-[color:var(--color-bone-mute)]">›</span>
+    Transcript
+  </p>
+  <div class="mt-3 flex items-start gap-4 flex-wrap">
+    <% if counterparty_avatar.start_with?("http") %>
+      <img src="<%= counterparty_avatar %>" alt=""
+           class="w-14 h-14 rounded-full border border-[color:var(--color-line)]"
+           referrerpolicy="no-referrer" loading="lazy">
+    <% end %>
+    <div class="min-w-0 flex-1">
+      <h1 class="page-title">
+        <em><%= display_name %></em>
+      </h1>
+      <p class="mt-2 font-mono text-xs text-[color:var(--color-bone-mute)] break-all">
+        <%= @room.matrix_room_id %>
+      </p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="status-pill status-pill--<%= status_pill[0] %>">
+        <%= status_pill[1] %>
+      </span>
+      <% if @room.discord_channel_id %>
+        <span class="status-pill status-pill--idle text-[0.65rem] font-mono">
+          #<%= @room.discord_channel_id %>
+        </span>
+      <% end %>
+    </div>
+  </div>
+</section>
+
+<% if @auth_paused %>
+  <div role="alert" class="banner banner--error rise rise-delay-1">
+    <span class="banner__icon">AUTH</span>
+    <div>
+      <p class="font-semibold">Matrix auth is paused or missing.</p>
+      <p class="mt-1 text-sm opacity-90">
+        <%= @transcript_error %>
+        <a href="/auth" class="underline">Open /auth →</a>
+      </p>
+    </div>
+  </div>
+<% elsif @transcript_error %>
+  <div role="alert" class="banner banner--error rise rise-delay-1">
+    <span class="banner__icon">ERR</span>
+    <span><%= @transcript_error %></span>
+  </div>
+<% end %>
+
+<% unless @auth_paused || @transcript_error %>
+<section class="transcript rise rise-delay-2" aria-label="Conversation transcript">
+  <% if @older_token %>
+    <div class="transcript__load-older">
+      <a href="/rooms/<%= @room.id %>?from=<%= CGI.escape(@older_token) %>" class="btn-chip">
+        <span class="btn-chip__glyph" aria-hidden="true">↑</span>
+        Load older
+      </a>
+    </div>
+  <% end %>
+
+  <% if @events.empty? %>
+    <div class="transcript__empty">
+      <p class="kicker">No messages yet</p>
+      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
+        Reddit's Matrix server has no visible history in this room, or everything
+        has been redacted. Newer messages will appear once
+        <code class="font-mono text-xs">/sync</code> pulls them.
+      </p>
+    </div>
+  <% else %>
+    <ol class="transcript__stream">
+      <% previous = nil %>
+      <% @events.each do |event| %>
+        <% next if event.system? && event.body.to_s.strip.empty? %>
+
+        <% if transcript_new_day?(event, previous) %>
+          <li class="transcript__day" aria-hidden="false">
+            <span class="transcript__day-label"><%= transcript_day_label(event.origin_server_ts) %></span>
+          </li>
+        <% end %>
+
+        <%
+          sender_name =
+            if event.own?
+              own_display
+            elsif event.sender_username
+              event.sender_username
+            elsif @room.counterparty_username && event.sender == @room.counterparty_matrix_id
+              @room.counterparty_username
+            else
+              matrix_id_localpart(event.sender)
+            end
+          sender_avatar =
+            if event.sender_avatar_url.to_s.start_with?("http")
+              event.sender_avatar_url
+            elsif event.own? && own_avatar.start_with?("http")
+              own_avatar
+            elsif !event.own? && counterparty_avatar.start_with?("http")
+              counterparty_avatar
+            end
+          new_group = transcript_new_group?(event, previous)
+          bubble_class =
+            if event.system?
+              "transcript__bubble transcript__bubble--system"
+            elsif event.own?
+              "transcript__bubble transcript__bubble--own"
+            else
+              "transcript__bubble transcript__bubble--peer"
+            end
+        %>
+
+        <li class="transcript__row <%= event.own? ? "transcript__row--own" : "transcript__row--peer" %>"
+            data-new-group="<%= new_group ? "true" : "false" %>">
+          <% if new_group && !event.system? %>
+            <div class="transcript__meta">
+              <% if sender_avatar %>
+                <img src="<%= sender_avatar %>" alt=""
+                     class="transcript__avatar"
+                     referrerpolicy="no-referrer" loading="lazy">
+              <% else %>
+                <span class="transcript__avatar transcript__avatar--placeholder" aria-hidden="true">
+                  <%= sender_name.to_s[0, 1].upcase %>
+                </span>
+              <% end %>
+              <span class="transcript__meta-name"><%= sender_name %></span>
+              <time class="transcript__meta-time"
+                    datetime="<%= Time.at(event.origin_server_ts.to_i / 1000.0).utc.iso8601 %>"
+                    title="<%= Time.at(event.origin_server_ts.to_i / 1000.0).utc.iso8601 %>">
+                <%= transcript_time_label(event.origin_server_ts) %>
+              </time>
+            </div>
+          <% end %>
+
+          <div class="<%= bubble_class %>"
+               title="<%= Time.at(event.origin_server_ts.to_i / 1000.0).utc.iso8601 %>">
+            <% if event.media? %>
+              <% if event.media_mime.to_s.start_with?("image/") %>
+                <a href="<%= event.media_url %>" target="_blank" rel="noopener">
+                  <img src="<%= event.media_url %>" alt="<%= event.body %>"
+                       class="transcript__media"
+                       referrerpolicy="no-referrer" loading="lazy">
+                </a>
+              <% else %>
+                <a href="<%= event.media_url %>" target="_blank" rel="noopener"
+                   class="transcript__attachment">
+                  <span aria-hidden="true">📎</span>
+                  <%= event.body %>
+                </a>
+              <% end %>
+            <% elsif event.body %>
+              <p class="transcript__body"><%= event.body %></p>
+            <% end %>
+          </div>
+        </li>
+
+        <% previous = event %>
+      <% end %>
+    </ol>
+  <% end %>
+</section>
+<% end %>
+
+<nav class="mt-6 flex flex-wrap items-center gap-3 text-sm rise rise-delay-3" aria-label="Transcript actions">
+  <a href="/rooms" class="btn-chip">
+    <span class="btn-chip__glyph" aria-hidden="true">←</span>
+    Back to rooms
+  </a>
+  <% unless @room.terminated? %>
+    <form method="post" action="/rooms/<%= @room.id %>/refresh" class="inline">
+      <button type="submit" class="btn-chip btn-chip--primary">
+        <span class="btn-chip__glyph" aria-hidden="true">↻</span>
+        Refresh
+      </button>
+    </form>
+  <% end %>
+</nav>

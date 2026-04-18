@@ -38,13 +38,16 @@
         <header class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="room-card__label">Counterparty</p>
-            <% if room.counterparty_username %>
-              <h2 class="room-card__name mt-1"><%= room.counterparty_username %></h2>
-            <% elsif room.counterparty_matrix_id %>
-              <h2 class="room-card__name room-card__name--placeholder mt-1">unresolved</h2>
-            <% else %>
-              <h2 class="room-card__name room-card__name--placeholder mt-1">unknown</h2>
-            <% end %>
+            <a href="/rooms/<%= room.id %>" class="room-card__name-link"
+               title="Open transcript for this chat">
+              <% if room.counterparty_username %>
+                <h2 class="room-card__name mt-1"><%= room.counterparty_username %></h2>
+              <% elsif room.counterparty_matrix_id %>
+                <h2 class="room-card__name room-card__name--placeholder mt-1">unresolved</h2>
+              <% else %>
+                <h2 class="room-card__name room-card__name--placeholder mt-1">unknown</h2>
+              <% end %>
+            </a>
           </div>
           <% if room.terminated? %>
             <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-1">hidden</span>
@@ -93,6 +96,12 @@
         <footer class="room-card__footer">
           <span class="kicker">room #<%= room.id %></span>
           <div class="room-card__toolbar">
+            <a href="/rooms/<%= room.id %>"
+               class="btn-chip"
+               title="Read this conversation in the web UI">
+              <span class="btn-chip__glyph" aria-hidden="true">☰</span>
+              Transcript
+            </a>
             <% if room.terminated? %>
               <form method="post" action="/rooms/<%= room.id %>/restore">
                 <button type="submit"

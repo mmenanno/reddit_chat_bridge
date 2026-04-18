@@ -598,6 +598,24 @@
     font-variation-settings: "opsz" 72, "wght" 400;
   }
 
+  .room-card__name-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: color 150ms ease;
+  }
+
+  .room-card__name-link:hover .room-card__name,
+  .room-card__name-link:focus-visible .room-card__name {
+    color: var(--color-ember);
+  }
+
+  .room-card__name-link:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-ember) 40%, transparent);
+    outline-offset: 4px;
+    border-radius: 0.35rem;
+  }
+
   .room-card__mono {
     font-family: var(--font-mono);
     font-size: 0.72rem;
@@ -712,6 +730,213 @@
 
   .btn-chip--danger:hover .btn-chip__glyph {
     color: var(--color-rust);
+  }
+
+  /* Transcript — the single-room message viewer. Layout leans editorial-
+   * chat-app: peer messages left, own messages right, with a shared rail
+   * hairline, day dividers in mono caps, and bubbles that pick up the
+   * warm palette without screaming. Media gets a thin bordered thumbnail
+   * that opens the full-size asset in a new tab. */
+  .transcript {
+    border: 1px solid var(--color-line);
+    border-radius: 1rem;
+    background:
+      linear-gradient(180deg, oklch(19% 0.013 55), oklch(15% 0.01 55));
+    padding: 1.5rem 1.5rem 1.75rem;
+    box-shadow:
+      inset 0 1px 0 oklch(44% 0.022 60 / 0.15),
+      0 16px 40px -24px oklch(0% 0 0 / 0.5);
+  }
+
+  .transcript__load-older {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px dashed oklch(26% 0.015 55);
+  }
+
+  .transcript__empty {
+    padding: 2.5rem 0 1rem;
+    text-align: center;
+  }
+
+  .transcript__stream {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .transcript__day {
+    align-self: center;
+    margin: 1.25rem 0 0.75rem;
+    padding: 0.3rem 0.9rem;
+    border: 1px dashed oklch(28% 0.014 55);
+    border-radius: 999px;
+    background: oklch(14% 0.009 55);
+  }
+
+  .transcript__day-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+  }
+
+  .transcript__row {
+    display: flex;
+    flex-direction: column;
+    max-width: min(560px, 78%);
+  }
+
+  .transcript__row--peer {
+    align-self: flex-start;
+  }
+
+  .transcript__row--own {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+
+  /* Tighter vertical gap when this row is a continuation of the previous
+   * sender's group — no header above, so it should nestle against the
+   * previous bubble. */
+  .transcript__row[data-new-group="false"] {
+    margin-top: -0.05rem;
+  }
+
+  .transcript__row[data-new-group="true"] {
+    margin-top: 0.85rem;
+  }
+
+  .transcript__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.35rem;
+    padding-left: 0.1rem;
+  }
+
+  .transcript__row--own .transcript__meta {
+    flex-direction: row-reverse;
+    padding-right: 0.1rem;
+    padding-left: 0;
+  }
+
+  .transcript__avatar {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid oklch(28% 0.014 55);
+    background: oklch(14% 0.009 55);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-bone-dim);
+  }
+
+  .transcript__avatar--placeholder {
+    background: oklch(22% 0.014 55);
+  }
+
+  .transcript__meta-name {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-bone);
+  }
+
+  .transcript__row--own .transcript__meta-name {
+    color: var(--color-ember-soft);
+  }
+
+  .transcript__meta-time {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    color: var(--color-bone-mute);
+  }
+
+  .transcript__bubble {
+    padding: 0.7rem 0.95rem;
+    border-radius: 1rem;
+    border: 1px solid oklch(26% 0.014 55);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .transcript__bubble--peer {
+    background: oklch(21% 0.013 55);
+    color: var(--color-bone);
+    border-top-left-radius: 0.35rem;
+  }
+
+  .transcript__row--peer .transcript__row[data-new-group="false"] .transcript__bubble--peer,
+  .transcript__row--peer[data-new-group="false"] .transcript__bubble--peer {
+    border-top-left-radius: 1rem;
+  }
+
+  .transcript__bubble--own {
+    background: color-mix(in oklab, var(--color-ember) 22%, oklch(20% 0.02 50));
+    border-color: color-mix(in oklab, var(--color-ember) 45%, oklch(28% 0.015 55));
+    color: var(--color-bone);
+    border-top-right-radius: 0.35rem;
+  }
+
+  .transcript__row--own[data-new-group="false"] .transcript__bubble--own {
+    border-top-right-radius: 1rem;
+  }
+
+  .transcript__bubble--system {
+    align-self: center;
+    background: transparent;
+    border: 1px dashed oklch(28% 0.014 55);
+    color: var(--color-bone-mute);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+  }
+
+  .transcript__body {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  .transcript__media {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    border-radius: 0.55rem;
+    border: 1px solid oklch(28% 0.014 55);
+  }
+
+  .transcript__attachment {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-ember-soft);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .transcript { padding: 1rem; }
+    .transcript__row { max-width: 88%; }
+    .transcript__bubble { font-size: 0.9rem; }
   }
 
   /* Chapter index — the dashboard's "jump to section" navigator. Reads

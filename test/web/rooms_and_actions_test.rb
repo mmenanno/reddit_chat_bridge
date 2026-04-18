@@ -65,6 +65,124 @@ module Bridge
         assert_equal("/login", URI(last_response.location).path)
       end
 
+      # ---- GET /rooms/:id transcript ----
+
+      test "GET /rooms/:id returns 404 when the room is unknown" do
+        get "/rooms/9999"
+
+        assert_equal(404, last_response.status)
+      end
+
+      test "GET /rooms/:id shows the auth-paused banner without hitting Matrix when the token is missing" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+        )
+        AuthState.current.update!(access_token: nil, user_id: "@t2_self:reddit.com")
+
+        get "/rooms/#{room.id}"
+
+        assert_match(/Matrix auth is paused or missing/, last_response.body)
+        assert_not_requested(:any, /matrix\.redditspace\.com/)
+      end
+
+      test "GET /rooms/:id renders transcript messages in chronological order" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+          counterparty_matrix_id: "@t2_peer:reddit.com",
+        )
+        seed_matrix_auth
+        stub_matrix_messages(
+          room_id: "!abc:reddit.com",
+          chunk: [
+            {
+              "type" => "m.room.message",
+              "event_id" => "$new",
+              "sender" => "@t2_peer:reddit.com",
+              "origin_server_ts" => 1_776_400_000_000,
+              "content" => { "msgtype" => "m.text", "body" => "latest ping" },
+            },
+            {
+              "type" => "m.room.message",
+              "event_id" => "$older",
+              "sender" => "@t2_peer:reddit.com",
+              "origin_server_ts" => 1_776_399_000_000,
+              "content" => { "msgtype" => "m.text", "body" => "earlier note" },
+            },
+          ],
+          end_token: "t_older",
+        )
+
+        get "/rooms/#{room.id}"
+
+        # Oldest first: chunk came back newest-first from Matrix; view reverses
+        # it so humans read the older message above the newer one.
+        assert_match(/earlier note.*latest ping/m, last_response.body)
+      end
+
+      test "GET /rooms/:id surfaces the pagination end_token in a Load older link" do
+        room = Room.create!(matrix_room_id: "!abc:reddit.com", counterparty_username: "testuser")
+        seed_matrix_auth
+        stub_matrix_messages(
+          room_id: "!abc:reddit.com",
+          chunk: [{
+            "type" => "m.room.message",
+            "event_id" => "$one",
+            "sender" => "@t2_peer:reddit.com",
+            "origin_server_ts" => 1_776_400_000_000,
+            "content" => { "msgtype" => "m.text", "body" => "only" },
+          }],
+          end_token: "t_older",
+        )
+
+        get "/rooms/#{room.id}"
+
+        assert_match(/from=t_older/, last_response.body)
+      end
+
+      test "GET /rooms/:id renders an empty state when the chunk comes back empty" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+        )
+        seed_matrix_auth
+        stub_matrix_messages(room_id: "!abc:reddit.com", chunk: [], end_token: nil)
+
+        get "/rooms/#{room.id}"
+
+        assert_equal(200, last_response.status)
+        assert_match(/No messages yet/, last_response.body)
+      end
+
+      test "GET /rooms/:id forwards ?from pagination cursor to the Matrix call" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+        )
+        seed_matrix_auth
+        stubbed = stub_matrix_messages(room_id: "!abc:reddit.com", chunk: [], end_token: nil, from: "prev_cursor")
+
+        get "/rooms/#{room.id}?from=prev_cursor"
+
+        assert_requested(stubbed)
+      end
+
+      test "GET /rooms/:id surfaces a transcript error banner on non-auth Matrix errors" do
+        room = Room.create!(
+          matrix_room_id: "!abc:reddit.com",
+          counterparty_username: "testuser",
+        )
+        seed_matrix_auth
+        stub_request(:get, %r{/_matrix/client/v3/rooms/.+/messages})
+          .to_return(status: 500, body: '{"errcode":"M_UNKNOWN","error":"boom"}')
+
+        get "/rooms/#{room.id}"
+
+        assert_equal(200, last_response.status)
+        assert_match(%r{Matrix /messages call failed}, last_response.body)
+      end
+
       # ---- /actions ----
 
       test "GET /actions renders the resync button" do
@@ -196,6 +314,30 @@ module Bridge
         post "/rooms/9999/refresh"
 
         assert_match(/Room not found/, last_response.body)
+      end
+
+      private
+
+      def seed_matrix_auth
+        AppConfig.set("matrix_homeserver", "https://matrix.redditspace.com")
+        AppConfig.set("matrix_user_id", "@t2_self:reddit.com")
+        AuthState.update_token!(access_token: "tok", user_id: "@t2_self:reddit.com")
+      end
+
+      def stub_matrix_messages(room_id:, chunk:, end_token: nil, from: nil)
+        query = { "dir" => "b", "limit" => "60" }
+        query["from"] = from if from
+        body = { "chunk" => chunk, "state" => [], "start" => "t_start" }
+        body["end"] = end_token if end_token
+
+        stub_request(
+          :get,
+          "https://matrix.redditspace.com/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/messages",
+        ).with(query: query).to_return(
+          status: 200,
+          body: JSON.generate(body),
+          headers: { "Content-Type" => "application/json" },
+        )
       end
     end
   end

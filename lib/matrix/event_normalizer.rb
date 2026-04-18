@@ -57,6 +57,17 @@ module Matrix
       joined_rooms(sync_body).flat_map { |room_id, room| events_for(room_id, room) }
     end
 
+    # Same translation `normalize` does, but driven by a `/rooms/{id}/messages`
+    # response (the transcript viewer) rather than a `/sync` response. The
+    # Matrix spec uses a `chunk` array for the timeline slice and an optional
+    # `state` array for the "best known" member state at the start of the
+    # slice, so member lookups work the same way — just against a different
+    # envelope.
+    def normalize_chunk(room_id:, chunk:, state: [])
+      usernames, avatars = member_lookup_from_events((state || []) + (chunk || []))
+      (chunk || []).filter_map { |raw| build_event(room_id, raw, usernames, avatars) }
+    end
+
     private
 
     def joined_rooms(sync_body)
@@ -74,11 +85,14 @@ module Matrix
 
     def member_lookup_for(room)
       state = room.dig("state", "events") || []
-      timeline_events = timeline(room)
+      member_lookup_from_events(state + timeline(room))
+    end
+
+    def member_lookup_from_events(events)
       usernames = {}
       avatars = {}
 
-      (state + timeline_events).each do |event|
+      events.each do |event|
         next unless event["type"] == "m.room.member"
 
         user_id = event["state_key"]
