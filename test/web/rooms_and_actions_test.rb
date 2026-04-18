@@ -288,6 +288,24 @@ module Bridge
         assert_equal("keep", Room.first.discord_channel_id)
       end
 
+      test "the web-built reconciler wires a ChannelReorderer into the Poster" do
+        # Regression: without this wiring full_resync + rebuild_all never
+        # re-sort #dm-* channels — the supervisor-owned Poster has its own
+        # reorderer but the web-initiated actions use a separate reconciler.
+        seed_complete_bridge_config
+        Admin::Actions.any_instance.stubs(:full_resync!).returns(
+          channels_deleted: 0,
+          channel_delete_errors: 0,
+          rooms_reset: 0,
+          events_cleared: 0,
+          rebuilt: 0,
+          rebuild_errors: 0,
+        )
+        Discord::ChannelReorderer.expects(:new).at_least_once.returns(stub("r", reorder!: nil))
+
+        post "/actions/full_resync"
+      end
+
       # ---- /rooms/:id/refresh ----
 
       test "GET /rooms renders a refresh button per row" do
@@ -322,6 +340,18 @@ module Bridge
         AppConfig.set("matrix_homeserver", "https://matrix.redditspace.com")
         AppConfig.set("matrix_user_id", "@t2_self:reddit.com")
         AuthState.update_token!(access_token: "tok", user_id: "@t2_self:reddit.com")
+      end
+
+      # Every key `Bridge::Application.configured?` checks, plus the auth
+      # token. Used by tests that rely on `build_reconciler` returning a
+      # real (non-nil) reconciler instead of short-circuiting.
+      def seed_complete_bridge_config
+        seed_matrix_auth
+        AppConfig.set("discord_bot_token", "bot_abc")
+        AppConfig.set("discord_guild_id", "g1")
+        AppConfig.set("discord_dms_category_id", "c1")
+        AppConfig.set("discord_admin_status_channel_id", "s1")
+        AppConfig.set("discord_admin_logs_channel_id", "l1")
       end
 
       def stub_matrix_messages(room_id:, chunk:, end_token: nil, from: nil)

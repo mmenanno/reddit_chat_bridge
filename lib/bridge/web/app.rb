@@ -7,6 +7,7 @@ require "matrix/event_normalizer"
 require "matrix/media_resolver"
 require "discord/client"
 require "discord/channel_index"
+require "discord/channel_reorderer"
 require "discord/interaction_verifier"
 require "discord/poster"
 require "discord/message_request_notifier"
@@ -109,16 +110,25 @@ module Bridge
             homeserver: homeserver,
           )
           discord_client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
+          guild_id = AppConfig.fetch("discord_guild_id")
           channel_index = Discord::ChannelIndex.new(
             client: discord_client,
-            guild_id: AppConfig.fetch("discord_guild_id"),
+            guild_id: guild_id,
             category_id: AppConfig.fetch("discord_dms_category_id"),
+          )
+          # Without this the web-initiated rebuild/full_resync paths rebuild
+          # every channel but never re-sort them — the supervisor-owned
+          # Poster has its own reorderer but web actions use this reconciler.
+          channel_reorderer = Discord::ChannelReorderer.new(
+            client: discord_client,
+            guild_id: guild_id,
           )
           poster = Discord::Poster.new(
             client: discord_client,
             channel_index: channel_index,
             matrix_client: matrix_client,
             reddit_profile_client: Reddit::ProfileClient.new,
+            channel_reorderer: channel_reorderer,
           )
           normalizer = Matrix::EventNormalizer.new(own_user_id: AppConfig.fetch("matrix_user_id"))
           Admin::Reconciler.new(

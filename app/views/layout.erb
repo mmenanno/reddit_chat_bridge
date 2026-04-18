@@ -343,13 +343,66 @@
           }
         };
 
+        // Long-running ops (full_resync, rebuild_all) can take 30s+. A native
+        // form.submit() blocks the browser from repainting the closed dialog
+        // until the response lands, which makes the dialog appear to be
+        // "stuck open" for the entire operation. Submitting via fetch lets us
+        // close the dialog immediately, surface a "running" toast, and swap
+        // the response HTML in once it arrives.
+        const toastEl = document.querySelector("[data-shortcut-toast]");
+        const showRunningToast = (text) => {
+          if (!toastEl) return;
+          toastEl.textContent = text;
+          toastEl.setAttribute("data-visible", "true");
+          clearTimeout(toastEl._confirmHideTimer);
+        };
+        const hideRunningToast = () => {
+          if (!toastEl) return;
+          toastEl._confirmHideTimer = setTimeout(() => {
+            toastEl.removeAttribute("data-visible");
+          }, 600);
+        };
+
+        const submitAsync = async (form) => {
+          const method = (form.method || "POST").toUpperCase();
+          const formData = new FormData(form);
+          const body = method === "GET" ? null : formData;
+          let url = form.action || window.location.href;
+          if (method === "GET" && body === null && formData) {
+            const params = new URLSearchParams(formData).toString();
+            if (params) url += (url.includes("?") ? "&" : "?") + params;
+          }
+          const response = await fetch(url, {
+            method: method,
+            body: body,
+            redirect: "follow",
+            credentials: "same-origin",
+            headers: { "Accept": "text/html" },
+          });
+          const html = await response.text();
+          // Replace the entire document so flash notices, updated state, and
+          // re-bound listeners all come through exactly as if the browser
+          // had navigated normally.
+          document.open();
+          document.write(html);
+          document.close();
+          if (response.url) history.replaceState(null, "", response.url);
+        };
+
         const accept = () => {
           if (!pendingForm) return close();
-          // Short-circuit on the next submit so the listener doesn't re-open.
-          pendingForm.dataset.confirmed = "true";
           const form = pendingForm;
+          const actionLabel = form.dataset.confirmLabel || "Running…";
           close();
-          form.submit();
+          showRunningToast("↻ " + actionLabel);
+
+          submitAsync(form).catch((err) => {
+            // Fetch failed (network, CORS, etc.) — fall back to a native
+            // submit so the user still gets the action through.
+            console.warn("confirm: async submit failed, falling back", err);
+            form.dataset.confirmed = "true";
+            form.submit();
+          }).finally(hideRunningToast);
         };
 
         const open = (form) => {
