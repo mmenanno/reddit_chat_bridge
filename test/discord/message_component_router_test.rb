@@ -5,8 +5,7 @@ require "discord/message_component_router"
 
 module Discord
   class MessageComponentRouterTest < ActiveSupport::TestCase
-    def setup
-      super
+    setup do
       @admin = mock("AdminActions")
       @notifier = mock("Notifier")
       @router = MessageComponentRouter.new(admin_actions: @admin, notifier: @notifier)

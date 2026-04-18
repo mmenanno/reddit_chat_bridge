@@ -8,8 +8,7 @@ module Discord
   class LoggerTest < ActiveSupport::TestCase
     LOGS_CHANNEL = "888"
 
-    def setup
-      super
+    setup do
       @client = Discord::Client.new(bot_token: "tok")
       @logger = Discord::Logger.new(client: @client, logs_channel_id: LOGS_CHANNEL)
     end

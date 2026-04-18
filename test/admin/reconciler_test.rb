@@ -10,8 +10,7 @@ module Admin
     PEER = "@t2_peer:reddit.com"
     CHANNEL_ID = "555555555555555555"
 
-    def setup
-      super
+    setup do
       @matrix_client = mock("MatrixClient")
       @discord_client = mock("DiscordClient")
       @channel_index = mock("ChannelIndex")

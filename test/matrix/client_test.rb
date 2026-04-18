@@ -8,8 +8,7 @@ module Matrix
     HOMESERVER = "https://matrix.redditspace.com"
     TOKEN = "tok_abc"
 
-    def setup
-      super
+    setup do
       @client = Matrix::Client.new(access_token: TOKEN, homeserver: HOMESERVER)
     end
 

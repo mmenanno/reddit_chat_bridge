@@ -5,8 +5,7 @@ require "bridge/journal"
 
 module Bridge
   class JournalTest < ActiveSupport::TestCase
-    def setup
-      super
+    setup do
       @notifier = mock("notifier")
       @logger = mock("logger")
       @journal = Bridge::Journal.new(admin_notifier: @notifier, logger: @logger)

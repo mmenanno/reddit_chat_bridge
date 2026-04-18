@@ -8,8 +8,7 @@ module Reddit
     BASE = "https://www.reddit.com"
     UA = Reddit::ProfileClient::USER_AGENT
 
-    def setup
-      super
+    setup do
       @client = Reddit::ProfileClient.new
     end
 

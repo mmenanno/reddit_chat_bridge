@@ -24,8 +24,7 @@ module Bridge
       end
     end
 
-    def setup
-      super
+    setup do
       @loop = FakeSyncLoop.new
     end
 

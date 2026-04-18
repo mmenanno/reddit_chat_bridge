@@ -15,8 +15,7 @@ module Bridge
         App
       end
 
-      def setup
-        super
+      setup do
         AdminUser.create_with_password!(username: "michael", password: "hunter2hunter2")
         post("/login", username: "michael", password: "hunter2hunter2")
       end

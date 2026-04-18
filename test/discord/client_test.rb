@@ -11,8 +11,7 @@ module Discord
     CATEGORY = "222222222222222222"
     CHANNEL = "333333333333333333"
 
-    def setup
-      super
+    setup do
       @client = Discord::Client.new(bot_token: TOKEN)
     end
 

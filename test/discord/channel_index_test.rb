@@ -9,8 +9,7 @@ module Discord
     GUILD = "111111111111111111"
     CATEGORY = "222222222222222222"
 
-    def setup
-      super
+    setup do
       @client = Discord::Client.new(bot_token: "tok")
       @index = Discord::ChannelIndex.new(
         client: @client,

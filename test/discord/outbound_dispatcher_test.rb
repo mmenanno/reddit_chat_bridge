@@ -8,8 +8,7 @@ module Discord
   class OutboundDispatcherTest < ActiveSupport::TestCase
     OP_USER_ID = "998877"
 
-    def setup
-      super
+    setup do
       @matrix = mock("MatrixClient")
       @dispatcher = OutboundDispatcher.new(
         matrix_client: @matrix,

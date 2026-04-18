@@ -9,8 +9,7 @@ module Matrix
     PEER = "@t2_5jp4q:reddit.com"
     REDDIT_SYSTEM = "@t2_1qwk:reddit.com"
 
-    def setup
-      super
+    setup do
       @normalizer = EventNormalizer.new(own_user_id: OWN)
     end
 

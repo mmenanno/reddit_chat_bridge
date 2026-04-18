@@ -12,6 +12,11 @@ AllCops:
 # methods on Sinatra::Base. Inside them, `@foo` is a per-request instance
 # variable, not a class-instance variable — but the cop can't tell from
 # static analysis and flags every assignment. Turn it off for the web app.
+#
+# Same story for `setup do ... end` in ActiveSupport::TestCase — the
+# block body runs at instance level on each test, not at class-load
+# time. Threading concerns don't apply to tests either way.
 ThreadSafety/MutableClassInstanceVariable:
   Exclude:
     - lib/bridge/web/**/*.rb
+    - test/**/*.rb

@@ -9,8 +9,7 @@ module Matrix
     INVITER = "@t2_testuser:reddit.com"
     ROOM = "!stranger:reddit.com"
 
-    def setup
-      super
+    setup do
       @handler = InviteHandler.new(own_user_id: OWN)
     end
 

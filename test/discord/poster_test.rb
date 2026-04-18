@@ -16,8 +16,7 @@ module Discord
     WEBHOOK_ID = "wh_1"
     WEBHOOK_TOKEN = "tok_1"
 
-    def setup
-      super
+    setup do
       @client = Discord::Client.new(bot_token: "tok")
       @index = Discord::ChannelIndex.new(
         client: @client,

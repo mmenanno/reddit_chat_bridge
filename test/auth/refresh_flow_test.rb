@@ -11,8 +11,7 @@ module Auth
     SAMPLE_JWT = "eyJhbGciOiJSUzI1NiJ9.#{PAYLOAD_B64}.sig".freeze
     COOKIE_JAR = "reddit_session=rs_jwt; token_v2=stale_matrix_jwt; loid=000000abc; edgebucket=e"
 
-    def setup
-      super
+    setup do
       @flow = Auth::RefreshFlow.new
       # Default: both endpoints respond successfully. Individual tests
       # override specific stubs.

@@ -28,8 +28,7 @@ module Matrix
       end
     end
 
-    def setup
-      super
+    setup do
       @client = Matrix::Client.new(access_token: "tok")
       @normalizer = Matrix::EventNormalizer.new(own_user_id: "@t2_me:reddit.com")
       @dispatcher = Collector.new

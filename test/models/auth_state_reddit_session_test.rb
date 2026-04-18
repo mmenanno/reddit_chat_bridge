@@ -9,8 +9,7 @@ class AuthStateRedditSessionTest < ActiveSupport::TestCase
   REDDIT_SESSION_JWT = "eyJhbGciOiJSUzI1NiJ9.#{PAYLOAD_B64}.sig".freeze
   COOKIE_JAR = "reddit_session=#{REDDIT_SESSION_JWT}; loid=000000abc; token_v2=stale_jwt_we_ignore".freeze
 
-  def setup
-    super
+  setup do
     # Encryption requires a session_secret in AppConfig — the same value the
     # web app persists on first boot. Stub one for the model tests.
     AppConfig.set("session_secret", "test_secret_for_encryption_at_rest")

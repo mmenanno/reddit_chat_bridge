@@ -8,8 +8,7 @@ module Discord
     GUILD = "111"
     CHAN  = "222"
 
-    def setup
-      super
+    setup do
       @actions = mock("AdminActions")
       @router = SlashCommandRouter.new(
         admin_actions: @actions,

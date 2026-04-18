@@ -7,8 +7,7 @@ module Discord
   class MessageRequestNotifierTest < ActiveSupport::TestCase
     CHANNEL = "999999999999"
 
-    def setup
-      super
+    setup do
       @client = mock("DiscordClient")
     end
 

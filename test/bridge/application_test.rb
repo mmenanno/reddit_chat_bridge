@@ -8,8 +8,7 @@ module Bridge
     REQUIRED_KEYS = Application::REQUIRED_CONFIG_KEYS
     HOMESERVER = "https://matrix.redditspace.com"
 
-    def setup
-      super
+    setup do
       populate_complete_config
     end
 

@@ -11,8 +11,7 @@ module Admin
     SESSION_PAYLOAD_B64 = Base64.urlsafe_encode64('{"exp":1791775617}').tr("=", "")
     COOKIE_JAR = "reddit_session=eyJhbGciOiJSUzI1NiJ9.#{SESSION_PAYLOAD_B64}.sig; loid=000000abc; token_v2=stale".freeze
 
-    def setup
-      super
+    setup do
       # AuthState's cookie encryption needs a session_secret.
       AppConfig.set("session_secret", "test_secret_for_encryption_at_rest")
 

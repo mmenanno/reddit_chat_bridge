@@ -5,8 +5,7 @@ require "matrix/media_resolver"
 
 module Matrix
   class MediaResolverTest < ActiveSupport::TestCase
-    def setup
-      super
+    setup do
       @resolver = MediaResolver.new(homeserver: "https://matrix.redditspace.com")
     end
 

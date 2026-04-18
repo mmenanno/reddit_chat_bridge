@@ -19,8 +19,7 @@ module Bridge
       VERIFY_KEY  = SIGNING_KEY.verify_key
       PUBLIC_KEY_HEX = VERIFY_KEY.to_bytes.unpack1("H*")
 
-      def setup
-        super
+      setup do
         AppConfig.set("discord_public_key", PUBLIC_KEY_HEX)
         AppConfig.set("discord_guild_id", "111")
         AppConfig.set("discord_admin_commands_channel_id", "222")

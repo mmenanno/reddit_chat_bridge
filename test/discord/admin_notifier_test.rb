@@ -8,8 +8,7 @@ module Discord
   class AdminNotifierTest < ActiveSupport::TestCase
     STATUS_CHANNEL = "999"
 
-    def setup
-      super
+    setup do
       @client = Discord::Client.new(bot_token: "tok")
       @notifier = Discord::AdminNotifier.new(client: @client, status_channel_id: STATUS_CHANNEL)
     end
