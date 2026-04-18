@@ -54,6 +54,38 @@ module Discord
       @socket&.close
     end
 
+    # The callback methods below (`handle_frame`, `stop_heartbeat!`,
+    # `journal_warn`) have to stay public: WebSocket::Client::Simple
+    # invokes its `on` blocks with an explicit receiver, and private
+    # methods in Ruby raise `NoMethodError` for explicit-receiver calls
+    # — the error would get swallowed in the websocket thread.
+
+    def handle_frame(raw)
+      payload = JSON.parse(raw)
+      @last_sequence = payload["s"] if payload["s"]
+
+      case payload["op"]
+      when OP_HELLO then on_hello(payload)
+      when OP_DISPATCH then on_dispatch(payload)
+      when OP_HEARTBEAT_ACK then nil
+      end
+    rescue JSON::ParserError => e
+      journal_warn("bad frame: #{e.message}")
+    rescue StandardError => e
+      # Any bug in on_hello/on_dispatch/handlers must not kill the
+      # websocket thread silently. Log it and keep the socket alive.
+      journal_warn("frame handler crashed: #{e.class}: #{e.message}")
+    end
+
+    def stop_heartbeat!
+      @heartbeat_thread&.kill
+      @heartbeat_thread = nil
+    end
+
+    def journal_warn(message)
+      @journal&.warn(message, source: "gateway")
+    end
+
     private
 
     def run_once(stop_signal)
@@ -71,24 +103,11 @@ module Discord
         gateway.journal_warn("socket error: #{e.message}")
       end
 
+      @journal&.info("Discord gateway connected", source: "gateway")
+
       # Block the caller thread until the supervisor asks us to stop.
       sleep(0.2) until @stopped || stop_signal.call
       @socket.close
-    end
-
-    # ---- callbacks exposed to the WebSocket::Client::Simple handlers ----
-
-    def handle_frame(raw)
-      payload = JSON.parse(raw)
-      @last_sequence = payload["s"] if payload["s"]
-
-      case payload["op"]
-      when OP_HELLO then on_hello(payload)
-      when OP_DISPATCH then on_dispatch(payload)
-      when OP_HEARTBEAT_ACK then nil
-      end
-    rescue JSON::ParserError => e
-      journal_warn("bad frame: #{e.message}")
     end
 
     def on_hello(payload)
@@ -118,11 +137,6 @@ module Discord
       end
     end
 
-    def stop_heartbeat!
-      @heartbeat_thread&.kill
-      @heartbeat_thread = nil
-    end
-
     def send_frame(opcode:, data:)
       return unless @socket
 
@@ -141,10 +155,6 @@ module Discord
           "$device" => "reddit_chat_bridge",
         },
       }
-    end
-
-    def journal_warn(message)
-      @journal&.warn(message, source: "gateway")
     end
   end
 end
