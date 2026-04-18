@@ -18,7 +18,7 @@ module Bridge
     POSTED_EVENT_PRUNE_INTERVAL = 1.hour
     COOKIE_EXPIRY_WARN_KEY = "reddit_session_warned_expires_at"
 
-    def initialize( # rubocop:disable Metrics/ParameterLists
+    def initialize(
       sync_loop:,
       admin_notifier: nil,
       admin_actions: nil,

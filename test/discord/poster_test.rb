@@ -520,7 +520,7 @@ module Discord
 
     private
 
-    def event( # rubocop:disable Metrics/ParameterLists
+    def event(
       event_id: "$default",
       sender: PEER,
       body: "hello",

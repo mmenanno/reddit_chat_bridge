@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "concurrent"
 require "json"
 require "websocket-client-simple"
 
@@ -24,7 +25,7 @@ module Discord
     # Bitfield: GUILDS (1<<0) | GUILD_MESSAGES (1<<9) | MESSAGE_CONTENT (1<<15).
     DEFAULT_INTENTS = (1 << 0) | (1 << 9) | (1 << 15)
 
-    def initialize(bot_token:, on_message_create:, on_interaction_create: nil, journal: nil, intents: DEFAULT_INTENTS, url: URL) # rubocop:disable Metrics/ParameterLists
+    def initialize(bot_token:, on_message_create:, on_interaction_create: nil, journal: nil, intents: DEFAULT_INTENTS, url: URL)
       @bot_token = bot_token
       @on_message_create = on_message_create
       @on_interaction_create = on_interaction_create
@@ -33,7 +34,7 @@ module Discord
       @url = url
       @stopped = false
       @last_sequence = nil
-      @heartbeat_thread = nil
+      @heartbeat = nil
       @socket = nil
     end
 
@@ -50,7 +51,7 @@ module Discord
 
     def stop!
       @stopped = true
-      @heartbeat_thread&.kill
+      stop_heartbeat!
       @socket&.close
     end
 
@@ -98,8 +99,8 @@ module Discord
     end
 
     def stop_heartbeat!
-      @heartbeat_thread&.kill
-      @heartbeat_thread = nil
+      @heartbeat&.shutdown
+      @heartbeat = nil
     end
 
     def journal_warn(message)
@@ -145,15 +146,14 @@ module Discord
       end
     end
 
+    # Fires once every `interval_ms` until `stop_heartbeat!` shuts the task
+    # down. TimerTask owns the thread + scheduling — we just provide the
+    # tick body. The first tick is deferred by `execution_interval` (same
+    # cadence as Discord expects), so the IDENTIFY frame lands before any
+    # heartbeat.
     def start_heartbeat(interval_ms)
-      @heartbeat_thread = Thread.new do # rubocop:disable ThreadSafety/NewThread
-        Thread.current.name = "discord-gateway-heartbeat"
-        loop do
-          sleep(interval_ms / 1000.0)
-          break if @stopped
-
-          send_frame(opcode: OP_HEARTBEAT, data: @last_sequence)
-        end
+      @heartbeat = Concurrent::TimerTask.execute(execution_interval: interval_ms / 1000.0) do
+        send_frame(opcode: OP_HEARTBEAT, data: @last_sequence) unless @stopped
       end
     end
 

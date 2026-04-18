@@ -149,7 +149,24 @@ lib/
 - Dependency injection: services that do HTTP take an injected `Faraday::Connection` (or equivalent); tests substitute fakes, no global patching.
 - Value objects for IDs where they'd prevent confusion (e.g., `NormalizedEvent` as a `Data.define`).
 - No silent fallbacks. Missing config = hard crash at boot with a precise error. Token invalid = loud alert, never a silent degrade.
-- `rubocop:disable ThreadSafety/MutableClassInstanceVariable` is allowed in the web app (`lib/bridge/web/**/*.rb`) because Sinatra's route DSL turns request-scoped `@foo` into per-request instance vars that the static analyzer misreads.
+- **Favor fixing rubocop violations over disabling them.** When a cop
+  fires, the first move is to rewrite the code; if the cop is a bad fit
+  for a whole pattern (not just one site), tune it in `.rubocop.yml`
+  with a comment explaining why; inline `# rubocop:disable` is a last
+  resort, only when the code really is the right shape and the cop's
+  static analysis genuinely can't see it (e.g. `Thread.new` for a
+  long-lived supervisor thread that has no pool equivalent).
+  Every inline disable in the repo must have a nearby comment
+  explaining why the cop's concern doesn't apply here.
+- Current legitimate exemptions (project-level in `.rubocop.yml`):
+  - `ThreadSafety/MutableClassInstanceVariable` excluded for Sinatra's
+    `lib/bridge/web/**/*.rb` and `test/**/*.rb` — Sinatra routes and
+    `setup do` blocks both run at instance level despite appearing
+    class-level to static analysis.
+  - `Metrics/ParameterLists: CountKeywordArgs: false` — every
+    "too many params" hit in this codebase is DI constructors with
+    all-keyword args, which are self-documenting; the cop's concern
+    ("what does positional arg 6 mean?") doesn't apply.
 
 ## Known gotchas
 

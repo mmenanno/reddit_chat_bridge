@@ -25,7 +25,7 @@ module Admin
     # Dependency-injection boundary — all collaborators are required for
     # the reconcile/backfill flow to work. Disabling ParameterLists here is
     # the common Ruby escape hatch for service objects with >5 collaborators.
-    def initialize(matrix_client:, discord_client:, channel_index:, poster:, normalizer:, logger: nil) # rubocop:disable Metrics/ParameterLists
+    def initialize(matrix_client:, discord_client:, channel_index:, poster:, normalizer:, logger: nil)
       @matrix_client = matrix_client
       @discord_client = discord_client
       @channel_index = channel_index

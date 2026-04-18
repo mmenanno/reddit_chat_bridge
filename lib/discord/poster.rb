@@ -36,7 +36,7 @@ module Discord
     # Re-check Reddit's profile API at most once every 24h after a miss.
     AVATAR_NEGATIVE_CACHE_TTL = 24 * 3600
 
-    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, sleeper: Kernel.method(:sleep)) # rubocop:disable Metrics/ParameterLists
+    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, sleeper: Kernel.method(:sleep))
       @client = client
       @channel_index = channel_index
       @matrix_client = matrix_client

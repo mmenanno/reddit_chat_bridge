@@ -151,7 +151,7 @@ module Matrix
       }
     end
 
-    def member(user_id, membership: "join", displayname: nil, reddit_username: nil, avatar_mxc: nil, sender: user_id) # rubocop:disable Metrics/ParameterLists
+    def member(user_id, membership: "join", displayname: nil, reddit_username: nil, avatar_mxc: nil, sender: user_id)
       content = { "membership" => membership }
       content["displayname"] = displayname if displayname
       content["avatar_url"] = avatar_mxc if avatar_mxc

@@ -27,7 +27,7 @@ module Discord
     OWN_DISPLAY_NAME_KEY = "own_display_name"
     OWN_AVATAR_URL_KEY = "own_avatar_url"
 
-    def initialize( # rubocop:disable Metrics/ParameterLists
+    def initialize(
       matrix_client:,
       discord_client: nil,
       channel_index: nil,

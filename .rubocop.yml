@@ -20,3 +20,11 @@ ThreadSafety/MutableClassInstanceVariable:
   Exclude:
     - lib/bridge/web/**/*.rb
     - test/**/*.rb
+
+# Dependency-injection constructors + long keyword-only method signatures
+# are the dominant style in this codebase: each kwarg is self-documenting,
+# required names come for free at every call site, and readers don't care
+# about the count. The parameter-list cop's motivating concern — "positional
+# arg 6, what does that mean?" — doesn't apply when every arg is named.
+Metrics/ParameterLists:
+  CountKeywordArgs: false
