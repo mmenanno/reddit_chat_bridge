@@ -216,18 +216,23 @@ module Discord
     #   1. Matrix member state (event.sender_avatar_url) — authoritative
     #      when Reddit chat has one. Cached on the Room so later events
     #      without carrying state can use the same URL.
-    #   2. Room cache from a prior lookup — avoids a Reddit API call.
-    #   3. Reddit public profile (`/user/<name>/about.json`) — only for
-    #      peer events where we know the username. One fetch per user
-    #      per 24h (negative cache prevents hammering on deleted users).
+    #   2. For OWN events: operator's avatar from AppConfig (populated by
+    #      OutboundDispatcher). Skips the counterparty branch entirely —
+    #      the room-level avatar cache holds the OTHER person's face,
+    #      which must never stand in for the operator.
+    #   3. For peer events: room's cached counterparty avatar, then
+    #      Reddit public profile (`/user/<name>/about.json`) — one fetch
+    #      per user per 24h (negative cache prevents hammering on
+    #      deleted users).
     def resolve_avatar_url(event, room)
       if event.sender_avatar_url.present?
         room.cache_avatar_url!(event.sender_avatar_url) unless event.own? || event.system?
         return event.sender_avatar_url
       end
 
+      return own_avatar_url if event.own?
+      return if event.system?
       return room.counterparty_avatar_url if room.counterparty_avatar_url.present?
-      return if event.own? || event.system?
       return if room.counterparty_username.blank?
       return unless @reddit_profile_client
       return if recent_avatar_miss?(room)
@@ -276,21 +281,53 @@ module Discord
       base
     end
 
-    # Order of preference for the counterparty's display name:
+    # Order of preference for a sender's display name:
     #   1. The username Matrix shipped with this event (may be blank on
-    #      resume syncs where member state wasn't lazy-loaded).
-    #   2. The room's stored counterparty_username — `refresh_counterparty_
+    #      resume syncs or backfill where member state wasn't lazy-loaded).
+    #   2. For OWN events: the operator's Reddit handle from AppConfig.
+    #      Critical for the backfill path — historical events are replayed
+    #      through the Poster (not OutboundDispatcher) and frequently arrive
+    #      without sender_username, so without this the operator's own
+    #      bubbles would render as their `t2_<id>` Matrix localpart.
+    #   3. The room's stored counterparty_username — `refresh_counterparty_
     #      and_channel!` just populated this from /profile if the event
     #      didn't carry it, so by the time we're formatting the prefix it's
     #      the authoritative name.
-    #   3. The matrix_id localpart (e.g. `t2_abc123`) as a last resort so
+    #   4. The matrix_id localpart (e.g. `t2_abc123`) as a last resort so
     #      we never post an empty username.
     def display_name_for(event, room)
       return event.sender_username if event.sender_username.present?
 
+      if event.own?
+        cached = own_display_name
+        return cached if cached.present?
+      end
+
       return room.counterparty_username if event.sender == room.counterparty_matrix_id && room.counterparty_username.present?
 
       Matrix::Id.localpart(event.sender)
+    end
+
+    # Operator's Reddit handle as stored in AppConfig by OutboundDispatcher.
+    # A stored value matching the Matrix localpart means the dispatcher
+    # failed to resolve a real handle — treat as absent so the caller falls
+    # back and the localpart pass-through happens in exactly one place.
+    def own_display_name
+      return @own_display_name if defined?(@own_display_name)
+
+      stored = AppConfig.fetch("own_display_name", "").to_s
+      @own_display_name = stored.present? && stored != own_localpart ? stored : nil
+    end
+
+    def own_avatar_url
+      return @own_avatar_url if defined?(@own_avatar_url)
+
+      stored = AppConfig.fetch("own_avatar_url", "").to_s
+      @own_avatar_url = stored.presence
+    end
+
+    def own_localpart
+      @own_localpart ||= Matrix::Id.localpart(AppConfig.fetch("matrix_user_id", ""))
     end
 
     # Matrix's origin_server_ts is unix millis. Fall back to now when

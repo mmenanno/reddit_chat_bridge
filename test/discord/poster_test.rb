@@ -573,6 +573,66 @@ module Discord
       assert_equal("nothnnn", room.reload.counterparty_username)
     end
 
+    test "own messages without sender_username render the operator's Reddit handle from AppConfig (not the t2_ localpart)" do
+      AppConfig.set("matrix_user_id", OWN)
+      AppConfig.set("own_display_name", "RonanWolfe")
+      AppConfig.set("own_avatar_url", "https://cdn/ronan.png")
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:username] == "RonanWolfe \u{1F4E4}"
+      end.returns("m")
+
+      @poster.call([event(sender: OWN, sender_username: nil, body: "backfilled own message")])
+    end
+
+    test "own messages never fall back to the counterparty's avatar" do
+      AppConfig.set("matrix_user_id", OWN)
+      AppConfig.set("own_display_name", "RonanWolfe")
+      AppConfig.set("own_avatar_url", "https://cdn/ronan.png")
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "jinxieRay",
+        counterparty_avatar_url: "https://cdn/jinxie.png",
+        discord_channel_id: CHANNEL_ID,
+      )
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:avatar_url] == "https://cdn/ronan.png"
+      end.returns("m")
+
+      @poster.call([event(sender: OWN, sender_username: nil, sender_avatar_url: nil, body: "mine")])
+    end
+
+    test "own messages render no avatar_url (rather than the counterparty's) when AppConfig has none cached" do
+      AppConfig.set("matrix_user_id", OWN)
+      AppConfig.set("own_display_name", "")
+      AppConfig.set("own_avatar_url", "")
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "jinxieRay",
+        counterparty_avatar_url: "https://cdn/jinxie.png",
+        discord_channel_id: CHANNEL_ID,
+      )
+      @client.expects(:execute_webhook).with do |kwargs|
+        !kwargs[:payload].key?(:avatar_url)
+      end.returns("m")
+
+      @poster.call([event(sender: OWN, sender_username: nil, sender_avatar_url: nil, body: "mine")])
+    end
+
+    test "an AppConfig own_display_name equal to the Matrix localpart is ignored (defense against stale bad writes)" do
+      AppConfig.set("matrix_user_id", OWN)
+      # Simulates a pre-fix deployment where the localpart leaked into AppConfig.
+      AppConfig.set("own_display_name", "t2_me")
+      @client.expects(:execute_webhook).with do |kwargs|
+        # Falls through to the localpart path — same string, but via the
+        # single fallback branch rather than a persisted bad value.
+        kwargs[:payload][:username] == "t2_me \u{1F4E4}"
+      end.returns("m")
+
+      @poster.call([event(sender: OWN, sender_username: nil, body: "mine")])
+    end
+
     test "resolves the webhook via the channel index for each event" do
       @index.unstub(:ensure_webhook)
       @index.expects(:ensure_webhook).with(has_entry(:room, instance_of(Room))).returns([WEBHOOK_ID, WEBHOOK_TOKEN])
