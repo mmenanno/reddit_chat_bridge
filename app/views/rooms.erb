@@ -95,7 +95,7 @@
               <form method="post" action="/rooms/<%= room.id %>/unarchive">
                 <button type="submit"
                         class="btn btn-outline btn-xs"
-                        title="Clear archive flag; channel recreates when the next message arrives">
+                        title="Recreate the Discord channel empty; new messages flow in as they arrive. Use Refresh &amp; restore history afterwards if you want old messages back.">
                   ↺ Unarchive
                 </button>
               </form>
@@ -103,7 +103,7 @@
                 <input type="hidden" name="backfill" value="1">
                 <button type="submit"
                         class="btn btn-primary btn-xs"
-                        title="Unarchive and backfill recent history immediately">
+                        title="Unarchive, recreate the channel, and immediately replay recent history into it">
                   ⟲ Restore history
                 </button>
               </form>
@@ -111,14 +111,14 @@
               <form method="post" action="/rooms/<%= room.id %>/refresh">
                 <button type="submit"
                         class="btn btn-outline btn-xs"
-                        title="Re-fetch profile, rename if needed, re-examine recent history">
-                  ↻ Refresh
+                        title="Re-fetch profile, rename if needed, and replay recent history into the channel">
+                  ⟲ Refresh &amp; restore history
                 </button>
               </form>
               <% if room.discord_channel_id %>
                 <form method="post"
                       action="/rooms/<%= room.id %>/archive"
-                      data-confirm="Deletes the Discord channel for this room. The Matrix side stays linked, so a new channel is auto-recreated the moment the next message arrives. You can also Restore history later to backfill."
+                      data-confirm="Deletes the Discord channel for this room. The Matrix side stays linked, so a new channel is auto-recreated the moment you click Unarchive or the next message arrives."
                       data-confirm-title="Archive <%= room.counterparty_username || "this room" %>?"
                       data-confirm-kicker="Archive · room #<%= room.id %>"
                       data-confirm-label="⌫ Archive room"

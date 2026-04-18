@@ -152,6 +152,26 @@ module Admin
       assert_equal(0, stats[:errors])
     end
 
+    test "refresh_one creates a fresh channel when the room has none (post-unarchive case)" do
+      room = Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, counterparty_username: "nothnnn")
+      # Simulate the real ChannelIndex by attaching on the passed Room instance;
+      # otherwise reconcile_room skips (no channel) and the rename path doesn't fire.
+      @channel_index.expects(:ensure_channel).with do |args|
+        args[:room].attach_discord_channel!("new_chan")
+        true
+      end.returns("new_chan")
+      @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
+      @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
+      @discord_client.expects(:rename_channel).at_least_once
+      @matrix_client.expects(:room_messages).returns("chunk" => [], "state" => [])
+      @normalizer.expects(:normalize).returns([])
+      @poster.expects(:call)
+
+      @reconciler.refresh_one(matrix_room_id: ROOM_ID)
+
+      assert_equal("new_chan", room.reload.discord_channel_id)
+    end
+
     test "refresh_one recreates the channel before backfilling when the old one is gone" do
       Room.create!(
         matrix_room_id: ROOM_ID,
@@ -242,8 +262,9 @@ module Admin
       assert_equal(:already_archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
     end
 
-    test "unarchive! clears the archived flag without pulling history by default" do
+    test "unarchive! flips the flag and recreates the channel without pulling history by default" do
       room = Room.create!(matrix_room_id: ROOM_ID, archived_at: 1.day.ago)
+      @channel_index.expects(:ensure_channel).with { |args| args[:room].matrix_room_id == ROOM_ID }.returns("new_chan")
       @matrix_client.expects(:room_messages).never
       @poster.expects(:call).never
 
@@ -253,8 +274,9 @@ module Admin
       assert_equal({ posted_attempted: 0 }, result)
     end
 
-    test "unarchive! with backfill:true pulls recent messages through the poster" do
+    test "unarchive! with backfill:true recreates the channel AND pulls recent messages through the poster" do
       Room.create!(matrix_room_id: ROOM_ID, archived_at: 1.day.ago)
+      @channel_index.expects(:ensure_channel).returns("new_chan")
       @matrix_client.expects(:room_messages)
         .with(room_id: ROOM_ID, dir: "b", limit: 50)
         .returns("chunk" => [{ "type" => "m.room.message", "event_id" => "$e" }], "state" => [])

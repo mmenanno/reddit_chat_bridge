@@ -49,8 +49,14 @@ module Admin
       room = Room.find_by(matrix_room_id: matrix_room_id)
       raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
 
-      renamed = reconcile_room(room) == :renamed
-      posted = backfill_history(room, limit: history_limit)
+      # A "pending" (no channel) room needs a channel before rename/backfill
+      # can do useful work — otherwise reconcile_room skips silently and
+      # backfill only creates a channel if there's at least one event to
+      # post, which means quiet conversations stay broken after an unarchive.
+      @channel_index.ensure_channel(room: room) if room.discord_channel_id.nil? && !room.archived?
+
+      renamed = reconcile_room(room.reload) == :renamed
+      posted = backfill_history(room.reload, limit: history_limit)
       { renamed: renamed, posted_attempted: posted }
     end
 
@@ -86,15 +92,18 @@ module Admin
       :archived
     end
 
-    # Unarchive with an optional full-history backfill. Without backfill,
-    # the room is just un-flagged — the next inbound message creates a
-    # fresh channel via the normal Poster path.
+    # Unarchive: flip the flag and immediately recreate the Discord channel
+    # so the room goes back to "linked" state without waiting for a new
+    # message. Backfill is optional — with it, recent history is replayed
+    # into the fresh channel via the Poster; without it, the channel comes
+    # up empty and fills in as new messages arrive.
     def unarchive!(matrix_room_id:, backfill: false, history_limit: DEFAULT_HISTORY_LIMIT)
       room = Room.find_by(matrix_room_id: matrix_room_id)
       raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
 
       room.unarchive!
-      posted = backfill ? backfill_history(room, limit: history_limit) : 0
+      @channel_index.ensure_channel(room: room.reload)
+      posted = backfill ? backfill_history(room.reload, limit: history_limit) : 0
       { posted_attempted: posted }
     end
 
