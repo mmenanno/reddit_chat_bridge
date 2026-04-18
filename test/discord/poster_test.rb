@@ -135,12 +135,103 @@ module Discord
       @poster.call([event(body: "hi", sender_username: "nothnnn", sender_avatar_url: "https://cdn/u.png")])
     end
 
-    test "omits avatar_url entirely when the sender has no resolved avatar" do
+    test "omits avatar_url entirely when the sender has no resolved avatar and no profile client" do
       @client.expects(:execute_webhook).with do |kwargs|
         !kwargs[:payload].key?(:avatar_url)
       end.returns("m")
 
       @poster.call([event(body: "hi", sender_avatar_url: nil)])
+    end
+
+    # ---- Reddit profile avatar fallback ----
+
+    test "falls back to Reddit profile avatar when the event has no avatar and the room has a counterparty username" do
+      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, counterparty_username: "jinxieRay")
+      profile = mock("ProfileClient")
+      profile.expects(:fetch_avatar_url).with("jinxieRay").returns("https://i.redd.it/snoovatar/j.png")
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        reddit_profile_client: profile,
+        sleeper: ->(_) {},
+      )
+      @client.expects(:execute_webhook).with do |kwargs|
+        kwargs[:payload][:avatar_url] == "https://i.redd.it/snoovatar/j.png"
+      end.returns("m")
+
+      poster.call([event(body: "hi", sender_avatar_url: nil)])
+    end
+
+    test "caches the resolved profile avatar on the room so the next event skips the API call" do
+      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, counterparty_username: "jinxieRay")
+      profile = mock("ProfileClient")
+      profile.expects(:fetch_avatar_url).once.returns("https://i.redd.it/snoovatar/j.png")
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        reddit_profile_client: profile,
+        sleeper: ->(_) {},
+      )
+      @client.stubs(:execute_webhook).returns("m")
+
+      poster.call([event(event_id: "$1", sender_avatar_url: nil), event(event_id: "$2", sender_avatar_url: nil)])
+    end
+
+    test "skips the profile client on own and system events even without an avatar" do
+      profile = mock("ProfileClient")
+      profile.expects(:fetch_avatar_url).never
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        reddit_profile_client: profile,
+        sleeper: ->(_) {},
+      )
+      @client.stubs(:execute_webhook).returns("m")
+
+      poster.call([
+        event(event_id: "$own", sender: OWN, body: "me"),
+        event(event_id: "$sys", sender: SYSTEM, body: "notice"),
+      ])
+    end
+
+    test "negative-caches a Reddit profile miss so we don't re-hit the API for 24h" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "ghost",
+        counterparty_avatar_checked_at: 1.hour.ago,
+      )
+      profile = mock("ProfileClient")
+      profile.expects(:fetch_avatar_url).never
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        reddit_profile_client: profile,
+        sleeper: ->(_) {},
+      )
+      @client.stubs(:execute_webhook).returns("m")
+
+      poster.call([event(sender_avatar_url: nil)])
+    end
+
+    test "retries the Reddit profile API after the 24h negative-cache window passes" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "comeback",
+        counterparty_avatar_checked_at: 2.days.ago,
+      )
+      profile = mock("ProfileClient")
+      profile.expects(:fetch_avatar_url).with("comeback").returns("https://i.redd.it/x.png")
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        reddit_profile_client: profile,
+        sleeper: ->(_) {},
+      )
+      @client.stubs(:execute_webhook).returns("m")
+
+      poster.call([event(sender_avatar_url: nil)])
     end
 
     test "uses the Room's stored counterparty_username when the event doesn't carry one" do

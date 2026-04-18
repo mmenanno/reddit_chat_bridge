@@ -13,6 +13,7 @@ require "discord/poster"
 require "discord/admin_notifier"
 require "discord/logger"
 require "discord/slash_command_router"
+require "reddit/profile_client"
 require "admin/actions"
 require "auth/refresh_flow"
 require "bridge/journal"
@@ -163,6 +164,7 @@ module Bridge
         matrix_client: @matrix_client,
         logger: @logger,
         sent_registry: @sent_registry,
+        reddit_profile_client: Reddit::ProfileClient.new,
       )
     end
 

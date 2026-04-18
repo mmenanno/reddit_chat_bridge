@@ -9,6 +9,7 @@ require "discord/channel_index"
 require "discord/interaction_verifier"
 require "discord/poster"
 require "discord/slash_command_router"
+require "reddit/profile_client"
 require "admin/actions"
 require "admin/reconciler"
 
@@ -102,6 +103,7 @@ module Bridge
             client: discord_client,
             channel_index: channel_index,
             matrix_client: matrix_client,
+            reddit_profile_client: Reddit::ProfileClient.new,
           )
           normalizer = Matrix::EventNormalizer.new(own_user_id: AppConfig.fetch("matrix_user_id"))
           Admin::Reconciler.new(

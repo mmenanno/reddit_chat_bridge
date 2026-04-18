@@ -40,6 +40,18 @@ class Room < ApplicationRecord
     update!(discord_channel_id: channel_id)
   end
 
+  def cache_avatar_url!(url)
+    return if counterparty_avatar_url == url
+
+    update!(counterparty_avatar_url: url, counterparty_avatar_checked_at: Time.current)
+  end
+
+  # Negative-cache: remember that we checked Reddit's profile API and it
+  # returned nothing, so subsequent events don't hammer the endpoint.
+  def record_avatar_lookup_miss!
+    update!(counterparty_avatar_url: nil, counterparty_avatar_checked_at: Time.current)
+  end
+
   def attach_webhook!(id:, token:)
     update!(discord_webhook_id: id, discord_webhook_token: token)
   end

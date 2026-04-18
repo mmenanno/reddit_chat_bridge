@@ -33,12 +33,16 @@ module Discord
     # reads this to show an actionable "enable Manage Webhooks" banner.
     PERMISSIONS_FLAG_KEY = "discord_permissions_blocked_at"
 
-    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, sleeper: Kernel.method(:sleep)) # rubocop:disable Metrics/ParameterLists
+    # Re-check Reddit's profile API at most once every 24h after a miss.
+    AVATAR_NEGATIVE_CACHE_TTL = 24 * 3600
+
+    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, sleeper: Kernel.method(:sleep)) # rubocop:disable Metrics/ParameterLists
       @client = client
       @channel_index = channel_index
       @matrix_client = matrix_client
       @logger = logger
       @sent_registry = sent_registry
+      @reddit_profile_client = reddit_profile_client
       @sleeper = sleeper
     end
 
@@ -168,9 +172,46 @@ module Discord
     def build_payload(event, room)
       payload = { content: format_content(event) }
       payload[:username] = username_for(event, room)
-      avatar = event.sender_avatar_url
+      avatar = resolve_avatar_url(event, room)
       payload[:avatar_url] = avatar if avatar.present?
       payload
+    end
+
+    # Avatar resolution is tiered:
+    #   1. Matrix member state (event.sender_avatar_url) — authoritative
+    #      when Reddit chat has one. Cached on the Room so later events
+    #      without carrying state can use the same URL.
+    #   2. Room cache from a prior lookup — avoids a Reddit API call.
+    #   3. Reddit public profile (`/user/<name>/about.json`) — only for
+    #      peer events where we know the username. One fetch per user
+    #      per 24h (negative cache prevents hammering on deleted users).
+    def resolve_avatar_url(event, room)
+      if event.sender_avatar_url.present?
+        room.cache_avatar_url!(event.sender_avatar_url) unless event.own? || event.system?
+        return event.sender_avatar_url
+      end
+
+      return room.counterparty_avatar_url if room.counterparty_avatar_url.present?
+      return if event.own? || event.system?
+      return if room.counterparty_username.blank?
+      return unless @reddit_profile_client
+      return if recent_avatar_miss?(room)
+
+      url = @reddit_profile_client.fetch_avatar_url(room.counterparty_username)
+      if url.present?
+        room.cache_avatar_url!(url)
+        url
+      else
+        room.record_avatar_lookup_miss!
+        nil
+      end
+    end
+
+    def recent_avatar_miss?(room)
+      ts = room.counterparty_avatar_checked_at
+      return false unless ts
+
+      Time.current - ts < AVATAR_NEGATIVE_CACHE_TTL
     end
 
     def format_content(event)
