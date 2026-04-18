@@ -8,6 +8,7 @@ require "matrix/sync_loop"
 require "dedup/sent_registry"
 require "discord/client"
 require "discord/channel_index"
+require "discord/channel_reorderer"
 require "discord/gateway"
 require "discord/outbound_dispatcher"
 require "discord/poster"
@@ -164,18 +165,14 @@ module Bridge
     end
 
     def build_poster
-      channel_index = Discord::ChannelIndex.new(
-        client: @discord_client,
-        guild_id: AppConfig.fetch("discord_guild_id"),
-        category_id: AppConfig.fetch("discord_dms_category_id"),
-      )
       Discord::Poster.new(
         client: @discord_client,
-        channel_index: channel_index,
+        channel_index: build_channel_index,
         matrix_client: @matrix_client,
         logger: @logger,
         sent_registry: @sent_registry,
         reddit_profile_client: Reddit::ProfileClient.new,
+        channel_reorderer: build_channel_reorderer,
       )
     end
 
@@ -185,15 +182,28 @@ module Bridge
       Discord::OutboundDispatcher.new(
         matrix_client: @matrix_client,
         discord_client: @discord_client,
-        channel_index: Discord::ChannelIndex.new(
-          client: @discord_client,
-          guild_id: AppConfig.fetch("discord_guild_id"),
-          category_id: AppConfig.fetch("discord_dms_category_id"),
-        ),
+        channel_index: build_channel_index,
         media_resolver: Matrix::MediaResolver.new(homeserver: homeserver),
         reddit_profile_client: Reddit::ProfileClient.new,
+        channel_reorderer: build_channel_reorderer,
         operator_discord_ids: operator_ids,
         journal: @journal,
+      )
+    end
+
+    def build_channel_index
+      Discord::ChannelIndex.new(
+        client: @discord_client,
+        guild_id: AppConfig.fetch("discord_guild_id"),
+        category_id: AppConfig.fetch("discord_dms_category_id"),
+      )
+    end
+
+    def build_channel_reorderer
+      Discord::ChannelReorderer.new(
+        client: @discord_client,
+        guild_id: AppConfig.fetch("discord_guild_id", ""),
+        logger: @logger,
       )
     end
 

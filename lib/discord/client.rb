@@ -69,6 +69,20 @@ module Discord
       get("channels/#{channel_id}").body
     end
 
+    # Bulk reorder request for channels in this guild. Each entry is
+    # `{id:, position:}` — Discord applies the positions within the
+    # channels' categories and handles the ripple on siblings. Other
+    # channels not in the payload keep their existing positions.
+    def reorder_channels(guild_id:, positions:)
+      payload = positions.map { |pos| { id: pos.fetch(:id), position: pos.fetch(:position) } }
+      response = @conn.patch("guilds/#{guild_id}/channels") do |req|
+        req.headers["Authorization"] = "Bot #{@bot_token}"
+        req.body = payload
+      end
+      handle(response)
+      :ok
+    end
+
     def rename_channel(channel_id:, name:)
       response = @conn.patch("channels/#{channel_id}") do |req|
         req.headers["Authorization"] = "Bot #{@bot_token}"

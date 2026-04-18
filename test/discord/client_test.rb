@@ -140,6 +140,25 @@ module Discord
       end
     end
 
+    # ---- reorder_channels ----
+
+    test "reorder_channels PATCHes guild channels with the [id, position] payload" do
+      stub_request(:patch, "#{BASE}/guilds/#{GUILD}/channels")
+        .with(
+          headers: { "Authorization" => "Bot #{TOKEN}" },
+          body: [{ id: "a", position: 0 }, { id: "b", position: 1 }].to_json,
+        )
+        .to_return(status: 204, body: "")
+
+      assert_equal(
+        :ok,
+        @client.reorder_channels(
+          guild_id: GUILD,
+          positions: [{ id: "a", position: 0 }, { id: "b", position: 1 }],
+        ),
+      )
+    end
+
     # ---- delete_channel ----
 
     test "delete_channel DELETEs the channel with the bot token" do

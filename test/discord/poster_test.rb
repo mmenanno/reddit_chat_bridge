@@ -389,6 +389,46 @@ module Discord
       assert(PostedEvent.posted?("$bad"))
     end
 
+    # ---- channel reorder hook ----
+
+    test "marks last_activity_at on the room after a successful post" do
+      @client.stubs(:execute_webhook).returns("m")
+      ts = 1_776_400_500_000
+      frozen = Time.at(ts / 1000.0).utc
+
+      @poster.call([event(origin_server_ts: ts)])
+
+      assert_in_delta(frozen, Room.first.last_activity_at, 1.second)
+    end
+
+    test "triggers ChannelReorderer once at the end of a batch with any successful post" do
+      reorderer = mock("ChannelReorderer")
+      reorderer.expects(:reorder!).once
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        channel_reorderer: reorderer,
+        sleeper: ->(_) {},
+      )
+      @client.stubs(:execute_webhook).returns("m")
+
+      poster.call([event(event_id: "$1"), event(event_id: "$2"), event(event_id: "$3")])
+    end
+
+    test "does not trigger ChannelReorderer when the batch had nothing to post" do
+      reorderer = mock("ChannelReorderer")
+      reorderer.expects(:reorder!).never
+      poster = Poster.new(
+        client: @client,
+        channel_index: @index,
+        channel_reorderer: reorderer,
+        sleeper: ->(_) {},
+      )
+      PostedEvent.record!(event_id: "$seen", room_id: ROOM_ID)
+
+      poster.call([event(event_id: "$seen")])
+    end
+
     # ---- terminated (hidden) rooms are silently filtered ----
 
     test "drops events for rooms the operator marked terminated" do

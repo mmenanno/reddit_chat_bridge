@@ -64,6 +64,16 @@ class Room < ApplicationRecord
     update!(last_event_id: event_id)
   end
 
+  # Monotonic activity stamp used by ChannelReorderer to sort #dm-*
+  # channels most-recent-first. Only writes when `time` is newer than
+  # the cached value, so out-of-order backfill events don't rewind the
+  # activity cursor.
+  def mark_activity!(time: Time.current)
+    return if last_activity_at && last_activity_at >= time
+
+    update!(last_activity_at: time)
+  end
+
   def archived?
     archived_at.present?
   end

@@ -78,6 +78,23 @@ module Discord
       assert_match(/M_FORBIDDEN/, failure.last_error)
     end
 
+    # ---- channel reorder hook ----
+
+    test "stamps last_activity_at and triggers ChannelReorderer after a successful dispatch" do
+      reorderer = mock("ChannelReorderer")
+      reorderer.expects(:reorder!)
+      dispatcher = OutboundDispatcher.new(
+        matrix_client: @matrix,
+        channel_reorderer: reorderer,
+        operator_discord_ids: [OP_USER_ID],
+      )
+      @matrix.expects(:send_message).returns("$evt")
+
+      dispatcher.dispatch(discord_message_hash("hey"))
+
+      assert_not_nil(@room.reload.last_activity_at)
+    end
+
     # ---- Reddit-persona rewrite (post-then-delete) ----
 
     test "after a successful Matrix send, replaces the Discord message with a webhook repost under the Reddit identity" do

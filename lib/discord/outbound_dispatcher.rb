@@ -33,6 +33,7 @@ module Discord
       channel_index: nil,
       media_resolver: nil,
       reddit_profile_client: nil,
+      channel_reorderer: nil,
       operator_discord_ids: [],
       journal: nil
     )
@@ -41,6 +42,7 @@ module Discord
       @channel_index = channel_index
       @media_resolver = media_resolver
       @reddit_profile_client = reddit_profile_client
+      @channel_reorderer = channel_reorderer
       @operator_discord_ids = operator_discord_ids.map(&:to_s).reject(&:empty?).to_set
       @journal = journal
     end
@@ -64,7 +66,9 @@ module Discord
         matrix_event_id: event_id,
       )
       room.advance_event!(event_id)
+      room.mark_activity!
       replace_with_reddit_persona!(message, room, body)
+      @channel_reorderer&.reorder!
       @journal&.info(
         "Discord → Reddit: relayed message #{discord_id} as Matrix event #{event_id}",
         source: "outbound",

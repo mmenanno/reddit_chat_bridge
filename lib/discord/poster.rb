@@ -36,19 +36,22 @@ module Discord
     # Re-check Reddit's profile API at most once every 24h after a miss.
     AVATAR_NEGATIVE_CACHE_TTL = 24 * 3600
 
-    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, sleeper: Kernel.method(:sleep))
+    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, channel_reorderer: nil, sleeper: Kernel.method(:sleep))
       @client = client
       @channel_index = channel_index
       @matrix_client = matrix_client
       @logger = logger
       @sent_registry = sent_registry
       @reddit_profile_client = reddit_profile_client
+      @channel_reorderer = channel_reorderer
       @sleeper = sleeper
     end
 
     def call(events)
       @auth_warned_this_batch = false
+      @activity_posted = false
       events.each { |event| post_one(event) }
+      @channel_reorderer&.reorder! if @activity_posted
     end
 
     private
@@ -65,6 +68,8 @@ module Discord
       clear_permissions_flag!
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room.advance_event!(event.event_id)
+      room.mark_activity!(time: activity_time_for(event))
+      @activity_posted = true
     rescue Discord::BadRequest => e
       # Unrecoverable request-shape error. Record anyway so we don't loop.
       @logger&.warn("Discord rejected event #{event.event_id} (400): #{e.message}")
@@ -268,6 +273,15 @@ module Discord
       return if event.sender.blank?
 
       room.ensure_counterparty!(matrix_id: event.sender, username: event.sender_username.presence)
+    end
+
+    # Matrix's origin_server_ts is unix millis. Fall back to now when
+    # the event didn't carry one (shouldn't happen, but defensively).
+    def activity_time_for(event)
+      ts = event.origin_server_ts
+      return Time.current unless ts.is_a?(Integer) || ts.is_a?(Numeric)
+
+      Time.at(ts.to_f / 1000.0).utc
     end
 
     # Terminated ("hidden") rooms never auto-recover — events for them
