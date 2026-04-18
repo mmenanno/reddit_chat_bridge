@@ -37,18 +37,20 @@ module Admin
       :ok
     end
 
-    # Destructive: wipes every Room's Discord channel/webhook + last_event_id,
-    # deletes the entire PostedEvent dedup cache, and clears the /sync
-    # checkpoint. Then — if a reconciler is wired — immediately iterates
-    # every room, recreates its channel + webhook, and backfills recent
-    # history so the operator doesn't have to wait for the next Reddit
-    # message to see the rebuild take effect. Room rows themselves are
-    # kept so counterparty_username survives; new channels get the right
-    # names immediately.
+    # Destructive, three-stage rebuild:
+    #   1. Delete the actual Discord channels we're tracking so no stale
+    #      channels are left on the server (NotFound tolerated).
+    #   2. Wipe every Room's cached channel + webhook + last_event_id,
+    #      delete the PostedEvent dedup cache, clear the sync checkpoint.
+    #   3. If a reconciler is wired, iterate every room and run it through
+    #      refresh_one — new channels + webhooks + backfilled recent history.
+    # Room metadata (counterparty_matrix_id, counterparty_username) is
+    # preserved so the rebuilt channels get their right names immediately.
     def full_resync!
+      delete_stats = delete_existing_discord_channels!
       clear_stats = nuke_persisted_state!
       rebuild_stats = rebuild_all_rooms!
-      clear_stats.merge(rebuild_stats)
+      delete_stats.merge(clear_stats).merge(rebuild_stats)
     end
 
     # Persists the Reddit cookie jar AND uses it to mint a fresh Matrix JWT
@@ -111,6 +113,12 @@ module Admin
     end
 
     private
+
+    def delete_existing_discord_channels!
+      return { channels_deleted: 0, channel_delete_errors: 0 } unless @reconciler
+
+      @reconciler.delete_all_discord_channels!
+    end
 
     def nuke_persisted_state!
       rooms_reset = 0

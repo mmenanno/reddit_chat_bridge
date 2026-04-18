@@ -157,7 +157,7 @@ module Bridge
 
         post "/actions/full_resync"
 
-        assert_match(/cleared Discord channel refs on 1 room/, last_response.body)
+        assert_match(/cleared refs on 1 room/, last_response.body)
         assert_match(/wiped 1 posted-event record/, last_response.body)
       end
 

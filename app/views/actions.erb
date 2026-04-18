@@ -136,13 +136,14 @@
   </div>
   <h2 class="section-title mt-2">Nuke channel refs and start fresh</h2>
   <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl">
-    Clears every Room's cached Discord channel + webhook, wipes the
+    Three-stage hard reset: (1) deletes the actual Discord channels the bridge is
+    tracking so nothing stale is left on the server, (2) clears every Room's cached
+    channel + webhook, wipes the
     <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">PostedEvent</code>
-    dedup cache, and resets the sync checkpoint — then immediately rebuilds every room:
-    new channels created, recent history pulled from Matrix, and messages re-posted. No
-    need to wait for a fresh Reddit message to trigger the rebuild. Room metadata
-    (counterparty username) is preserved, so channels come up with the right names.
-    Rebuild runs inline and can take a minute or two on a busy account.
+    dedup cache, and resets the sync checkpoint, (3) immediately rebuilds every room with
+    fresh channels + webhooks and recent history pulled from Matrix. Room metadata
+    (counterparty username) is preserved so the rebuilt channels come up with the right names.
+    Runs inline and can take a minute or two on a busy account.
   </p>
   <form method="post" action="/actions/full_resync" class="mt-5"
         onsubmit="return confirm('Nuke all channel refs, dedup cache, and sync checkpoint? This is irreversible.');">

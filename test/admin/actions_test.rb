@@ -142,7 +142,14 @@ module Admin
       stats = @actions.full_resync!
 
       assert_equal(
-        { rooms_reset: 2, events_cleared: 1, rebuilt: 0, rebuild_errors: 0 },
+        {
+          channels_deleted: 0,
+          channel_delete_errors: 0,
+          rooms_reset: 2,
+          events_cleared: 1,
+          rebuilt: 0,
+          rebuild_errors: 0,
+        },
         stats,
       )
     end
@@ -152,6 +159,7 @@ module Admin
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
 
       reconciler = mock("Reconciler")
+      reconciler.stubs(:delete_all_discord_channels!).returns(channels_deleted: 2, channel_delete_errors: 0)
       reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").returns(renamed: true, posted_attempted: 3)
       reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 5)
 
@@ -165,6 +173,33 @@ module Admin
 
       assert_equal(2, stats[:rebuilt])
       assert_equal(0, stats[:rebuild_errors])
+    end
+
+    test "full_resync! delegates channel deletion to the reconciler before nuking state" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+
+      call_order = []
+      reconciler = mock("Reconciler")
+      reconciler.stubs(:delete_all_discord_channels!).with do
+        call_order << :delete
+        # Room still has discord_channel_id here — deletion must run before the nuke.
+        Room.where.not(discord_channel_id: nil).any?
+      end.returns(channels_deleted: 1, channel_delete_errors: 0)
+      reconciler.stubs(:refresh_one).with do
+        call_order << :refresh
+        true
+      end.returns(renamed: true, posted_attempted: 0)
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      stats = actions.full_resync!
+
+      assert_equal([:delete, :refresh], call_order)
+      assert_equal(1, stats[:channels_deleted])
     end
 
     # ---- rebuild_all! (non-destructive) ----
@@ -195,6 +230,7 @@ module Admin
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
 
       reconciler = mock("Reconciler")
+      reconciler.stubs(:delete_all_discord_channels!).returns(channels_deleted: 2, channel_delete_errors: 0)
       reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").raises(RuntimeError, "boom")
       reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 0)
 

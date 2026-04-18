@@ -479,7 +479,8 @@ module Bridge
 
       post "/actions/full_resync" do
         stats = admin_actions.full_resync!
-        @notice = "Full resync: cleared Discord channel refs on #{stats[:rooms_reset]} room(s), " \
+        @notice = "Full resync: deleted #{stats[:channels_deleted]} Discord channel(s) " \
+                  "(#{stats[:channel_delete_errors]} errors), cleared refs on #{stats[:rooms_reset]} room(s), " \
                   "wiped #{stats[:events_cleared]} posted-event record(s), reset the sync checkpoint, " \
                   "rebuilt #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors)."
         erb(:actions)

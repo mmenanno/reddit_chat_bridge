@@ -171,6 +171,45 @@ module Admin
       assert(result[:renamed])
     end
 
+    # ---- delete_all_discord_channels! ----
+
+    test "delete_all_discord_channels! deletes every room's Discord channel" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
+      Room.create!(matrix_room_id: "!c:reddit.com", discord_channel_id: nil) # skipped
+      @discord_client.expects(:delete_channel).with(channel_id: "111").returns(:ok)
+      @discord_client.expects(:delete_channel).with(channel_id: "222").returns(:ok)
+
+      assert_equal(
+        { channels_deleted: 2, channel_delete_errors: 0 },
+        @reconciler.delete_all_discord_channels!,
+      )
+    end
+
+    test "delete_all_discord_channels! counts NotFound as successful deletion" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      @discord_client.stubs(:delete_channel).raises(Discord::NotFound, "Unknown Channel")
+
+      stats = @reconciler.delete_all_discord_channels!
+
+      assert_equal(1, stats[:channels_deleted])
+      assert_equal(0, stats[:channel_delete_errors])
+    end
+
+    test "delete_all_discord_channels! counts other failures and keeps going" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
+      @discord_client.stubs(:delete_channel)
+        .with(channel_id: "111").raises(Discord::AuthError, "Missing Permissions")
+      @discord_client.stubs(:delete_channel)
+        .with(channel_id: "222").returns(:ok)
+
+      stats = @reconciler.delete_all_discord_channels!
+
+      assert_equal(1, stats[:channels_deleted])
+      assert_equal(1, stats[:channel_delete_errors])
+    end
+
     # ---- archive / unarchive ----
 
     test "archive! deletes the Discord channel and flags the room archived" do

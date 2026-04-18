@@ -54,6 +54,24 @@ module Admin
       { renamed: renamed, posted_attempted: posted }
     end
 
+    # Bulk-delete every Discord channel we currently track. Used by
+    # `full_resync!` so the operator can click one button to rebuild from
+    # scratch, including wiping stale Discord state — not just the DB side.
+    # NotFound counts as success (channel was already gone).
+    def delete_all_discord_channels!
+      stats = { channels_deleted: 0, channel_delete_errors: 0 }
+      Room.where.not(discord_channel_id: nil).find_each do |room|
+        @discord_client.delete_channel(channel_id: room.discord_channel_id)
+        stats[:channels_deleted] += 1
+      rescue Discord::NotFound
+        stats[:channels_deleted] += 1
+      rescue StandardError => e
+        stats[:channel_delete_errors] += 1
+        @logger&.warn("channel delete failed for #{room.matrix_room_id}: #{e.class}: #{e.message}")
+      end
+      stats
+    end
+
     # Archive: delete the Discord channel (if any) and mark the room archived.
     # Room metadata is kept so the slug survives for the eventual unarchive.
     # NotFound on delete is benign — the channel was already gone on Discord's
