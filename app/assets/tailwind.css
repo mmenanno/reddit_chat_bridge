@@ -794,8 +794,12 @@
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
-    background: color-mix(in oklab, oklch(5% 0.005 55) 82%, transparent);
-    backdrop-filter: blur(14px);
+    /* Keep the page visible underneath — enough tint to push focus to
+     * the panel, not so much that the app disappears. Backdrop blur
+     * adds depth at modest cost on modern browsers. */
+    background: color-mix(in oklab, oklch(5% 0.005 55) 45%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     animation: rcb-overlay-fade 180ms ease-out;
   }
 

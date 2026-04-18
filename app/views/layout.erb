@@ -147,6 +147,27 @@
       </div>
 
       <div class="shortcut-toast" data-shortcut-toast>g · waiting</div>
+
+      <!-- Hidden forms that Shift+R / Shift+C submit, so the themed
+           confirm dialog intercepts them exactly like a click submit.
+           Keeping them in the DOM means no per-press element churn
+           and cleaner cancel semantics. -->
+      <div hidden aria-hidden="true">
+        <form id="kbd-shortcut-resync" method="post" action="/actions/resync"
+              data-confirm="Drops the /sync next_batch pointer. The next iteration pulls recent history from Reddit. PostedEvent dedup keeps this idempotent — no duplicates."
+              data-confirm-title="Clear the sync checkpoint?"
+              data-confirm-kicker="Resync · routine"
+              data-confirm-label="Resync now"
+              data-confirm-icon="reversible"
+              data-confirm-tone="neutral"></form>
+        <form id="kbd-shortcut-reconcile" method="post" action="/actions/reconcile"
+              data-confirm="Sweeps every bridged room, re-fetches the counterparty profile, and renames the Discord channel to match."
+              data-confirm-title="Reconcile every room?"
+              data-confirm-kicker="Reconcile · routine"
+              data-confirm-label="Reconcile now"
+              data-confirm-icon="reversible"
+              data-confirm-tone="neutral"></form>
+      </div>
     <% end %>
 
     <!-- Confirm dialog — replaces window.confirm() for forms with [data-confirm]. -->
@@ -217,14 +238,13 @@
           x: "/actions",
         };
 
-        // Ask-before-firing for destructive-ish routine actions.
-        const postForm = (action, confirmText) => {
-          if (!window.confirm(confirmText)) return;
-          const f = document.createElement("form");
-          f.method = "POST";
-          f.action = action;
-          document.body.appendChild(f);
-          f.submit();
+        // Trigger a hidden form whose data-confirm attributes route
+        // the submit through the themed confirm dialog (same path as
+        // visible form submit buttons).
+        const triggerShortcutForm = (id) => {
+          const f = document.getElementById(id);
+          if (!f) return;
+          f.requestSubmit();
         };
 
         document.addEventListener("click", (e) => {
@@ -258,16 +278,16 @@
             return;
           }
 
-          // Shift+R / Shift+C — trigger routine actions.
+          // Shift+R / Shift+C — trigger routine actions via the themed dialog.
           if (e.shiftKey && !gArmed) {
             if (e.key === "R") {
               e.preventDefault();
-              postForm("/actions/resync", "Clear the sync checkpoint? The next /sync pulls recent history.");
+              triggerShortcutForm("kbd-shortcut-resync");
               return;
             }
             if (e.key === "C") {
               e.preventDefault();
-              postForm("/actions/reconcile", "Sweep every room, re-fetch profiles, and rename channels?");
+              triggerShortcutForm("kbd-shortcut-reconcile");
               return;
             }
           }
