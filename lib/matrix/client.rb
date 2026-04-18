@@ -47,6 +47,15 @@ module Matrix
       response.body.fetch("event_id")
     end
 
+    # Accepts a Matrix room invite. Strangers DMing for the first time show
+    # up under `/sync → rooms.invite`; this call promotes the room to the
+    # joined state so the next /sync sees the timeline and the bridge can
+    # route it through normally.
+    def join_room(room_id:)
+      path = "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/join"
+      post(path, payload: {}).body
+    end
+
     # Pulls recent timeline events for a single room, used by the per-room
     # force-refresh action to re-examine history without replaying /sync.
     # `dir` is "b" (backward from the latest event) or "f" (forward from
@@ -90,6 +99,14 @@ module Matrix
 
     def put(path, payload:)
       response = @conn.put(path) do |req|
+        req.headers["Authorization"] = "Bearer #{current_token}"
+        req.body = payload
+      end
+      handle(response)
+    end
+
+    def post(path, payload:)
+      response = @conn.post(path) do |req|
         req.headers["Authorization"] = "Bearer #{current_token}"
         req.body = payload
       end

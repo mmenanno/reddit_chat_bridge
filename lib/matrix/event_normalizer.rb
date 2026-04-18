@@ -14,6 +14,8 @@ module Matrix
     :origin_server_ts,
     :is_own,
     :is_system,
+    :media_url,
+    :media_mime,
   ) do
     def own?
       is_own
@@ -25,6 +27,10 @@ module Matrix
 
     def message?
       kind == :message
+    end
+
+    def media?
+      !media_url.nil? && !media_url.empty?
     end
   end
 
@@ -39,9 +45,11 @@ module Matrix
   # the standard Matrix displayname.
   class EventNormalizer
     REDDIT_SYSTEM_USER_ID = "@t2_1qwk:reddit.com"
+    MEDIA_MSGTYPES = ["m.image", "m.file", "m.video", "m.audio"].freeze
 
-    def initialize(own_user_id:)
+    def initialize(own_user_id:, media_resolver: nil)
       @own_user_id = own_user_id
+      @media_resolver = media_resolver
     end
 
     def normalize(sync_body)
@@ -92,17 +100,31 @@ module Matrix
       return unless raw["type"] == "m.room.message"
 
       sender = raw["sender"]
+      msgtype = raw.dig("content", "msgtype")
+      media_url, media_mime = resolve_media(raw) if MEDIA_MSGTYPES.include?(msgtype)
+
       NormalizedEvent.new(
         room_id: room_id,
         event_id: raw["event_id"],
-        kind: :message,
+        kind: media_url ? :media : :message,
         sender: sender,
         sender_username: usernames[sender],
         body: raw.dig("content", "body"),
         origin_server_ts: raw["origin_server_ts"],
         is_own: sender == @own_user_id,
         is_system: sender == REDDIT_SYSTEM_USER_ID,
+        media_url: media_url,
+        media_mime: media_mime,
       )
+    end
+
+    def resolve_media(raw)
+      return unless @media_resolver
+
+      mxc = raw.dig("content", "url")
+      return unless mxc
+
+      [@media_resolver.resolve(mxc), raw.dig("content", "info", "mimetype")]
     end
   end
 end

@@ -149,6 +149,34 @@ module Matrix
       assert_equal("safe_point", SyncCheckpoint.next_batch_token)
     end
 
+    # ---- invite auto-accept ----
+
+    test "iterate joins every invited room before dispatching" do
+      body = empty_body("n1")
+      body["rooms"]["invite"] = {
+        "!invite_a:reddit.com" => { "invite_state" => { "events" => [] } },
+        "!invite_b:reddit.com" => { "invite_state" => { "events" => [] } },
+      }
+      @client.stubs(:sync).returns(body)
+      @client.expects(:join_room).with(room_id: "!invite_a:reddit.com").once
+      @client.expects(:join_room).with(room_id: "!invite_b:reddit.com").once
+
+      @loop.iterate
+    end
+
+    test "iterate keeps going when a single join fails" do
+      body = empty_body("n1")
+      body["rooms"]["invite"] = {
+        "!flaky:reddit.com" => { "invite_state" => { "events" => [] } },
+        "!good:reddit.com" => { "invite_state" => { "events" => [] } },
+      }
+      @client.stubs(:sync).returns(body)
+      @client.stubs(:join_room).with(room_id: "!flaky:reddit.com").raises(Matrix::Error, "boom")
+      @client.expects(:join_room).with(room_id: "!good:reddit.com").once
+
+      @loop.iterate
+    end
+
     private
 
     def empty_body(next_batch)

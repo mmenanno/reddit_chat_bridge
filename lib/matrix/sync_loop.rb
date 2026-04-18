@@ -39,6 +39,7 @@ module Matrix
 
     def iterate
       body = @client.sync(since: SyncCheckpoint.next_batch_token, timeout_ms: @timeout_ms)
+      auto_join_invites(body)
       events = @normalizer.normalize(body)
       @dispatcher.call(events)
       SyncCheckpoint.advance!(body["next_batch"])
@@ -47,6 +48,23 @@ module Matrix
     rescue Matrix::TokenError => e
       AuthState.mark_failure!(e.message)
       :paused
+    end
+
+    private
+
+    # When a stranger DMs us for the first time Reddit ships the room under
+    # rooms.invite rather than rooms.join — it has no timeline yet and the
+    # normalizer/poster skip it. Accept every invite we see; the next /sync
+    # then carries the actual conversation in rooms.join.
+    def auto_join_invites(body)
+      invites = body.dig("rooms", "invite") || {}
+      invites.each_key do |room_id|
+        @client.join_room(room_id: room_id)
+      rescue Matrix::Error
+        # Leave the retry to the next tick — bubbling would stall the whole
+        # sync for a single bad invite.
+        next
+      end
     end
   end
 end

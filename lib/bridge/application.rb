@@ -2,6 +2,7 @@
 
 require "matrix/client"
 require "matrix/event_normalizer"
+require "matrix/media_resolver"
 require "matrix/sync_loop"
 require "discord/client"
 require "discord/channel_index"
@@ -153,9 +154,13 @@ module Bridge
     end
 
     def build_sync_loop
+      homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
       Matrix::SyncLoop.new(
         client: @matrix_client,
-        normalizer: Matrix::EventNormalizer.new(own_user_id: AppConfig.fetch("matrix_user_id")),
+        normalizer: Matrix::EventNormalizer.new(
+          own_user_id: AppConfig.fetch("matrix_user_id"),
+          media_resolver: Matrix::MediaResolver.new(homeserver: homeserver),
+        ),
         dispatcher: @poster,
       )
     end

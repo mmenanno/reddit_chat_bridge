@@ -122,6 +122,20 @@ module Discord
       @poster.call([event(body: "anon", sender_username: nil)])
     end
 
+    test "appends resolved media URLs to the Discord message so it auto-embeds" do
+      @client.expects(:send_message).with(
+        channel_id: CHANNEL_ID,
+        content: regexp_matches(%r{📎 photo\.jpg.*https://matrix\.redditspace\.com/_matrix/media}m),
+      ).returns("m")
+
+      @poster.call([event(
+        kind: :media,
+        body: "photo.jpg",
+        sender_username: "nothnnn",
+        media_url: "https://matrix.redditspace.com/_matrix/media/v3/download/matrix.redditspace.com/abc",
+      )])
+    end
+
     test "uses the Room's stored counterparty_username when the event doesn't carry one" do
       Room.create!(
         matrix_room_id: ROOM_ID,
@@ -309,23 +323,28 @@ module Discord
 
     private
 
-    def event(
+    def event( # rubocop:disable Metrics/ParameterLists
       event_id: "$default",
       sender: PEER,
       body: "hello",
       sender_username: nil,
-      origin_server_ts: 1_776_400_000_000
+      origin_server_ts: 1_776_400_000_000,
+      kind: :message,
+      media_url: nil,
+      media_mime: nil
     )
       Matrix::NormalizedEvent.new(
         room_id: ROOM_ID,
         event_id: event_id,
-        kind: :message,
+        kind: kind,
         sender: sender,
         sender_username: sender_username,
         body: body,
         origin_server_ts: origin_server_ts,
         is_own: sender == OWN,
         is_system: sender == SYSTEM,
+        media_url: media_url,
+        media_mime: media_mime,
       )
     end
   end

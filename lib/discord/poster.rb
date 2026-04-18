@@ -119,10 +119,22 @@ module Discord
     end
 
     def format_content(event, room)
-      raw = "#{prefix_for(event, room)}\n#{event.body}"
+      pieces = [prefix_for(event, room), body_for(event)]
+      pieces << event.media_url if event.media?
+      raw = pieces.compact.reject(&:empty?).join("\n")
       return raw if raw.length <= DISCORD_MESSAGE_CAP
 
       raw[0, TRUNCATION_HEADROOM] + TRUNCATION_NOTICE
+    end
+
+    # Reddit's image events typically ship with content.body set to the raw
+    # filename (e.g. "image.jpg") — useless context inside a DM. Prefer a
+    # human-readable hint when the body is just the attachment name.
+    def body_for(event)
+      return event.body unless event.media?
+      return event.body if event.body.to_s.include?(" ") # actual sentence
+
+      "📎 #{event.body}"
     end
 
     def prefix_for(event, room)

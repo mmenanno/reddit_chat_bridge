@@ -167,7 +167,62 @@ module Matrix
       assert_equal(:message, @normalizer.normalize(body).first.kind)
     end
 
+    # ---- media resolution ----
+
+    test "resolves m.image events through the media resolver" do
+      resolver = mock("Resolver")
+      resolver.expects(:resolve).with("mxc://matrix.redditspace.com/abc").returns("https://cdn/x.jpg")
+      normalizer = EventNormalizer.new(own_user_id: OWN, media_resolver: resolver)
+      body = sync(join: {
+        "!room1:reddit.com" => room(timeline: [image_message("photo.jpg", "mxc://matrix.redditspace.com/abc")]),
+      })
+
+      event = normalizer.normalize(body).first
+
+      assert_equal("https://cdn/x.jpg", event.media_url)
+    end
+
+    test "marks media events with kind=:media and media? predicate" do
+      resolver = mock("Resolver")
+      resolver.stubs(:resolve).returns("https://cdn/x.jpg")
+      normalizer = EventNormalizer.new(own_user_id: OWN, media_resolver: resolver)
+      body = sync(join: {
+        "!r:reddit.com" => room(timeline: [image_message("photo.jpg", "mxc://server/id")]),
+      })
+
+      event = normalizer.normalize(body).first
+
+      assert_equal(:media, event.kind)
+      assert_predicate(event, :media?)
+    end
+
+    test "leaves the event as a regular :message when no resolver is configured" do
+      body = sync(join: {
+        "!r:reddit.com" => room(timeline: [image_message("a.jpg", "mxc://server/id")]),
+      })
+
+      event = @normalizer.normalize(body).first
+
+      assert_equal(:message, event.kind)
+      refute_predicate(event, :media?)
+    end
+
     private
+
+    def image_message(filename, mxc_url, event_id: "$img", sender: PEER)
+      {
+        "type" => "m.room.message",
+        "event_id" => event_id,
+        "sender" => sender,
+        "origin_server_ts" => 1_776_400_000_000,
+        "content" => {
+          "msgtype" => "m.image",
+          "body" => filename,
+          "url" => mxc_url,
+          "info" => { "mimetype" => "image/jpeg" },
+        },
+      }
+    end
 
     def sync(join: {}, invite: {})
       { "rooms" => { "join" => join, "invite" => invite } }
