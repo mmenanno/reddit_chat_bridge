@@ -177,6 +177,21 @@ module Bridge
           time.utc.strftime("%Y-%m-%d")
         end
 
+        # Friendly label for a Room in status banners — prefers the resolved
+        # counterparty username, then the counterparty's matrix id localpart,
+        # and falls back to the opaque matrix_room_id only when nothing
+        # human-readable is cached yet.
+        def room_display_name(room)
+          return room.counterparty_username if room.counterparty_username.present?
+          return matrix_id_localpart(room.counterparty_matrix_id) if room.counterparty_matrix_id.present?
+
+          room.matrix_room_id
+        end
+
+        def matrix_id_localpart(matrix_id)
+          matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
+        end
+
         # Shared handler body for /requests/:id/approve and /:id/decline —
         # both routes have identical shape modulo the method name.
         def handle_message_request_action(method_name, id)
@@ -455,7 +470,7 @@ module Bridge
         else
           begin
             result = admin_actions.refresh_room!(matrix_room_id: room.matrix_room_id)
-            @notice = "Refreshed #{room.matrix_room_id}: " \
+            @notice = "Refreshed #{room_display_name(room)}: " \
                       "channel #{result[:renamed] ? "renamed" : "unchanged"}, " \
                       "#{result[:posted_attempted]} event(s) re-examined."
           rescue Admin::Actions::NotConfiguredError => e
@@ -477,7 +492,7 @@ module Bridge
         else
           begin
             result = admin_actions.archive_room!(matrix_room_id: room.matrix_room_id)
-            @notice = result == :already_archived ? "Room was already archived." : "Archived #{room.counterparty_username || room.matrix_room_id} — Discord channel deleted."
+            @notice = result == :already_archived ? "Room was already archived." : "Archived #{room_display_name(room)} — Discord channel deleted."
           rescue Admin::Actions::NotConfiguredError => e
             @error = e.message
           rescue Matrix::Error, Discord::Error => e
@@ -499,7 +514,7 @@ module Bridge
           begin
             result = admin_actions.unarchive_room!(matrix_room_id: room.matrix_room_id, backfill: backfill)
             label = backfill ? "restored with #{result[:posted_attempted]} event(s) replayed" : "unarchived — channel will recreate on next message"
-            @notice = "#{room.counterparty_username || room.matrix_room_id} #{label}."
+            @notice = "#{room_display_name(room)} #{label}."
           rescue Admin::Actions::NotConfiguredError => e
             @error = e.message
           rescue Matrix::Error, Discord::Error => e
