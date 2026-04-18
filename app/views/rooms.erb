@@ -131,6 +131,20 @@
                 </form>
               <% end %>
             <% end %>
+
+            <form method="post"
+                  action="/rooms/<%= room.id %>/end"
+                  data-confirm="Leaves the Matrix room on Reddit's side, deletes the Discord channel, and removes all local history for this chat. If this user messages you again, Reddit creates a new conversation that arrives as a pending message request needing approval. Matrix history cannot be recovered after this point."
+                  data-confirm-title="End chat with <%= room.counterparty_username || "this room" %>?"
+                  data-confirm-kicker="End chat · irreversible"
+                  data-confirm-label="⌫ End chat"
+                  data-confirm-icon="irreversible">
+              <button type="submit"
+                      class="btn btn-error btn-xs"
+                      title="Leave the Matrix room and delete all local history. A future DM from this user arrives as a new message request.">
+                ⌫ End chat
+              </button>
+            </form>
           </div>
         </footer>
       </article>

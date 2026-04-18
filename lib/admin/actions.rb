@@ -112,6 +112,11 @@ module Admin
       @reconciler.unarchive!(matrix_room_id: matrix_room_id, backfill: backfill)
     end
 
+    def end_chat!(matrix_room_id:)
+      require_reconciler!
+      @reconciler.end_chat!(matrix_room_id: matrix_room_id)
+    end
+
     # Accept the Matrix invite so the next /sync carries the room's
     # timeline and the Poster starts bridging. Idempotent: calling a
     # second time short-circuits once the request is resolved.

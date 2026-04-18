@@ -92,6 +92,34 @@ module Admin
       :archived
     end
 
+    # Irreversible: leaves the Matrix room (Reddit treats it as "you
+    # ended the chat"), deletes the Discord channel, and wipes every
+    # local trace of the conversation — Room row, dedup cache, open
+    # message-request records. If the same user DMs again, Reddit spins
+    # up a fresh Matrix room and our InviteHandler turns it into a new
+    # pending MessageRequest, so approval is required before any bridging
+    # resumes.
+    #
+    # Leave happens first: if Matrix rejects it we preserve local state
+    # so the admin can retry. A successful leave is committed before we
+    # touch the Discord channel so we don't end up in a split-brain
+    # state where we think we ended the chat but Reddit still delivers
+    # events to the old room.
+    def end_chat!(matrix_room_id:)
+      room = Room.find_by(matrix_room_id: matrix_room_id)
+      raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
+
+      @matrix_client.leave_room(room_id: room.matrix_room_id)
+      delete_discord_channel!(room) if room.discord_channel_id
+
+      ActiveRecord::Base.transaction do
+        PostedEvent.where(room_id: room.matrix_room_id).delete_all
+        MessageRequest.where(matrix_room_id: room.matrix_room_id).delete_all
+        room.destroy!
+      end
+      :ended
+    end
+
     # Unarchive: flip the flag and immediately recreate the Discord channel
     # so the room goes back to "linked" state without waiting for a new
     # message. Backfill is optional — with it, recent history is replayed

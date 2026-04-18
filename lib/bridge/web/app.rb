@@ -504,6 +504,27 @@ module Bridge
         erb(:rooms)
       end
 
+      post "/rooms/:id/end" do
+        room = Room.find_by(id: params[:id])
+
+        if room.nil?
+          @error = "Room not found."
+        else
+          display = room_display_name(room)
+          begin
+            admin_actions.end_chat!(matrix_room_id: room.matrix_room_id)
+            @notice = "Ended chat with #{display}. Future messages will arrive as a new message request."
+          rescue Admin::Actions::NotConfiguredError => e
+            @error = e.message
+          rescue Matrix::Error, Discord::Error => e
+            @error = "End chat failed: #{e.class}: #{e.message}"
+          end
+        end
+
+        @rooms = Room.order(:counterparty_username).to_a
+        erb(:rooms)
+      end
+
       post "/rooms/:id/unarchive" do
         room = Room.find_by(id: params[:id])
         backfill = params["backfill"] == "1"

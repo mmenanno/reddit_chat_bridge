@@ -277,6 +277,45 @@ module Admin
       assert_equal(:already_archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
     end
 
+    # ---- end_chat! ----
+
+    test "end_chat! leaves the Matrix room, deletes the Discord channel, and destroys local state" do
+      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
+      PostedEvent.record!(event_id: "$past", room_id: ROOM_ID)
+      PostedEvent.record!(event_id: "$keep", room_id: "!other:reddit.com")
+      MessageRequest.create!(matrix_room_id: ROOM_ID, inviter_matrix_id: PEER)
+      @matrix_client.expects(:leave_room).with(room_id: ROOM_ID)
+      @discord_client.expects(:delete_channel).with(channel_id: CHANNEL_ID).returns(:ok)
+
+      result = @reconciler.end_chat!(matrix_room_id: ROOM_ID)
+
+      assert_equal(
+        { result: :ended, room: nil, posted: ["$keep"], requests: 0 },
+        result: result,
+        room: Room.find_by(matrix_room_id: ROOM_ID),
+        posted: PostedEvent.pluck(:event_id),
+        requests: MessageRequest.where(matrix_room_id: ROOM_ID).count,
+      )
+    end
+
+    test "end_chat! bails before deleting anything when Matrix rejects the leave" do
+      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
+      @matrix_client.expects(:leave_room).raises(Matrix::Error, "M_FORBIDDEN")
+      @discord_client.expects(:delete_channel).never
+
+      assert_raises(Matrix::Error) { @reconciler.end_chat!(matrix_room_id: ROOM_ID) }
+
+      refute_nil(Room.find_by(matrix_room_id: ROOM_ID))
+    end
+
+    test "end_chat! skips Discord delete when the room never had a channel (unarchive + end_chat)" do
+      Room.create!(matrix_room_id: ROOM_ID)
+      @matrix_client.expects(:leave_room)
+      @discord_client.expects(:delete_channel).never
+
+      @reconciler.end_chat!(matrix_room_id: ROOM_ID)
+    end
+
     test "unarchive! flips the flag and recreates the channel without pulling history by default" do
       room = Room.create!(matrix_room_id: ROOM_ID, archived_at: 1.day.ago)
       @channel_index.expects(:ensure_channel).with { |args| args[:room].matrix_room_id == ROOM_ID }.returns("new_chan")
