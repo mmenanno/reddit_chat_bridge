@@ -92,32 +92,34 @@ module Admin
       :archived
     end
 
-    # Irreversible: leaves the Matrix room (Reddit treats it as "you
-    # ended the chat"), deletes the Discord channel, and wipes every
-    # local trace of the conversation — Room row, dedup cache, open
-    # message-request records. If the same user DMs again, Reddit spins
-    # up a fresh Matrix room and our InviteHandler turns it into a new
-    # pending MessageRequest, so approval is required before any bridging
-    # resumes.
-    #
-    # Leave happens first: if Matrix rejects it we preserve local state
-    # so the admin can retry. A successful leave is committed before we
-    # touch the Discord channel so we don't end up in a split-brain
-    # state where we think we ended the chat but Reddit still delivers
-    # events to the old room.
+    # Hide the chat locally. Reddit's Matrix server refuses Matrix
+    # /leave on DM rooms (their own UI only offers a "Hide chat"
+    # button, no delete/leave), so we attempt the leave best-effort
+    # and always proceed with local termination: delete the Discord
+    # channel, clear dedup + message-request records, flip the Room's
+    # terminated_at flag. The Poster and InviteHandler filter events
+    # from terminated rooms so nothing gets re-bridged unless the
+    # operator explicitly restores.
     def end_chat!(matrix_room_id:)
       room = Room.find_by(matrix_room_id: matrix_room_id)
       raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
 
-      @matrix_client.leave_room(room_id: room.matrix_room_id)
+      try_leave_matrix!(room)
       delete_discord_channel!(room) if room.discord_channel_id
 
       ActiveRecord::Base.transaction do
-        PostedEvent.where(room_id: room.matrix_room_id).delete_all
         MessageRequest.where(matrix_room_id: room.matrix_room_id).delete_all
-        room.destroy!
+        room.terminate_locally!
       end
       :ended
+    end
+
+    def restore_chat!(matrix_room_id:)
+      room = Room.find_by(matrix_room_id: matrix_room_id)
+      raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
+
+      room.restore!
+      :restored
     end
 
     # Unarchive: flip the flag and immediately recreate the Discord channel
@@ -162,6 +164,17 @@ module Admin
       room.update!(discord_channel_id: nil)
       room.forget_posted_events!
       @channel_index.ensure_channel(room: room)
+    end
+
+    # Reddit's Matrix server returns M_FORBIDDEN on /leave for DM rooms
+    # — there's no Matrix-layer way out. Log it and proceed: local
+    # termination is what actually affects the bridge's behaviour.
+    def try_leave_matrix!(room)
+      @matrix_client.leave_room(room_id: room.matrix_room_id)
+    rescue Matrix::Error => e
+      @logger&.warn(
+        "Matrix /leave refused for #{room.matrix_room_id} (#{e.message}); terminating locally only.",
+      )
     end
 
     def delete_discord_channel!(room)

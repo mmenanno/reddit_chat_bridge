@@ -42,8 +42,11 @@ Still in the Developer Portal:
 1. **OAuth2 → URL Generator**
 2. Scopes: check **bot** and **applications.commands**
 3. Bot Permissions: check **Manage Channels**, **Manage Webhooks**,
-   **Send Messages**, **Embed Links**, **Attach Files**,
-   **Read Message History**, and **Use Slash Commands**.
+   **Manage Messages**, **Send Messages**, **Embed Links**,
+   **Attach Files**, **Read Message History**, and **Use Slash Commands**.
+   Manage Messages is what lets the bot delete your Discord-typed
+   messages after they've been relayed to Reddit, so the webhook
+   repost under your Reddit identity is the only bubble left.
 4. Copy the generated URL and open it in a browser. Pick the Reddit Chat
    Bridge server and authorize.
 

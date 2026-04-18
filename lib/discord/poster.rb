@@ -56,6 +56,7 @@ module Discord
     def post_one(event)
       return if PostedEvent.posted?(event.event_id)
       return if echo_of_our_send?(event)
+      return if terminated_room?(event.room_id)
 
       room = Room.find_or_create_by_matrix_id!(event.room_id)
       auto_unarchive!(room)
@@ -267,6 +268,14 @@ module Discord
       return if event.sender.blank?
 
       room.ensure_counterparty!(matrix_id: event.sender, username: event.sender_username.presence)
+    end
+
+    # Terminated ("hidden") rooms never auto-recover — events for them
+    # get silently dropped until the operator clicks Restore on /rooms.
+    # Reddit's Matrix server refuses Matrix /leave on DM rooms, so
+    # local filtering is the only way to make End chat stick.
+    def terminated_room?(matrix_room_id)
+      Room.terminated.exists?(matrix_room_id: matrix_room_id)
     end
 
     # New activity on an archived room flips it back to active. The channel

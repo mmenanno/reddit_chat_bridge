@@ -513,11 +513,29 @@ module Bridge
           display = room_display_name(room)
           begin
             admin_actions.end_chat!(matrix_room_id: room.matrix_room_id)
-            @notice = "Ended chat with #{display}. Future messages will arrive as a new message request."
+            @notice = "Hid chat with #{display}. Future events in this room are filtered; click Restore on /rooms to re-bridge."
           rescue Admin::Actions::NotConfiguredError => e
             @error = e.message
-          rescue Matrix::Error, Discord::Error => e
+          rescue Discord::Error => e
             @error = "End chat failed: #{e.class}: #{e.message}"
+          end
+        end
+
+        @rooms = Room.order(:counterparty_username).to_a
+        erb(:rooms)
+      end
+
+      post "/rooms/:id/restore" do
+        room = Room.find_by(id: params[:id])
+
+        if room.nil?
+          @error = "Room not found."
+        else
+          begin
+            admin_actions.restore_chat!(matrix_room_id: room.matrix_room_id)
+            @notice = "Restored #{room_display_name(room)}. Next Reddit message in this room will create a fresh Discord channel."
+          rescue Admin::Actions::NotConfiguredError => e
+            @error = e.message
           end
         end
 

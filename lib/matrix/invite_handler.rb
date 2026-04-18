@@ -31,6 +31,10 @@ module Matrix
 
     def upsert_request(room_id, payload)
       return if MessageRequest.exists?(matrix_room_id: room_id)
+      # Terminated (hidden) rooms stay hidden — ignore any re-invite
+      # Reddit sends for the same matrix_room_id. New room_ids from
+      # the same counterparty still come through normally.
+      return if Room.terminated.exists?(matrix_room_id: room_id)
 
       events = payload.dig("invite_state", "events") || []
       inviter_id = find_inviter(events)

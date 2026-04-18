@@ -46,8 +46,10 @@
               <h2 class="room-card__name room-card__name--placeholder mt-1">unknown</h2>
             <% end %>
           </div>
-          <% if room.archived? %>
-            <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-1">archived</span>
+          <% if room.terminated? %>
+            <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-1">hidden</span>
+          <% elsif room.archived? %>
+            <span class="status-pill status-pill--warning text-[0.65rem] px-2 py-1">archived</span>
           <% elsif room.discord_channel_id %>
             <span class="status-pill status-pill--healthy text-[0.65rem] px-2 py-1">linked</span>
           <% else %>
@@ -91,7 +93,15 @@
         <footer class="room-card__footer">
           <span class="kicker">room #<%= room.id %></span>
           <div class="flex items-center gap-2 flex-wrap">
-            <% if room.archived? %>
+            <% if room.terminated? %>
+              <form method="post" action="/rooms/<%= room.id %>/restore">
+                <button type="submit"
+                        class="btn btn-primary btn-xs"
+                        title="Un-hide this chat. The next Reddit message in this room creates a fresh Discord channel.">
+                  ↺ Restore chat
+                </button>
+              </form>
+            <% elsif room.archived? %>
               <form method="post" action="/rooms/<%= room.id %>/unarchive">
                 <button type="submit"
                         class="btn btn-outline btn-xs"
@@ -132,19 +142,21 @@
               <% end %>
             <% end %>
 
-            <form method="post"
-                  action="/rooms/<%= room.id %>/end"
-                  data-confirm="Leaves the Matrix room on Reddit's side, deletes the Discord channel, and removes all local history for this chat. If this user messages you again, Reddit creates a new conversation that arrives as a pending message request needing approval. Matrix history cannot be recovered after this point."
-                  data-confirm-title="End chat with <%= room.counterparty_username || "this room" %>?"
-                  data-confirm-kicker="End chat · irreversible"
-                  data-confirm-label="⌫ End chat"
-                  data-confirm-icon="irreversible">
-              <button type="submit"
-                      class="btn btn-error btn-xs"
-                      title="Leave the Matrix room and delete all local history. A future DM from this user arrives as a new message request.">
-                ⌫ End chat
-              </button>
-            </form>
+            <% unless room.terminated? %>
+              <form method="post"
+                    action="/rooms/<%= room.id %>/end"
+                    data-confirm="Deletes the Discord channel and hides this conversation — every future event in this Matrix room is silently dropped until you click Restore. (Reddit's own UI only offers a Hide action too; their server refuses a real Matrix /leave on DM rooms, so this is the closest we can get.) Reversible: Restore re-bridges the chat and the next message creates a fresh Discord channel."
+                    data-confirm-title="End chat with <%= room.counterparty_username || "this room" %>?"
+                    data-confirm-kicker="End chat · reversible"
+                    data-confirm-label="⌫ End chat"
+                    data-confirm-icon="reversible">
+                <button type="submit"
+                        class="btn btn-error btn-xs"
+                        title="Hide this chat locally — same as Reddit's Hide chat action. Click Restore later to re-bridge.">
+                  ⌫ End chat
+                </button>
+              </form>
+            <% end %>
           </div>
         </footer>
       </article>

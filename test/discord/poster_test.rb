@@ -389,6 +389,17 @@ module Discord
       assert(PostedEvent.posted?("$bad"))
     end
 
+    # ---- terminated (hidden) rooms are silently filtered ----
+
+    test "drops events for rooms the operator marked terminated" do
+      Room.create!(matrix_room_id: ROOM_ID, terminated_at: 1.hour.ago)
+      @client.expects(:execute_webhook).never
+
+      @poster.call([event(body: "hi from beyond")])
+
+      refute(PostedEvent.posted?("$default"))
+    end
+
     # ---- archive auto-unarchive ----
 
     test "auto-unarchives a room when a new event arrives" do

@@ -89,6 +89,21 @@ module Matrix
       handler.call(body)
     end
 
+    test "ignores re-invites for a terminated (hidden) room" do
+      Room.create!(matrix_room_id: ROOM, terminated_at: 1.day.ago)
+      notifier = mock("Notifier")
+      notifier.expects(:notify!).never
+      handler = InviteHandler.new(own_user_id: OWN, notifier: notifier)
+      body = build_sync_body(
+        member_inviter: member(INVITER, membership: "join"),
+        member_self:    member(OWN, membership: "invite", sender: INVITER),
+      )
+
+      handler.call(body)
+
+      assert_equal(0, MessageRequest.where(matrix_room_id: ROOM).count)
+    end
+
     test "does not re-notify for an invite that's already been seen" do
       MessageRequest.create!(matrix_room_id: ROOM, inviter_matrix_id: INVITER)
       notifier = mock("Notifier")

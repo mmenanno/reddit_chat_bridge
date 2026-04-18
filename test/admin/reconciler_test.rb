@@ -277,10 +277,10 @@ module Admin
       assert_equal(:already_archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
     end
 
-    # ---- end_chat! ----
+    # ---- end_chat! (hide locally — Reddit refuses Matrix /leave on DMs) ----
 
-    test "end_chat! leaves the Matrix room, deletes the Discord channel, and destroys local state" do
-      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
+    test "end_chat! marks the room terminated, deletes the Discord channel, and clears dedup state" do
+      room = Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
       PostedEvent.record!(event_id: "$past", room_id: ROOM_ID)
       PostedEvent.record!(event_id: "$keep", room_id: "!other:reddit.com")
       MessageRequest.create!(matrix_room_id: ROOM_ID, inviter_matrix_id: PEER)
@@ -289,31 +289,40 @@ module Admin
 
       result = @reconciler.end_chat!(matrix_room_id: ROOM_ID)
 
+      room.reload
+
       assert_equal(
-        { result: :ended, room: nil, posted: ["$keep"], requests: 0 },
+        { result: :ended, terminated: true, channel: nil, posted: ["$keep"], requests: 0 },
         result: result,
-        room: Room.find_by(matrix_room_id: ROOM_ID),
+        terminated: room.terminated?,
+        channel: room.discord_channel_id,
         posted: PostedEvent.pluck(:event_id),
         requests: MessageRequest.where(matrix_room_id: ROOM_ID).count,
       )
     end
 
-    test "end_chat! bails before deleting anything when Matrix rejects the leave" do
-      Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
-      @matrix_client.expects(:leave_room).raises(Matrix::Error, "M_FORBIDDEN")
-      @discord_client.expects(:delete_channel).never
+    test "end_chat! tolerates Matrix's M_FORBIDDEN on /leave and still terminates locally" do
+      room = Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
+      @matrix_client.expects(:leave_room).raises(Matrix::Error, "M_FORBIDDEN: You cannot leave this room")
+      @discord_client.expects(:delete_channel).with(channel_id: CHANNEL_ID).returns(:ok)
 
-      assert_raises(Matrix::Error) { @reconciler.end_chat!(matrix_room_id: ROOM_ID) }
-
-      refute_nil(Room.find_by(matrix_room_id: ROOM_ID))
+      assert_equal(:ended, @reconciler.end_chat!(matrix_room_id: ROOM_ID))
+      assert_predicate(room.reload, :terminated?)
     end
 
-    test "end_chat! skips Discord delete when the room never had a channel (unarchive + end_chat)" do
+    test "end_chat! skips Discord delete when the room never had a channel" do
       Room.create!(matrix_room_id: ROOM_ID)
       @matrix_client.expects(:leave_room)
       @discord_client.expects(:delete_channel).never
 
       @reconciler.end_chat!(matrix_room_id: ROOM_ID)
+    end
+
+    test "restore_chat! clears the terminated flag so future messages rebridge" do
+      room = Room.create!(matrix_room_id: ROOM_ID, terminated_at: 1.day.ago)
+
+      assert_equal(:restored, @reconciler.restore_chat!(matrix_room_id: ROOM_ID))
+      refute_predicate(room.reload, :terminated?)
     end
 
     test "unarchive! flips the flag and recreates the channel without pulling history by default" do

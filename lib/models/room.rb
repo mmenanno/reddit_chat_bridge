@@ -68,6 +68,13 @@ class Room < ApplicationRecord
     archived_at.present?
   end
 
+  def terminated?
+    terminated_at.present?
+  end
+
+  scope :not_terminated, -> { where(terminated_at: nil) }
+  scope :terminated, -> { where.not(terminated_at: nil) }
+
   # Archive: mark and drop the cached Discord identifiers. The Poster
   # treats this as a trigger to create a fresh channel the next time a
   # message arrives — or the operator can explicitly unarchive with a
@@ -92,9 +99,35 @@ class Room < ApplicationRecord
     update!(archived_at: nil)
   end
 
+  # Locally terminate the chat. Reddit's Matrix server refuses to honor
+  # the Matrix /leave endpoint on DM rooms — their own UI only offers a
+  # "Hide chat" action with the same semantics — so the best we can do
+  # is mark the room terminated on our side: Discord channel gone,
+  # dedup cache cleared, and the Poster/InviteHandler filter events
+  # from terminated rooms so nothing gets re-bridged until the operator
+  # explicitly unhides. Reversed via `restore!`.
+  def terminate_locally!
+    ActiveRecord::Base.transaction do
+      update!(
+        terminated_at: Time.current,
+        discord_channel_id: nil,
+        discord_webhook_id: nil,
+        discord_webhook_token: nil,
+      )
+      forget_posted_events!
+    end
+  end
+
+  # Reverse of terminate_locally!: clear the flag so future events get
+  # bridged again. The next inbound Matrix message will create a fresh
+  # Discord channel via the normal Poster flow.
+  def restore!
+    update!(terminated_at: nil)
+  end
+
   # Wipe the dedup cache for this room. Used when the Discord channel
-  # is gone (archive) or just got recreated (manual delete detected
-  # via rename 404), so backfills can replay without the Poster
+  # is gone (archive / termination) or just got recreated (manual delete
+  # detected via rename 404), so backfills can replay without the Poster
   # skipping every event as "already posted".
   def forget_posted_events!
     PostedEvent.where(room_id: matrix_room_id).delete_all
