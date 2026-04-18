@@ -534,6 +534,29 @@ module Discord
       assert_equal("nothnnn", Room.first.counterparty_username)
     end
 
+    test "reuses the room's cached counterparty_username across a batch instead of hitting Matrix /profile for every event" do
+      matrix_client = mock("MatrixClient")
+      # Single /profile call for 3 events from the same counterparty — the
+      # first event resolves the name onto the room, the next two read it
+      # from the row instead of hammering Matrix.
+      matrix_client.expects(:profile).with(user_id: PEER).once.returns("displayname" => "nothnnn")
+      poster = Discord::Poster.new(
+        client: @client,
+        channel_index: @index,
+        matrix_client: matrix_client,
+        sleeper: ->(_) {},
+      )
+      @client.expects(:execute_webhook).at_least_once.returns("m")
+
+      poster.call([
+        event(body: "hi",    event_id: "$1", sender_username: nil),
+        event(body: "hey",   event_id: "$2", sender_username: nil),
+        event(body: "there", event_id: "$3", sender_username: nil),
+      ])
+
+      assert_equal("nothnnn", Room.first.counterparty_username)
+    end
+
     # ---- channel rename on username resolution ----
 
     test "renames the Discord channel when the username resolves after the channel was created" do

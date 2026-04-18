@@ -115,7 +115,15 @@ module Discord
       return if event.own? || event.system?
       return if event.sender.blank?
 
-      username = event.sender_username.presence || fetch_username_from_matrix(event.sender)
+      # Resolution order — cheapest first:
+      #   1. Per-event sender_username (lazy-loaded member state from /sync)
+      #   2. Room's cached counterparty_username when this event is from the
+      #      counterparty we've already resolved — avoids a /profile call on
+      #      every subsequent message in the same DM (the common case)
+      #   3. Live Matrix /profile lookup as a last resort
+      username = event.sender_username.presence ||
+        cached_counterparty_username(room, event.sender) ||
+        fetch_username_from_matrix(event.sender)
 
       old_slug = @channel_index.channel_name_for(room)
       old_topic = @channel_index.topic_for(room)
@@ -133,6 +141,12 @@ module Discord
         name: new_slug == old_slug ? nil : new_slug,
         topic: new_topic == old_topic ? nil : new_topic,
       )
+    end
+
+    def cached_counterparty_username(room, sender_id)
+      return unless sender_id == room.counterparty_matrix_id
+
+      room.counterparty_username.presence
     end
 
     def fetch_username_from_matrix(user_id)
