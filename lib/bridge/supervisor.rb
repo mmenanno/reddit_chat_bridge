@@ -18,16 +18,18 @@ module Bridge
     POSTED_EVENT_PRUNE_INTERVAL = 1.hour
     COOKIE_EXPIRY_WARN_KEY = "reddit_session_warned_expires_at"
 
-    def initialize(
+    def initialize( # rubocop:disable Metrics/ParameterLists
       sync_loop:,
       admin_notifier: nil,
       admin_actions: nil,
+      journal: nil,
       sleeper: Kernel.method(:sleep),
       retry_policy: DEFAULT_RETRY_POLICY
     )
       @sync_loop = sync_loop
       @admin_notifier = admin_notifier
       @admin_actions = admin_actions
+      @journal = journal
       @sleeper = sleeper
       @backoff = Retry::Backoff.new(
         rescue_from: [Matrix::ServerError],
@@ -67,7 +69,11 @@ module Bridge
     private
 
     def alert_critical(message)
-      @admin_notifier&.critical(message, ping_everyone: false)
+      if @journal
+        @journal.critical(message, source: "supervisor")
+      else
+        @admin_notifier&.critical(message, ping_everyone: false)
+      end
     end
 
     # Matrix JWTs live 24h; refresh them when <1h remains. The refresh path
@@ -80,7 +86,15 @@ module Bridge
 
       @admin_actions.refresh_matrix_token!
     rescue Auth::RefreshFlow::RefreshError => e
-      @admin_notifier&.warn("Auto-refresh failed: #{e.message}")
+      journal_or_notifier_warn("Auto-refresh failed: #{e.message}", source: "supervisor")
+    end
+
+    def journal_or_notifier_warn(message, source: nil)
+      if @journal
+        @journal.warn(message, source: source)
+      else
+        @admin_notifier&.warn(message)
+      end
     end
 
     # The reddit_session JWT inside the cookie jar is what lets the refresh
@@ -89,15 +103,16 @@ module Bridge
     # the operator has time to paste a fresh cookie header. Idempotent on
     # the expiry timestamp itself so a restart doesn't re-spam.
     def warn_if_reddit_session_expiring_soon
-      return unless @admin_notifier
+      return unless @admin_notifier || @journal
       return unless AuthState.reddit_session_expiring_soon?
 
       expires_at = AuthState.reddit_session_expires_at
       return unless expires_at
       return if AppConfig.fetch(COOKIE_EXPIRY_WARN_KEY, "") == expires_at.iso8601
 
-      @admin_notifier.warn(
+      journal_or_notifier_warn(
         "Reddit session cookie expires #{expires_at.utc.iso8601} — paste a fresh Cookie header on /auth.",
+        source: "supervisor",
       )
       AppConfig.set(COOKIE_EXPIRY_WARN_KEY, expires_at.iso8601)
     end
@@ -111,7 +126,7 @@ module Bridge
       PostedEvent.prune!
       @last_prune_at = now
     rescue StandardError => e
-      @admin_notifier&.warn("PostedEvent.prune! failed: #{e.message}")
+      journal_or_notifier_warn("PostedEvent.prune! failed: #{e.message}", source: "supervisor")
     end
   end
 end

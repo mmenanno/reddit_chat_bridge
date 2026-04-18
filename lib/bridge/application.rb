@@ -11,6 +11,7 @@ require "discord/admin_notifier"
 require "discord/logger"
 require "admin/actions"
 require "auth/refresh_flow"
+require "bridge/journal"
 require "bridge/supervisor"
 
 module Bridge
@@ -32,7 +33,7 @@ module Bridge
       "discord_admin_logs_channel_id",
     ].freeze
 
-    attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger, :admin_actions
+    attr_reader :matrix_client, :sync_loop, :supervisor, :poster, :admin_notifier, :logger, :admin_actions, :journal
 
     @mutex = Mutex.new
 
@@ -88,6 +89,7 @@ module Bridge
       @discord_client = build_discord_client
       @admin_notifier = build_admin_notifier
       @logger = build_logger
+      @journal = Bridge::Journal.new(admin_notifier: @admin_notifier, logger: @logger)
       @poster = build_poster
       @sync_loop = build_sync_loop
       @admin_actions = build_admin_actions
@@ -176,6 +178,7 @@ module Bridge
         sync_loop: @sync_loop,
         admin_notifier: @admin_notifier,
         admin_actions: @admin_actions,
+        journal: @journal,
       )
     end
   end

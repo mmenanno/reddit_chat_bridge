@@ -32,7 +32,7 @@
 
           <% if logged_in? %>
             <nav class="nav-primary" aria-label="Primary">
-              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label| %>
+              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/events", "Events"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label| %>
                 <a href="<%= href %>" class="nav-link"<%= ' aria-current="page"' if current_nav?(href) %>><%= label %></a>
               <% end %>
             </nav>
@@ -101,6 +101,9 @@
 
                 <span class="shortcut-group__label">Rooms</span>
                 <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">R</kbd></span>
+
+                <span class="shortcut-group__label">Events</span>
+                <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">E</kbd></span>
 
                 <span class="shortcut-group__label">Settings</span>
                 <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">S</kbd></span>
@@ -189,6 +192,7 @@
         const navTargets = {
           d: "/", h: "/",
           r: "/rooms",
+          e: "/events",
           s: "/settings",
           a: "/auth",
           x: "/actions",

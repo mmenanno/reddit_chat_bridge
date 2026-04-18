@@ -320,6 +320,11 @@ module Bridge
         erb(:rooms)
       end
 
+      get "/events" do
+        @entries = EventLogEntry.recent(limit: 500).to_a
+        erb(:events)
+      end
+
       post "/rooms/:id/refresh" do
         room = Room.find_by(id: params[:id])
 
