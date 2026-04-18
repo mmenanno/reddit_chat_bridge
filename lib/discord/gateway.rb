@@ -36,6 +36,7 @@ module Discord
       @last_sequence = nil
       @heartbeat = nil
       @socket = nil
+      @connected_once = false
     end
 
     def run(stop_signal: -> { false })
@@ -133,7 +134,11 @@ module Discord
         gateway.journal_warn("socket error: #{e.message}")
       end
 
-      @journal&.info("Discord gateway connected", source: "gateway")
+      # First connect piggybacks on Bridge::Application's "Bridge online …
+      # discord gateway up" notice — no need to double-log. Reconnects
+      # after a crash are the informative transition, so call those out.
+      @journal&.info("Discord gateway reconnected", source: "gateway") if @connected_once
+      @connected_once = true
 
       # Block the caller thread until the supervisor asks us to stop.
       sleep(0.2) until @stopped || stop_signal.call
