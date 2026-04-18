@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reddit Chat Bridge</title>
+
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230E0B08'/><circle cx='16' cy='16' r='8.5' fill='%23E85D20'/><circle cx='16' cy='16' r='3.4' fill='%230E0B08'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
@@ -12,10 +15,15 @@
   </head>
   <body>
     <div class="page-shell flex flex-col min-h-[100dvh]">
-      <header class="px-6 lg:px-10 py-5">
-        <div class="max-w-6xl mx-auto flex items-center gap-6 flex-wrap">
+      <header class="px-4 sm:px-6 lg:px-10 py-5">
+        <div class="max-w-6xl mx-auto flex items-center gap-4 flex-wrap">
           <a href="/" class="logomark no-underline">
-            <span class="logomark__dot" aria-hidden="true"></span>
+            <svg class="logomark__glyph" viewBox="0 0 28 28" aria-hidden="true">
+              <circle cx="6" cy="14" r="2" fill="currentColor" opacity="0.5"/>
+              <line x1="8" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.4" opacity="0.3" stroke-linecap="round"/>
+              <circle cx="22" cy="14" r="2" fill="currentColor" opacity="0.5"/>
+              <circle class="logomark__pulse" cx="14" cy="14" r="3.6"/>
+            </svg>
             <span class="flex flex-col leading-tight">
               <span class="logomark__mark">Reddit Chat Bridge</span>
               <span class="logomark__meta">console · v1</span>
@@ -23,21 +31,28 @@
           </a>
 
           <% if logged_in? %>
-            <nav class="flex items-center gap-1 grow justify-center flex-wrap" aria-label="Primary">
+            <nav class="nav-primary" aria-label="Primary">
               <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label| %>
                 <a href="<%= href %>" class="nav-link"<%= ' aria-current="page"' if current_nav?(href) %>><%= label %></a>
               <% end %>
             </nav>
 
-            <div class="flex items-center gap-3 ml-auto">
+            <div class="flex items-center gap-2 ml-auto">
               <% sync_status = dashboard_sync_status %>
               <span class="status-pill status-pill--<%= sync_status[:tone] %>">
                 <span class="pulse-dot" aria-hidden="true"></span>
                 <%= sync_status[:label] %>
               </span>
+              <button type="button"
+                      class="btn btn-outline btn-sm hidden sm:inline-flex"
+                      data-shortcut-toggle
+                      title="Keyboard shortcuts (press ?)">
+                <kbd class="font-mono text-xs">?</kbd>
+              </button>
               <form method="post" action="/logout">
                 <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
-                  Log out
+                  <span class="hidden sm:inline">Log out</span>
+                  <span class="sm:hidden">↪</span>
                 </button>
               </form>
             </div>
@@ -45,23 +60,90 @@
         </div>
       </header>
 
-      <main class="px-6 lg:px-10 pb-16 w-full">
+      <main class="px-4 sm:px-6 lg:px-10 pb-16 w-full">
         <div class="max-w-6xl mx-auto space-y-8">
           <%= yield %>
         </div>
       </main>
 
-      <footer class="px-6 lg:px-10 py-8 mt-auto border-t border-[color:var(--color-line)]/60">
+      <footer class="px-4 sm:px-6 lg:px-10 py-8 mt-auto border-t border-[color:var(--color-line)]/60">
         <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-[color:var(--color-bone-mute)]">
           <span>reddit_chat_bridge · bridging matrix.redditspace.com → discord</span>
-          <span>ts · <%= Time.now.utc.strftime("%Y-%m-%dT%H:%MZ") %></span>
+          <span class="flex items-center gap-3">
+            <span>ts · <%= Time.now.utc.strftime("%Y-%m-%dT%H:%MZ") %></span>
+            <% if logged_in? %>
+              <button type="button" class="link hover:text-[color:var(--color-bone)]" data-shortcut-toggle>
+                press <kbd class="key">?</kbd> for shortcuts
+              </button>
+            <% end %>
+          </span>
         </div>
       </footer>
     </div>
 
+    <% if logged_in? %>
+      <div class="shortcut-overlay" data-shortcut-overlay>
+        <div class="shortcut-panel" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="kicker">Keyboard</p>
+              <h2 class="section-title mt-1">Shortcuts</h2>
+            </div>
+            <button type="button" class="btn btn-outline btn-xs" data-shortcut-close>Esc</button>
+          </div>
+
+          <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <section>
+              <p class="kicker text-[color:var(--color-bone-mute)]">Navigate</p>
+              <div class="shortcut-group mt-3">
+                <span class="shortcut-group__label">Dashboard</span>
+                <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">D</kbd></span>
+
+                <span class="shortcut-group__label">Rooms</span>
+                <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">R</kbd></span>
+
+                <span class="shortcut-group__label">Settings</span>
+                <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">S</kbd></span>
+
+                <span class="shortcut-group__label">Auth</span>
+                <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">A</kbd></span>
+
+                <span class="shortcut-group__label">Actions</span>
+                <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">X</kbd></span>
+              </div>
+            </section>
+
+            <section>
+              <p class="kicker text-[color:var(--color-bone-mute)]">Trigger</p>
+              <div class="shortcut-group mt-3">
+                <span class="shortcut-group__label">Resync checkpoint</span>
+                <span class="shortcut-keys"><kbd class="key">⇧</kbd><kbd class="key">R</kbd></span>
+
+                <span class="shortcut-group__label">Reconcile channels</span>
+                <span class="shortcut-keys"><kbd class="key">⇧</kbd><kbd class="key">C</kbd></span>
+
+                <span class="shortcut-group__label">Toggle this help</span>
+                <span class="shortcut-keys"><kbd class="key">?</kbd></span>
+
+                <span class="shortcut-group__label">Close / cancel</span>
+                <span class="shortcut-keys"><kbd class="key">Esc</kbd></span>
+              </div>
+            </section>
+          </div>
+
+          <p class="mt-6 text-xs text-[color:var(--color-bone-mute)] leading-relaxed">
+            Shortcuts are disabled while typing in a field. Trigger keys confirm before firing;
+            full-resync has no shortcut on purpose.
+          </p>
+        </div>
+      </div>
+
+      <div class="shortcut-toast" data-shortcut-toast>g · waiting</div>
+    <% end %>
+
     <script>
-      // Success banners auto-dismiss so stale confirmations don't linger on
-      // subsequent visits. Errors stick so the admin actually reads them.
+      // Success banners fade after a few seconds; errors stick so the admin
+      // actually reads them.
       for (const banner of document.querySelectorAll("[data-auto-dismiss]")) {
         setTimeout(() => {
           banner.style.transition = "opacity 400ms ease, transform 400ms ease";
@@ -70,6 +152,123 @@
           setTimeout(() => banner.remove(), 400);
         }, 4000);
       }
+
+      // Keyboard shortcuts. Two-chord "g <letter>" for navigation, Shift+R /
+      // Shift+C for routine actions (with confirm), `?` toggles help, `Esc`
+      // closes. Disabled inside form inputs so the operator can still type.
+      (function () {
+        const overlay = document.querySelector("[data-shortcut-overlay]");
+        const toast   = document.querySelector("[data-shortcut-toast]");
+        if (!overlay) return;
+
+        let gArmed = false;
+        let gTimer = null;
+
+        const openHelp  = () => overlay.setAttribute("data-open", "true");
+        const closeHelp = () => overlay.removeAttribute("data-open");
+        const showToast = (text) => {
+          if (!toast) return;
+          toast.textContent = text;
+          toast.setAttribute("data-visible", "true");
+          clearTimeout(toast._hideTimer);
+          toast._hideTimer = setTimeout(() => toast.removeAttribute("data-visible"), 1200);
+        };
+
+        const disarmG = () => {
+          gArmed = false;
+          clearTimeout(gTimer);
+        };
+
+        const armG = () => {
+          gArmed = true;
+          showToast("g · …");
+          clearTimeout(gTimer);
+          gTimer = setTimeout(disarmG, 1400);
+        };
+
+        const navTargets = {
+          d: "/", h: "/",
+          r: "/rooms",
+          s: "/settings",
+          a: "/auth",
+          x: "/actions",
+        };
+
+        // Ask-before-firing for destructive-ish routine actions.
+        const postForm = (action, confirmText) => {
+          if (!window.confirm(confirmText)) return;
+          const f = document.createElement("form");
+          f.method = "POST";
+          f.action = action;
+          document.body.appendChild(f);
+          f.submit();
+        };
+
+        document.addEventListener("click", (e) => {
+          if (e.target.closest("[data-shortcut-toggle]")) {
+            e.preventDefault();
+            overlay.hasAttribute("data-open") ? closeHelp() : openHelp();
+          }
+          if (e.target.closest("[data-shortcut-close]")) {
+            closeHelp();
+          }
+          if (e.target === overlay) closeHelp();
+        });
+
+        document.addEventListener("keydown", (e) => {
+          const tag = (e.target.tagName || "").toLowerCase();
+          const editable = tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable;
+
+          if (e.key === "Escape") {
+            closeHelp();
+            disarmG();
+            return;
+          }
+
+          if (editable) return;
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+          // "?" — toggle help. Accepts both `?` (shift+/) and literal `?`.
+          if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+            e.preventDefault();
+            overlay.hasAttribute("data-open") ? closeHelp() : openHelp();
+            return;
+          }
+
+          // Shift+R / Shift+C — trigger routine actions.
+          if (e.shiftKey && !gArmed) {
+            if (e.key === "R") {
+              e.preventDefault();
+              postForm("/actions/resync", "Clear the sync checkpoint? The next /sync pulls recent history.");
+              return;
+            }
+            if (e.key === "C") {
+              e.preventDefault();
+              postForm("/actions/reconcile", "Sweep every room, re-fetch profiles, and rename channels?");
+              return;
+            }
+          }
+
+          const key = e.key.toLowerCase();
+
+          // Two-chord nav: "g" arms, next letter routes.
+          if (gArmed) {
+            if (navTargets[key]) {
+              e.preventDefault();
+              showToast("→ " + navTargets[key]);
+              window.location = navTargets[key];
+              return;
+            }
+            disarmG();
+            return;
+          }
+
+          if (key === "g") {
+            e.preventDefault();
+            armG();
+          }
+        });
+      })();
     </script>
   </body>
 </html>
