@@ -54,6 +54,16 @@ The `.env` file is gitignored and holds real secrets. `.env.example` documents t
     private `def event(...)` factories) where the same fake is reused across
     many tests and not every test exercises every stubbed method. Per-test
     behavior should use `expects`.
+- **Time travel via `ActiveSupport::Testing::TimeHelpers`** (already
+  included in `test_helper.rb`). Use `travel_to(time) do ... end`,
+  `travel(duration)`, and `freeze_time`; never `Time.stubs(:current)`.
+  The block form auto-restores at `end`, and these helpers cover `Time`,
+  `Date`, and `DateTime` uniformly.
+- **`setup do` / `teardown do`, not `def setup`.** Block form chains
+  automatically — multiple `setup do` blocks (from `test_helper.rb`,
+  from the file itself, and potentially from future concerns) all run
+  in registration order. `def setup` needs manual `super`, and a missing
+  one silently breaks isolation.
 - `webmock` for all HTTP. No test hits the real Matrix / Discord / Reddit APIs; `WebMock.disable_net_connect!` is on in `test_helper.rb`.
 - `rack-test` for controller / integration tests.
 - Test DB is `:memory:` SQLite; each test runs inside a transaction that's rolled back at teardown, so the DB returns to its post-migration state between tests.

@@ -8,6 +8,7 @@ require "minitest/autorun"
 require "minitest/reporters"
 require "active_support"
 require "active_support/test_case"
+require "active_support/testing/time_helpers"
 require "mocha/minitest"
 require "webmock/minitest"
 
@@ -22,6 +23,11 @@ Bridge::Boot.call(database_path: ":memory:")
 
 module ActiveSupport
   class TestCase
+    # Rails auto-includes this; in our standalone setup it has to be
+    # wired in manually. Gives every test travel_to / travel / freeze_time
+    # with automatic cleanup — no Time.stubs needed.
+    include ActiveSupport::Testing::TimeHelpers
+
     # Each test runs inside a transaction that's rolled back at teardown, so
     # the in-memory database returns to its post-migration state between tests.
     setup do

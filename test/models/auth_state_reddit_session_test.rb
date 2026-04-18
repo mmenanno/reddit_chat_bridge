@@ -48,16 +48,18 @@ class AuthStateRedditSessionTest < ActiveSupport::TestCase
 
   test "reddit_session_expiring_in? returns true when within the threshold" do
     AuthState.store_reddit_session!(COOKIE_JAR)
-    Time.stubs(:current).returns(Time.at(1_791_775_617 - 3.days.to_i))
 
-    assert_predicate(AuthState, :reddit_session_expiring_soon?)
+    travel_to(Time.at(1_791_775_617 - 3.days.to_i)) do
+      assert_predicate(AuthState, :reddit_session_expiring_soon?)
+    end
   end
 
   test "reddit_session_expiring_in? returns false with more than a week remaining" do
     AuthState.store_reddit_session!(COOKIE_JAR)
-    Time.stubs(:current).returns(Time.at(1_791_775_617 - 60.days.to_i))
 
-    refute_predicate(AuthState, :reddit_session_expiring_soon?)
+    travel_to(Time.at(1_791_775_617 - 60.days.to_i)) do
+      refute_predicate(AuthState, :reddit_session_expiring_soon?)
+    end
   end
 
   test "reddit_session_expiring_in? is false when no cookie is stored" do
