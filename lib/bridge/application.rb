@@ -53,7 +53,8 @@ module Bridge
       def configured?
         return false unless AuthState.access_token.to_s.strip != ""
 
-        REQUIRED_CONFIG_KEYS.all? { |key| AppConfig.fetch(key, "").to_s.strip != "" }
+        values = AppConfig.fetch_many(REQUIRED_CONFIG_KEYS)
+        REQUIRED_CONFIG_KEYS.all? { |key| values[key].to_s.strip != "" }
       end
 
       def build

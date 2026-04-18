@@ -1,6 +1,6 @@
 <%
   display_name = @room.counterparty_username ||
-                 matrix_id_localpart(@room.counterparty_matrix_id) ||
+                 Matrix::Id.localpart(@room.counterparty_matrix_id) ||
                  @room.matrix_room_id
   own_display = AppConfig.fetch("own_display_name", "").to_s
   own_display = "You" if own_display.empty?
@@ -111,7 +111,7 @@
             elsif @room.counterparty_username && event.sender == @room.counterparty_matrix_id
               @room.counterparty_username
             else
-              matrix_id_localpart(event.sender)
+              Matrix::Id.localpart(event.sender)
             end
           sender_avatar =
             if event.sender_avatar_url.to_s.start_with?("http")

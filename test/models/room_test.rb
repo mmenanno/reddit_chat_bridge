@@ -36,24 +36,6 @@ class RoomTest < ActiveSupport::TestCase
     assert_equal(1, Room.count)
   end
 
-  test "record_counterparty! stores the matrix id and username" do
-    room = Room.find_or_create_by_matrix_id!(MATRIX_ROOM_ID)
-
-    room.record_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "nothnnn")
-
-    assert_equal("@t2_peer:reddit.com", room.reload.counterparty_matrix_id)
-    assert_equal("nothnnn", room.counterparty_username)
-  end
-
-  test "record_counterparty! overwrites an earlier username when it changes" do
-    room = Room.find_or_create_by_matrix_id!(MATRIX_ROOM_ID)
-    room.record_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "oldname")
-
-    room.record_counterparty!(matrix_id: "@t2_peer:reddit.com", username: "newname")
-
-    assert_equal("newname", room.reload.counterparty_username)
-  end
-
   test "attach_discord_channel! stores the Discord channel id" do
     room = Room.find_or_create_by_matrix_id!(MATRIX_ROOM_ID)
 

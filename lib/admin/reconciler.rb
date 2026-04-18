@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "concurrent"
 require "discord/client"
 
 module Admin
@@ -21,28 +22,38 @@ module Admin
   #     check, so replay is safe.
   class Reconciler
     DEFAULT_HISTORY_LIMIT = 50
+    # 4 workers keeps us well under Discord's 50 req/s global limit even
+    # when every room triggers a profile fetch + rename (~2 requests) and
+    # leaves headroom for the Poster posting on the side.
+    DEFAULT_PARALLELISM = 4
 
     # Dependency-injection boundary — all collaborators are required for
     # the reconcile/backfill flow to work. Disabling ParameterLists here is
     # the common Ruby escape hatch for service objects with >5 collaborators.
-    def initialize(matrix_client:, discord_client:, channel_index:, poster:, normalizer:, logger: nil)
+    def initialize(matrix_client:, discord_client:, channel_index:, poster:, normalizer:, logger: nil, parallelism: DEFAULT_PARALLELISM)
       @matrix_client = matrix_client
       @discord_client = discord_client
       @channel_index = channel_index
       @poster = poster
       @normalizer = normalizer
       @logger = logger
+      @parallelism = parallelism
     end
 
     def reconcile_all
-      stats = { renamed: 0, skipped: 0, errors: 0 }
-      Room.where.not(discord_channel_id: nil).find_each do |room|
-        stats[reconcile_room(room)] += 1
+      renamed = Concurrent::AtomicFixnum.new
+      skipped = Concurrent::AtomicFixnum.new
+      errors = Concurrent::AtomicFixnum.new
+      each_in_parallel(Room.where.not(discord_channel_id: nil)) do |room|
+        case reconcile_room(room)
+        when :renamed then renamed.increment
+        when :skipped then skipped.increment
+        end
       rescue StandardError => e
-        stats[:errors] += 1
+        errors.increment
         @logger&.warn("reconcile failed for #{room.matrix_room_id}: #{e.class}: #{e.message}")
       end
-      stats
+      { renamed: renamed.value, skipped: skipped.value, errors: errors.value }
     end
 
     def refresh_one(matrix_room_id:, history_limit: DEFAULT_HISTORY_LIMIT)
@@ -65,17 +76,18 @@ module Admin
     # scratch, including wiping stale Discord state — not just the DB side.
     # NotFound counts as success (channel was already gone).
     def delete_all_discord_channels!
-      stats = { channels_deleted: 0, channel_delete_errors: 0 }
-      Room.where.not(discord_channel_id: nil).find_each do |room|
+      deleted = Concurrent::AtomicFixnum.new
+      failed = Concurrent::AtomicFixnum.new
+      each_in_parallel(Room.where.not(discord_channel_id: nil)) do |room|
         @discord_client.delete_channel(channel_id: room.discord_channel_id)
-        stats[:channels_deleted] += 1
+        deleted.increment
       rescue Discord::NotFound
-        stats[:channels_deleted] += 1
+        deleted.increment
       rescue StandardError => e
-        stats[:channel_delete_errors] += 1
+        failed.increment
         @logger&.warn("channel delete failed for #{room.matrix_room_id}: #{e.class}: #{e.message}")
       end
-      stats
+      { channels_deleted: deleted.value, channel_delete_errors: failed.value }
     end
 
     # Archive: delete the Discord channel (if any) and mark the room archived.
@@ -138,6 +150,24 @@ module Admin
     end
 
     private
+
+    # Iterate a scope, running the block for each record. When `@parallelism`
+    # is >1 the block is dispatched through a fixed thread pool so each worker
+    # can make its (slow) Discord/Matrix HTTP call while others are in flight.
+    # Each worker checks out its own AR connection for the duration of the
+    # block so concurrent queries don't collide on a single checkout.
+    def each_in_parallel(scope, &)
+      return scope.find_each(&) if @parallelism <= 1
+
+      pool = Concurrent::FixedThreadPool.new(@parallelism)
+      scope.find_each do |record|
+        pool.post do
+          ActiveRecord::Base.connection_pool.with_connection { yield record }
+        end
+      end
+      pool.shutdown
+      pool.wait_for_termination
+    end
 
     # Returns :renamed or :skipped — the tally keys used by `reconcile_all`.
     def reconcile_room(room)

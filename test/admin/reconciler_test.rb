@@ -22,6 +22,7 @@ module Admin
         channel_index: @channel_index,
         poster: @poster,
         normalizer: @normalizer,
+        parallelism: 1,
       )
     end
 

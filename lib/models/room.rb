@@ -20,10 +20,6 @@ class Room < ApplicationRecord
     end
   end
 
-  def record_counterparty!(matrix_id:, username:)
-    update!(counterparty_matrix_id: matrix_id, counterparty_username: username)
-  end
-
   # Incremental update that only writes what we actually know about the
   # counterparty. Matrix_id alone is better than nothing (at least the channel
   # slug is stable); username arrives later via profile fetch or member state

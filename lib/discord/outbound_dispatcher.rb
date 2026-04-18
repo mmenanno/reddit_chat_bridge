@@ -2,6 +2,7 @@
 
 require "securerandom"
 require "discord/poster"
+require "matrix/id"
 
 module Discord
   # Handles a single Discord MESSAGE_CREATE event by relaying it to the
@@ -93,7 +94,7 @@ module Discord
     def replace_with_reddit_persona!(message, room, body)
       return unless @discord_client && @channel_index
 
-      webhook_id, webhook_token = @channel_index.ensure_webhook(room: room.reload)
+      webhook_id, webhook_token = @channel_index.ensure_webhook(room: room)
       @discord_client.execute_webhook(
         webhook_id: webhook_id,
         webhook_token: webhook_token,
@@ -130,7 +131,7 @@ module Discord
 
       name, avatar = fill_from_matrix_profile(name, avatar) if name.empty? || avatar.empty?
       avatar = fill_from_reddit_profile(name) if avatar.empty? && name.present?
-      name = matrix_id_localpart(AppConfig.fetch("matrix_user_id", "")) if name.empty?
+      name = Matrix::Id.localpart(AppConfig.fetch("matrix_user_id", "")) if name.empty?
 
       persist_identity(name, avatar)
       { name: name, avatar: avatar.presence }
@@ -167,10 +168,6 @@ module Discord
       @matrix_client.profile(user_id: user_id)
     rescue Matrix::Error
       nil
-    end
-
-    def matrix_id_localpart(matrix_id)
-      matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
     end
 
     # Accept only messages from the configured operator(s), and only when

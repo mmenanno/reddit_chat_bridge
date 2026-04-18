@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "matrix/id"
+
 module Discord
   # Matrix → Discord dispatcher. Plugged into `Matrix::SyncLoop` as the
   # `dispatcher:` argument; each batch of NormalizedEvents flows through
@@ -45,6 +47,9 @@ module Discord
       @reddit_profile_client = reddit_profile_client
       @channel_reorderer = channel_reorderer
       @sleeper = sleeper
+      # nil = unknown; checked lazily on first successful post, then tracked
+      # in-process so the common hot path skips a per-event AppConfig read.
+      @permissions_flag_set = nil
     end
 
     def call(events)
@@ -116,7 +121,7 @@ module Discord
       # If the name changed and a channel already exists, rename it to match.
       return unless changes[:counterparty_username] && room.discord_channel_id
 
-      new_slug = @channel_index.channel_name_for(room.reload)
+      new_slug = @channel_index.channel_name_for(room)
       return if new_slug == old_slug
 
       rename_channel!(room.discord_channel_id, new_slug)
@@ -149,11 +154,11 @@ module Discord
       execute_through_webhook(room, event)
     rescue Discord::NotFound
       room.clear_webhook!
-      execute_through_webhook(room.reload, event)
+      execute_through_webhook(room, event)
     end
 
     def execute_through_webhook(room, event)
-      id, token = @channel_index.ensure_webhook(room: room.reload)
+      id, token = @channel_index.ensure_webhook(room: room)
       send_with_rate_limit_retry(
         webhook_id: id,
         webhook_token: token,
@@ -261,18 +266,7 @@ module Discord
 
       return room.counterparty_username if event.sender == room.counterparty_matrix_id && room.counterparty_username.present?
 
-      matrix_id_localpart(event.sender)
-    end
-
-    def matrix_id_localpart(matrix_id)
-      matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
-    end
-
-    def record_counterparty(room, event)
-      return if event.own? || event.system?
-      return if event.sender.blank?
-
-      room.ensure_counterparty!(matrix_id: event.sender, username: event.sender_username.presence)
+      Matrix::Id.localpart(event.sender)
     end
 
     # Matrix's origin_server_ts is unix millis. Fall back to now when
@@ -305,6 +299,7 @@ module Discord
 
     def mark_permissions_blocked!(error)
       AppConfig.set(PERMISSIONS_FLAG_KEY, Time.current.utc.iso8601)
+      @permissions_flag_set = true
       return if @auth_warned_this_batch
 
       @auth_warned_this_batch = true
@@ -315,11 +310,11 @@ module Discord
     end
 
     def clear_permissions_flag!
-      # Only touch AppConfig when it's actually set — cheap read, avoids
-      # write churn on the common hot path.
-      return if AppConfig.fetch(PERMISSIONS_FLAG_KEY, "").empty?
+      @permissions_flag_set = !AppConfig.fetch(PERMISSIONS_FLAG_KEY, "").empty? if @permissions_flag_set.nil?
+      return unless @permissions_flag_set
 
       AppConfig.set(PERMISSIONS_FLAG_KEY, "")
+      @permissions_flag_set = false
     end
   end
 end

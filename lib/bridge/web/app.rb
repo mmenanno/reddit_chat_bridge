@@ -4,6 +4,7 @@ require "sinatra/base"
 require "securerandom"
 require "matrix/client"
 require "matrix/event_normalizer"
+require "matrix/id"
 require "matrix/media_resolver"
 require "discord/client"
 require "discord/channel_index"
@@ -201,13 +202,9 @@ module Bridge
         # human-readable is cached yet.
         def room_display_name(room)
           return room.counterparty_username if room.counterparty_username.present?
-          return matrix_id_localpart(room.counterparty_matrix_id) if room.counterparty_matrix_id.present?
+          return Matrix::Id.localpart(room.counterparty_matrix_id) if room.counterparty_matrix_id.present?
 
           room.matrix_room_id
-        end
-
-        def matrix_id_localpart(matrix_id)
-          matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
         end
 
         # Matrix ships `origin_server_ts` in milliseconds-since-epoch. These

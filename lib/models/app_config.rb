@@ -29,5 +29,13 @@ class AppConfig < ApplicationRecord
       value = get(key)
       value.nil? ? default : value
     end
+
+    # Returns a hash of {key => value} for the given keys in a single query.
+    # Missing keys are simply absent from the result (callers can use `[]`
+    # with `.to_s` to treat missing as empty). Cheaper than N individual
+    # `fetch` calls when the caller already has the key list in hand.
+    def fetch_many(keys)
+      where(key: keys).pluck(:key, :value).to_h
+    end
   end
 end

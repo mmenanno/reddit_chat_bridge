@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "matrix/id"
+
 # One row per pending Reddit chat invite ("message request" in Reddit's
 # UI). Created by the Matrix::InviteHandler off the /sync response's
 # `rooms.invite` section and resolved when the operator clicks Approve
@@ -42,14 +44,8 @@ class MessageRequest < ApplicationRecord
 
   def display_name
     return inviter_username if inviter_username.present?
-    return matrix_id_localpart(inviter_matrix_id) if inviter_matrix_id.present?
+    return Matrix::Id.localpart(inviter_matrix_id) if inviter_matrix_id.present?
 
     "unknown"
-  end
-
-  private
-
-  def matrix_id_localpart(matrix_id)
-    matrix_id.to_s.sub(/\A@/, "").sub(/:.+\z/, "")
   end
 end
