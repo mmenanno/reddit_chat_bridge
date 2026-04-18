@@ -1,22 +1,47 @@
-<section class="card bg-base-100 shadow-xl border border-base-300 max-w-lg mx-auto">
-  <div class="card-body">
-    <h2 class="card-title">First-run setup</h2>
-    <p class="opacity-80">Create the admin account that'll sign in to this bridge from now on.</p>
+<section class="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center min-h-[70vh] rise">
+  <div>
+    <p class="kicker">First run</p>
+    <h1 class="page-title mt-4">
+      Bring the <em>console</em> online.
+    </h1>
+    <p class="mt-6 max-w-md text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+      Create the admin account that'll sign in here from now on. After this, you'll paste
+      Discord credentials on the settings page and your Reddit session cookies on the auth
+      page — and the bridge starts syncing.
+    </p>
+
+    <ol class="mt-10 space-y-3 max-w-md">
+      <% [["01", "Create an admin account"], ["02", "Configure Discord IDs in settings"], ["03", "Paste Reddit session cookies"], ["04", "Bridge starts syncing"]].each_with_index do |(num, step), i| %>
+        <li class="flex gap-4 items-baseline">
+          <span class="font-mono text-xs text-[color:var(--color-ember)] w-6"><%= num %></span>
+          <span class="text-sm <%= i.zero? ? "text-[color:var(--color-bone)]" : "text-[color:var(--color-bone-dim)]" %>"><%= step %></span>
+        </li>
+      <% end %>
+    </ol>
+  </div>
+
+  <div class="console-card p-8 rise rise-delay-2">
+    <p class="kicker kicker-ember">Step 01</p>
+    <h2 class="section-title mt-2">Create admin account</h2>
 
     <% if @error %>
-      <div role="alert" class="alert alert-error text-sm"><%= @error %></div>
+      <div role="alert" class="banner banner--error mt-5">
+        <span class="banner__icon">ERR</span>
+        <span><%= @error %></span>
+      </div>
     <% end %>
 
-    <form method="post" action="/setup" class="space-y-4 mt-4">
-      <div class="form-control">
-        <label class="label"><span class="label-text">Username</span></label>
-        <input type="text" name="username" required autocomplete="username" class="input input-bordered w-full">
+    <form method="post" action="/setup" class="mt-6 space-y-4">
+      <div class="field">
+        <label for="username" class="field-label">Username</label>
+        <input id="username" type="text" name="username" required autocomplete="username" class="field-input">
       </div>
-      <div class="form-control">
-        <label class="label"><span class="label-text">Password (12+ chars)</span></label>
-        <input type="password" name="password" required minlength="12" autocomplete="new-password" class="input input-bordered w-full">
+      <div class="field">
+        <label for="password" class="field-label">Password</label>
+        <input id="password" type="password" name="password" required minlength="12" autocomplete="new-password" class="field-input">
+        <span class="field-hint">12+ characters. Only used for this UI — no external identity provider.</span>
       </div>
-      <button type="submit" class="btn btn-primary w-full">Create admin account</button>
+      <button type="submit" class="btn btn-primary w-full mt-2">Create admin account</button>
     </form>
   </div>
 </section>

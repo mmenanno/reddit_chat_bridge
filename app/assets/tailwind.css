@@ -3,5 +3,653 @@
 @source "../../lib/bridge/web/**/*.rb";
 
 @plugin "daisyui" {
-  themes: dim --default, light;
+  themes: rcb --default;
+  logs: false;
 }
+
+/* --------------------------------------------------------------------------
+ * Operator's console — warm dark editorial terminal.
+ * Deep brown-black base (not cool slate), ember orange as sharp accent,
+ * moss green for healthy status, rust for danger. Palette is intentionally
+ * biased warm — the bridge sits between Reddit and Discord, so it should
+ * feel less like a utility and more like a console you'd leave on.
+ * ------------------------------------------------------------------------ */
+@plugin "daisyui/theme" {
+  name: "rcb";
+  default: true;
+  color-scheme: dark;
+
+  /* Warm brown-black surfaces */
+  --color-base-100: oklch(18% 0.012 55);
+  --color-base-200: oklch(14% 0.01 55);
+  --color-base-300: oklch(26% 0.016 55);
+  --color-base-content: oklch(92% 0.015 80);
+
+  /* Ember orange — reddit-adjacent without aping it */
+  --color-primary: oklch(68% 0.17 42);
+  --color-primary-content: oklch(14% 0.02 42);
+
+  /* Moss — healthy / sync */
+  --color-secondary: oklch(72% 0.11 125);
+  --color-secondary-content: oklch(16% 0.02 125);
+
+  /* Amber — warning */
+  --color-accent: oklch(78% 0.13 75);
+  --color-accent-content: oklch(18% 0.03 75);
+
+  --color-neutral: oklch(22% 0.012 55);
+  --color-neutral-content: oklch(88% 0.012 55);
+
+  --color-info: oklch(68% 0.08 230);
+  --color-info-content: oklch(14% 0.02 230);
+  --color-success: oklch(72% 0.14 130);
+  --color-success-content: oklch(14% 0.02 130);
+  --color-warning: oklch(78% 0.14 72);
+  --color-warning-content: oklch(14% 0.02 72);
+  --color-error: oklch(62% 0.2 25);
+  --color-error-content: oklch(96% 0.02 25);
+
+  --radius-selector: 0.375rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.875rem;
+
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* Design-token additions exposed as Tailwind utilities (text-ember, etc.) */
+@theme {
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-ember: oklch(68% 0.17 42);
+  --color-ember-soft: oklch(78% 0.12 45);
+  --color-moss: oklch(72% 0.11 125);
+  --color-rust: oklch(62% 0.2 25);
+  --color-bone: oklch(92% 0.015 80);
+  --color-bone-dim: oklch(72% 0.02 75);
+  --color-bone-mute: oklch(52% 0.015 70);
+  --color-ink: oklch(14% 0.01 55);
+  --color-ink-raised: oklch(22% 0.013 55);
+  --color-line: oklch(30% 0.017 55);
+}
+
+/* --------------------------------------------------------------------------
+ * Base typography + page atmosphere
+ * ------------------------------------------------------------------------ */
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100dvh;
+    background:
+      radial-gradient(1400px 700px at 15% -20%, oklch(26% 0.05 45 / 0.35), transparent 60%),
+      radial-gradient(1100px 600px at 120% 110%, oklch(24% 0.06 35 / 0.3), transparent 65%),
+      linear-gradient(180deg, oklch(16% 0.011 55), oklch(12% 0.01 55));
+    background-attachment: fixed;
+    color: var(--color-bone);
+  }
+
+  /* Subtle hairline grid — "console" cue, almost invisible */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(oklch(50% 0.02 60 / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(50% 0.02 60 / 0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    z-index: 0;
+  }
+
+  /* Film grain — light enough to read as texture, not noise */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.92' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.6;
+    mix-blend-mode: overlay;
+    z-index: 0;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--color-bone);
+  }
+
+  code, kbd, samp {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-ember) 35%, transparent);
+    color: var(--color-bone);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Components
+ * ------------------------------------------------------------------------ */
+@layer components {
+  /* Shell wrapper — pinned above body pseudo-elements */
+  .page-shell {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Console card — subtle inner highlight gives it physicality */
+  .console-card {
+    background:
+      linear-gradient(180deg, oklch(20% 0.014 55), oklch(16% 0.011 55));
+    border: 1px solid oklch(30% 0.017 55);
+    border-radius: 1rem;
+    box-shadow:
+      inset 0 1px 0 oklch(44% 0.022 60 / 0.22),
+      0 1px 2px oklch(0% 0 0 / 0.3),
+      0 16px 40px -20px oklch(0% 0 0 / 0.5);
+  }
+
+  .console-card--danger {
+    border-color: oklch(45% 0.12 25 / 0.6);
+    background:
+      linear-gradient(180deg, oklch(22% 0.03 28), oklch(16% 0.018 28));
+    box-shadow:
+      inset 0 1px 0 oklch(50% 0.04 28 / 0.2),
+      0 1px 2px oklch(0% 0 0 / 0.3),
+      0 16px 40px -24px oklch(30% 0.12 25 / 0.5);
+  }
+
+  /* Kicker — small mono label above section headings */
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+  }
+
+  .kicker-ember {
+    color: var(--color-ember);
+  }
+
+  /* Page title — Fraunces at a display optical size */
+  .page-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 3.5vw, 3.25rem);
+    font-variation-settings: "opsz" 144, "wght" 420, "SOFT" 60;
+    letter-spacing: -0.035em;
+    line-height: 1;
+  }
+
+  .page-title em {
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "wght" 420, "SOFT" 100;
+    color: var(--color-ember);
+  }
+
+  /* Section heading inside cards */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-variation-settings: "opsz" 72, "wght" 500;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  /* Metric tile — big mono number, label below */
+  .metric {
+    padding: 1.5rem;
+    border: 1px solid var(--color-line);
+    border-radius: 0.875rem;
+    background: linear-gradient(180deg, oklch(22% 0.015 55), oklch(17% 0.011 55));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric__value {
+    font-family: var(--font-mono);
+    font-size: 2.75rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--color-bone);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric__label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+  }
+
+  .metric__trail {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0.875rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: var(--color-bone-mute);
+  }
+
+  /* Pulse-dot — live status indicator */
+  .pulse-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow: 0 0 0 0 currentColor;
+    animation: rcb-pulse 2.2s ease-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes rcb-pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 70%, transparent); }
+    70%  { box-shadow: 0 0 0 0.55rem color-mix(in oklab, currentColor 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 0%, transparent); }
+  }
+
+  /* Status pill — compact inline indicator for nav / dashboard */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    background: color-mix(in oklab, currentColor 10%, transparent);
+  }
+
+  .status-pill--healthy { color: var(--color-moss); }
+  .status-pill--warning { color: oklch(78% 0.14 72); }
+  .status-pill--danger  { color: var(--color-rust); }
+  .status-pill--idle    { color: var(--color-bone-mute); }
+
+  /* Logomark — small stacked wordmark with ember dot */
+  .logomark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+    color: var(--color-bone);
+  }
+
+  .logomark__dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--color-ember);
+    box-shadow: 0 0 12px color-mix(in oklab, var(--color-ember) 70%, transparent);
+  }
+
+  .logomark__mark {
+    font-style: italic;
+    font-variation-settings: "opsz" 72, "wght" 420;
+  }
+
+  .logomark__meta {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+    line-height: 1;
+  }
+
+  /* Nav — horizontal set of low-key links with one active */
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--color-bone-dim);
+    border-radius: 0.5rem;
+    position: relative;
+    transition: color 120ms ease, background 120ms ease;
+  }
+
+  .nav-link:hover {
+    color: var(--color-bone);
+    background: oklch(24% 0.014 55 / 0.6);
+  }
+
+  .nav-link[aria-current="page"] {
+    color: var(--color-bone);
+    background: oklch(26% 0.017 55 / 0.8);
+  }
+
+  .nav-link[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    left: 0.85rem;
+    right: 0.85rem;
+    bottom: -0.18rem;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--color-ember);
+  }
+
+  /* Buttons — override DaisyUI's default roundness/type so they feel native */
+  .btn {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-transform: none;
+    border-radius: 0.55rem;
+    transition: transform 80ms ease, background 120ms ease, box-shadow 120ms ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    background: var(--color-ember);
+    color: oklch(14% 0.02 42);
+    border-color: transparent;
+    box-shadow:
+      inset 0 1px 0 oklch(85% 0.1 45 / 0.6),
+      0 8px 22px -12px oklch(50% 0.17 42 / 0.6);
+  }
+
+  .btn-primary:hover {
+    background: color-mix(in oklab, var(--color-ember) 85%, oklch(78% 0.15 45));
+  }
+
+  .btn-outline {
+    background: transparent;
+    border-color: var(--color-line);
+    color: var(--color-bone);
+  }
+
+  .btn-outline:hover {
+    background: oklch(24% 0.015 55);
+    border-color: oklch(44% 0.02 55);
+    color: var(--color-bone);
+  }
+
+  .btn-error {
+    background: oklch(52% 0.18 25);
+    color: oklch(98% 0.01 25);
+    border-color: transparent;
+    box-shadow:
+      inset 0 1px 0 oklch(72% 0.16 25 / 0.5),
+      0 8px 22px -12px oklch(40% 0.18 25 / 0.6);
+  }
+
+  .btn-error:hover {
+    background: oklch(58% 0.2 25);
+  }
+
+  .btn-xs {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.3rem 0.65rem;
+    border-radius: 0.4rem;
+  }
+
+  /* Form primitives */
+  .field {
+    display: block;
+  }
+
+  .field-label {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-bone);
+    margin-bottom: 0.35rem;
+  }
+
+  .field-hint {
+    display: block;
+    margin-top: 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    color: var(--color-bone-mute);
+    line-height: 1.45;
+  }
+
+  .field-hint code {
+    font-size: 0.78rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.25rem;
+    background: oklch(24% 0.013 55);
+    color: var(--color-bone-dim);
+  }
+
+  .field-input,
+  .field-textarea {
+    display: block;
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-bone);
+    background: oklch(12% 0.008 55);
+    border: 1px solid var(--color-line);
+    border-radius: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  }
+
+  .field-input:focus,
+  .field-textarea:focus {
+    outline: none;
+    border-color: var(--color-ember);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ember) 25%, transparent);
+    background: oklch(14% 0.009 55);
+  }
+
+  .field-textarea {
+    resize: vertical;
+    min-height: 7rem;
+    line-height: 1.5;
+  }
+
+  /* Room card — replaces the cramped table */
+  .room-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1.25rem;
+    border: 1px solid var(--color-line);
+    border-radius: 1rem;
+    background: linear-gradient(180deg, oklch(22% 0.014 55), oklch(17% 0.01 55));
+    transition: border-color 150ms ease, transform 150ms ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .room-card:hover {
+    border-color: oklch(40% 0.02 55);
+  }
+
+  .room-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 3px;
+    background: var(--color-line);
+    transition: background 150ms ease;
+  }
+
+  .room-card:hover::before {
+    background: var(--color-ember);
+  }
+
+  .room-card__name {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-variation-settings: "opsz" 72, "wght" 500;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--color-bone);
+  }
+
+  .room-card__name--placeholder {
+    font-style: italic;
+    color: var(--color-bone-mute);
+    font-variation-settings: "opsz" 72, "wght" 400;
+  }
+
+  .room-card__mono {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-bone-mute);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .room-card__meta {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .room-card__label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(50% 0.015 60);
+  }
+
+  .room-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed oklch(28% 0.014 55);
+  }
+
+  /* Divider with mono center-label */
+  .rule-labeled {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 2.5rem 0 1.25rem;
+    color: var(--color-bone-mute);
+  }
+
+  .rule-labeled::before,
+  .rule-labeled::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, oklch(30% 0.017 55), transparent);
+  }
+
+  .rule-labeled__text {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+  }
+
+  .rule-labeled--danger .rule-labeled__text {
+    color: var(--color-rust);
+  }
+
+  .rule-labeled--danger::before,
+  .rule-labeled--danger::after {
+    background: linear-gradient(90deg, transparent, oklch(45% 0.1 25 / 0.55), transparent);
+  }
+
+  /* Alerts with better hierarchy */
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+  }
+
+  .banner--success {
+    background: oklch(22% 0.06 140 / 0.4);
+    border-color: oklch(40% 0.1 135 / 0.7);
+    color: oklch(90% 0.08 135);
+  }
+
+  .banner--error {
+    background: oklch(22% 0.08 25 / 0.4);
+    border-color: oklch(45% 0.14 25 / 0.6);
+    color: oklch(92% 0.06 28);
+  }
+
+  .banner__icon {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    letter-spacing: 0.1em;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Utilities
+ * ------------------------------------------------------------------------ */
+@utility font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Staggered entrance for a page's primary grid — one well-orchestrated load */
+@keyframes rcb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility rise {
+  opacity: 0;
+  animation: rcb-rise 0.55s cubic-bezier(0.2, 0.65, 0.2, 1) forwards;
+}
+
+@utility rise-delay-1 { animation-delay: 60ms; }
+@utility rise-delay-2 { animation-delay: 140ms; }
+@utility rise-delay-3 { animation-delay: 220ms; }
+@utility rise-delay-4 { animation-delay: 300ms; }

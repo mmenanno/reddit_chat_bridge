@@ -1,90 +1,112 @@
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h2 class="card-title">Actions</h2>
-    <p class="opacity-80">
-      Administrative triggers. Every action here is also available via Discord slash commands in
-      <code class="bg-base-300 px-1 rounded">#commands</code>.
-    </p>
-  </div>
+<section class="rise">
+  <p class="kicker">§03 / Actions</p>
+  <h1 class="page-title mt-3">Operator controls</h1>
+  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    Every action below is also available as a Discord slash command in
+    <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">#commands</code>.
+  </p>
 </section>
 
-<% if @notice %><div role="status" data-auto-dismiss class="alert alert-success"><%= @notice %></div><% end %>
-<% if @error %><div role="alert" class="alert alert-error"><%= @error %></div><% end %>
+<% if @notice %>
+  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
+    <span class="banner__icon">OK</span>
+    <span><%= @notice %></span>
+  </div>
+<% end %>
+<% if @error %>
+  <div role="alert" class="banner banner--error rise rise-delay-1">
+    <span class="banner__icon">ERR</span>
+    <span><%= @error %></span>
+  </div>
+<% end %>
 
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h3 class="card-title text-lg">Sync loop</h3>
-    <p class="text-sm opacity-80">
-      Current status:
-      <% if Bridge::Application.running? %>
-        <span class="badge badge-success">running</span>
-      <% elsif Bridge::Application.configured? %>
-        <span class="badge badge-warning">stopped</span>
+<section class="console-card p-6 rise rise-delay-2">
+  <div class="flex items-center gap-3 flex-wrap">
+    <p class="kicker">Sync loop</p>
+    <% sync_status = dashboard_sync_status %>
+    <span class="status-pill status-pill--<%= sync_status[:tone] %>">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      <%= sync_status[:label] %>
+    </span>
+  </div>
+
+  <% unless Bridge::Application.running? %>
+    <p class="mt-4 text-sm text-[color:var(--color-bone-dim)] max-w-2xl">
+      <% if Bridge::Application.configured? %>
+        Config is complete but the supervisor thread isn't running — probably because the
+        container booted before setup was finished. Kick it off here; no container restart
+        required.
       <% else %>
-        <span class="badge badge-ghost">not configured</span>
+        Finish the <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">settings</a>
+        form and paste a Matrix token on <a href="/auth" class="text-[color:var(--color-ember)] hover:underline">auth</a>.
+        Sync spins up automatically on successful save.
       <% end %>
     </p>
-
-    <% unless Bridge::Application.running? %>
-      <p class="text-sm opacity-80 mt-3">
-        <% if Bridge::Application.configured? %>
-          Config is complete but the supervisor thread isn't running — probably because the container booted before setup was finished. Kick it off here without restarting the container.
-        <% else %>
-          Finish the <a href="/settings" class="link link-primary">settings</a> form and paste a Matrix token on the <a href="/auth" class="link link-primary">auth</a> page; sync will start automatically on successful save.
-        <% end %>
-      </p>
-      <form method="post" action="/actions/start_sync" class="mt-3">
-        <button type="submit" class="btn btn-primary" <%= "disabled" unless Bridge::Application.configured? %>>
-          Start sync
-        </button>
-      </form>
-    <% end %>
-  </div>
+    <form method="post" action="/actions/start_sync" class="mt-5">
+      <button type="submit" class="btn btn-primary" <%= "disabled" unless Bridge::Application.configured? %>>
+        ▶ Start sync
+      </button>
+    </form>
+  <% end %>
 </section>
 
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h3 class="card-title text-lg">Resync</h3>
-    <p class="text-sm opacity-80 mb-3">
-      Clear the Matrix <code class="bg-base-300 px-1 rounded">next_batch</code> checkpoint.
-      The next sync iteration will pull recent history from Reddit — useful after a long
-      outage or when recovering from a corrupted state.
+<div class="rule-labeled rise rise-delay-3">
+  <span class="rule-labeled__text">Safe · Routine</span>
+</div>
+
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4 rise rise-delay-3">
+  <div class="console-card p-6 flex flex-col gap-4">
+    <div>
+      <p class="kicker">Resync checkpoint</p>
+      <h2 class="section-title mt-2">Re-pull recent history</h2>
+    </div>
+    <p class="text-sm text-[color:var(--color-bone-dim)]">
+      Clears the Matrix <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">next_batch</code> pointer.
+      The next /sync iteration will pull recent history from Reddit. PostedEvent dedup keeps
+      this idempotent — you won't get duplicates.
     </p>
-    <form method="post" action="/actions/resync">
-      <button type="submit" class="btn btn-primary">Resync now</button>
+    <form method="post" action="/actions/resync" class="mt-auto">
+      <button type="submit" class="btn btn-outline">Resync now</button>
+    </form>
+  </div>
+
+  <div class="console-card p-6 flex flex-col gap-4">
+    <div>
+      <p class="kicker">Reconcile channels</p>
+      <h2 class="section-title mt-2">Fix stale channel names</h2>
+    </div>
+    <p class="text-sm text-[color:var(--color-bone-dim)]">
+      Sweeps every bridged room, re-fetches the counterparty's Reddit profile, and renames
+      the Discord channel to match. Use after the initial sync creates channels with opaque
+      <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">dm-t2_&lt;id&gt;</code>
+      names that didn't auto-heal.
+    </p>
+    <form method="post" action="/actions/reconcile" class="mt-auto">
+      <button type="submit" class="btn btn-outline">Reconcile now</button>
     </form>
   </div>
 </section>
 
-<section class="card bg-base-100 shadow-xl border border-error">
-  <div class="card-body">
-    <h3 class="card-title text-lg text-error">Full resync (destructive)</h3>
-    <p class="text-sm opacity-80 mb-3">
-      Clears every Room's cached Discord channel id + last-event pointer, wipes the
-      <code class="bg-base-300 px-1 rounded">PostedEvent</code> dedup cache, and resets the
-      sync checkpoint. The next sync will recreate channels from scratch and replay recent
-      history into them. Use this after you've manually deleted the Discord channels and want
-      the bridge to start fresh. Room metadata (counterparty username) is preserved so new
-      channels get the right names immediately.
-    </p>
-    <form method="post" action="/actions/full_resync"
-          onsubmit="return confirm('Nuke all channel refs, dedup cache, and sync checkpoint? This is irreversible.');">
-      <button type="submit" class="btn btn-error">Full resync now</button>
-    </form>
-  </div>
-</section>
+<div class="rule-labeled rule-labeled--danger rise rise-delay-4">
+  <span class="rule-labeled__text">⚠ Destructive zone</span>
+</div>
 
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h3 class="card-title text-lg">Reconcile channels</h3>
-    <p class="text-sm opacity-80 mb-3">
-      Sweep every bridged room, re-fetch the counterparty's Reddit profile, and rename the
-      Discord channel to match. Use this after the initial sync creates channels with opaque
-      <code class="bg-base-300 px-1 rounded">dm-t2_&lt;id&gt;</code> names that didn't auto-heal.
-      Per-room refresh lives on the <a href="/rooms" class="link link-primary">Rooms</a> page.
-    </p>
-    <form method="post" action="/actions/reconcile">
-      <button type="submit" class="btn btn-primary">Reconcile now</button>
-    </form>
+<section class="console-card console-card--danger p-6 rise rise-delay-4">
+  <div class="flex items-center gap-3 flex-wrap">
+    <p class="kicker" style="color: var(--color-rust)">Full resync</p>
+    <span class="status-pill status-pill--danger text-[0.65rem]">irreversible</span>
   </div>
+  <h2 class="section-title mt-2">Nuke channel refs and start fresh</h2>
+  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl">
+    Clears every Room's cached Discord channel id + last-event pointer, wipes the
+    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">PostedEvent</code>
+    dedup cache, and resets the sync checkpoint. The next sync will recreate channels and
+    replay recent history into them. Room metadata (counterparty username) is preserved, so
+    new channels get the right names immediately. Use this after you've manually deleted the
+    Discord channels and want the bridge to rebuild from scratch.
+  </p>
+  <form method="post" action="/actions/full_resync" class="mt-5"
+        onsubmit="return confirm('Nuke all channel refs, dedup cache, and sync checkpoint? This is irreversible.');">
+    <button type="submit" class="btn btn-error">↯ Full resync now</button>
+  </form>
 </section>

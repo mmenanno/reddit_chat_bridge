@@ -121,6 +121,43 @@ module Bridge
             field.merge(value: value)
           end
         end
+
+        # Marks a nav link as the current page. Dashboard is special-cased
+        # because its path is "/" which would otherwise match every prefix.
+        def current_nav?(href)
+          return request.path_info == "/" if href == "/"
+
+          request.path_info.start_with?(href)
+        end
+
+        # Live sync status for the header pill + dashboard hero. Returns
+        # { label:, tone: } where tone feeds the `.status-pill--<tone>` class.
+        def dashboard_sync_status
+          if AuthState.paused?
+            { label: "Paused", tone: "danger" }
+          elsif Bridge::Application.running?
+            { label: "Live", tone: "healthy" }
+          elsif Bridge::Application.configured?
+            { label: "Stopped", tone: "warning" }
+          else
+            { label: "Unconfigured", tone: "idle" }
+          end
+        end
+
+        # Absolute → "5m ago" style for activity/status timestamps. Falls back
+        # to the ISO-8601 UTC string when the delta is long enough that a
+        # relative label becomes useless.
+        def time_ago(time)
+          return "—" if time.nil?
+
+          delta = (Time.current - time).to_i
+          return "just now" if delta < 10
+          return "#{delta}s ago" if delta < 60
+          return "#{delta / 60}m ago" if delta < 3600
+          return "#{delta / 3600}h ago" if delta < 86_400
+
+          time.utc.strftime("%Y-%m-%d")
+        end
       end
 
       before do

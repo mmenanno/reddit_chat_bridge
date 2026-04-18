@@ -62,7 +62,7 @@ module Bridge
         get "/setup"
 
         assert_equal(200, last_response.status)
-        assert_match(/First-run setup/, last_response.body)
+        assert_match(/Create admin account/, last_response.body)
       end
 
       test "GET /setup redirects to / once an admin has been created" do

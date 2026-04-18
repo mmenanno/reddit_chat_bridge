@@ -28,10 +28,10 @@ module Bridge
         assert_match(/Matrix access token/, last_response.body)
       end
 
-      test "GET /auth shows 'no token saved yet' before reauth" do
+      test "GET /auth shows the empty state before reauth" do
         get "/auth"
 
-        assert_match(/No token saved yet/, last_response.body)
+        assert_match(/Not yet authenticated/, last_response.body)
       end
 
       test "GET /auth shows saved user and ok status after a successful probe" do
@@ -39,7 +39,7 @@ module Bridge
 
         get "/auth"
 
-        assert_match(%r{<code>@t2_abc:reddit\.com</code>}, last_response.body)
+        assert_match(/@t2_abc:reddit\.com/, last_response.body)
       end
 
       test "POST /auth probes whoami and persists a good token" do

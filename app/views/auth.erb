@@ -1,112 +1,156 @@
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h2 class="card-title">Matrix access token</h2>
-    <p class="opacity-80">
-      Reddit's chat tokens live for roughly 24 hours. You have two ways to stay authenticated:
-      store your long-lived Reddit session cookies and let the bridge re-mint tokens on its
-      own (recommended, one setup every ~6 months), or paste a fresh JWT manually when the
-      old one expires.
-    </p>
-  </div>
+<section class="rise">
+  <p class="kicker">§04 / Auth</p>
+  <h1 class="page-title mt-3">Matrix access token</h1>
+  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    Reddit's chat JWTs live ~24 hours. Paste your long-lived Reddit session cookies once
+    and the bridge re-mints tokens on its own. Manual paste is a fallback when you just need
+    to get a working token in immediately.
+  </p>
 </section>
 
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h3 class="card-title text-lg">Current state</h3>
-    <% if AuthState.access_token.nil? || AuthState.access_token.empty? %>
-      <p class="opacity-70">No token saved yet.</p>
+<% if @notice %>
+  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
+    <span class="banner__icon">OK</span>
+    <span><%= @notice %></span>
+  </div>
+<% end %>
+<% if @error %>
+  <div role="alert" class="banner banner--error rise rise-delay-1">
+    <span class="banner__icon">ERR</span>
+    <span><%= @error %></span>
+  </div>
+<% end %>
+
+<section class="console-card p-6 rise rise-delay-1">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <p class="kicker">Current state</p>
+      <h2 class="section-title mt-1">
+        <% if AuthState.paused? %>
+          Paused — token rejected
+        <% elsif AuthState.access_token && !AuthState.access_token.empty? %>
+          Authenticated
+        <% else %>
+          Not yet authenticated
+        <% end %>
+      </h2>
+    </div>
+    <% if AuthState.paused? %>
+      <span class="status-pill status-pill--danger"><span class="pulse-dot"></span> paused</span>
+    <% elsif AuthState.access_token && !AuthState.access_token.empty? %>
+      <span class="status-pill status-pill--healthy"><span class="pulse-dot"></span> ok</span>
     <% else %>
-      <ul class="text-sm space-y-1">
-        <li><span class="opacity-70">User:</span> <code><%= AuthState.user_id %></code></li>
-        <li>
-          <span class="opacity-70">Status:</span>
-          <% if AuthState.paused? %>
-            <span class="badge badge-error">paused</span>
-          <% else %>
-            <span class="badge badge-success">ok</span>
-          <% end %>
-        </li>
-        <% if AuthState.access_token_expires_at %>
-          <li><span class="opacity-70">Token expires:</span> <%= AuthState.access_token_expires_at.utc.iso8601 %></li>
-        <% end %>
-        <% if AuthState.current.last_ok_at %>
-          <li><span class="opacity-70">Last verified:</span> <%= AuthState.current.last_ok_at.utc.iso8601 %></li>
-        <% end %>
-        <% if AuthState.current.last_error %>
-          <li><span class="opacity-70">Last error:</span> <code class="text-error"><%= AuthState.current.last_error %></code></li>
-        <% end %>
-      </ul>
+      <span class="status-pill status-pill--idle">empty</span>
     <% end %>
   </div>
+
+  <% if AuthState.access_token && !AuthState.access_token.empty? %>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 mt-5">
+      <div>
+        <dt class="metric__label">User</dt>
+        <dd class="mt-1 font-mono text-sm break-all"><%= AuthState.user_id %></dd>
+      </div>
+      <% if AuthState.access_token_expires_at %>
+        <div>
+          <dt class="metric__label">Token expires</dt>
+          <dd class="mt-1 font-mono text-sm"><%= AuthState.access_token_expires_at.utc.iso8601 %></dd>
+          <dd class="mt-0.5 font-mono text-xs text-[color:var(--color-bone-mute)]"><%= time_ago(AuthState.access_token_expires_at) %></dd>
+        </div>
+      <% end %>
+      <% if AuthState.current.last_ok_at %>
+        <div>
+          <dt class="metric__label">Last verified</dt>
+          <dd class="mt-1 font-mono text-sm"><%= time_ago(AuthState.current.last_ok_at) %></dd>
+        </div>
+      <% end %>
+      <% if AuthState.current.last_error %>
+        <div>
+          <dt class="metric__label" style="color: var(--color-rust)">Last error</dt>
+          <dd class="mt-1 font-mono text-xs break-words text-[color:oklch(82%_0.1_25)]"><%= AuthState.current.last_error %></dd>
+        </div>
+      <% end %>
+    </dl>
+  <% end %>
 </section>
 
-<% if @notice %><div role="status" data-auto-dismiss class="alert alert-success"><%= @notice %></div><% end %>
-<% if @error %><div role="alert" class="alert alert-error"><%= @error %></div><% end %>
-
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h3 class="card-title text-lg">Auto-refresh via Reddit cookies <span class="badge badge-primary">recommended</span></h3>
-    <p class="text-sm opacity-80 mb-3">
-      Paste the full <code class="bg-base-300 px-1 rounded">Cookie:</code> header from a logged-in
-      <code class="bg-base-300 px-1 rounded">www.reddit.com</code> session. The bridge stores the
-      long-lived <code class="bg-base-300 px-1 rounded">reddit_session</code> JWT (6-month lifespan),
-      strips the short-lived <code class="bg-base-300 px-1 rounded">token_v2</code>, and has Reddit
-      re-mint Matrix tokens on demand. You only repeat this every ~6 months.
-    </p>
-    <p class="text-sm opacity-80 mb-3">
-      <strong>How:</strong> on a logged-in reddit.com tab, DevTools → Network → right-click any
-      <code class="bg-base-300 px-1 rounded">www.reddit.com/...</code> request → Copy → Copy as cURL.
-      Find <code class="bg-base-300 px-1 rounded">-H 'cookie: …'</code> and paste just the value.
-    </p>
+<section class="console-card p-6 rise rise-delay-2" style="border-color: color-mix(in oklab, var(--color-ember) 40%, var(--color-line));">
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <p class="kicker kicker-ember">Recommended · 6 months between rotations</p>
+      <h2 class="section-title mt-2">Auto-refresh via Reddit cookies</h2>
+    </div>
     <% if AuthState.reddit_cookie_jar %>
-      <p class="text-sm mb-3">
-        <span class="badge badge-success">cookies saved</span>
-        <% if AuthState.reddit_session_expires_at %>
-          · reddit_session expires <%= AuthState.reddit_session_expires_at.utc.iso8601 %>
-          <% if AuthState.reddit_session_expiring_soon? %>
-            <span class="badge badge-warning">expiring soon</span>
-          <% end %>
-        <% end %>
-      </p>
+      <span class="status-pill status-pill--healthy">cookies saved</span>
     <% end %>
-    <form method="post" action="/auth/cookies" class="space-y-3">
-      <label class="form-control">
-        <span class="label label-text">Cookie header</span>
-        <textarea
-          name="reddit_cookie"
-          rows="6"
-          autocomplete="off"
-          spellcheck="false"
-          required
-          placeholder="reddit_session=…; loid=…; token_v2=…; …"
-          class="textarea textarea-bordered font-mono text-xs"></textarea>
-      </label>
-      <button type="submit" class="btn btn-primary">Probe &amp; save cookies</button>
-    </form>
   </div>
+
+  <p class="mt-4 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
+    Paste the full <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">Cookie:</code>
+    header from a logged-in <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">www.reddit.com</code>
+    session. The bridge stores the long-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">reddit_session</code>
+    JWT (~6-month lifespan), strips the short-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">token_v2</code>,
+    and has Reddit re-mint Matrix tokens on demand.
+  </p>
+
+  <details class="mt-4 text-sm text-[color:var(--color-bone-dim)]">
+    <summary class="cursor-pointer select-none font-medium text-[color:var(--color-bone)] hover:text-[color:var(--color-ember)]">How to grab the cookie →</summary>
+    <ol class="list-decimal list-inside mt-3 space-y-1.5 ml-2">
+      <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-[color:var(--color-base-300)]/60">reddit.com</code> tab.</li>
+      <li>DevTools → Network tab → right-click any <code class="font-mono text-xs px-1 rounded bg-[color:var(--color-base-300)]/60">www.reddit.com/...</code> request → Copy → Copy as cURL.</li>
+      <li>Find <code class="font-mono text-xs px-1 rounded bg-[color:var(--color-base-300)]/60">-H 'cookie: …'</code> and paste just the value below.</li>
+    </ol>
+  </details>
+
+  <% if AuthState.reddit_session_expires_at %>
+    <p class="mt-4 text-sm">
+      <span class="metric__label">reddit_session expires</span>
+      <span class="ml-2 font-mono"><%= AuthState.reddit_session_expires_at.utc.iso8601 %></span>
+      <% if AuthState.reddit_session_expiring_soon? %>
+        <span class="ml-2 status-pill status-pill--warning text-[0.65rem]">expiring soon</span>
+      <% end %>
+    </p>
+  <% end %>
+
+  <form method="post" action="/auth/cookies" class="mt-5 space-y-3">
+    <div class="field">
+      <label for="reddit_cookie" class="field-label">Cookie header</label>
+      <textarea
+        id="reddit_cookie"
+        name="reddit_cookie"
+        rows="6"
+        autocomplete="off"
+        spellcheck="false"
+        required
+        placeholder="reddit_session=…; loid=…; token_v2=…; …"
+        class="field-textarea"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Probe &amp; save cookies</button>
+  </form>
 </section>
 
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h3 class="card-title text-lg">Manual token paste</h3>
-    <p class="text-sm opacity-80 mb-3">
-      Fallback: paste a Matrix bearer JWT from DevTools on
-      <code class="bg-base-300 px-1 rounded">chat.reddit.com</code>. Lasts ~24h; expect to repeat
-      daily. The bridge probes <code class="bg-base-300 px-1 rounded">/account/whoami</code> before
-      saving, so a bad paste never clobbers a working token.
-    </p>
-    <form method="post" action="/auth" class="space-y-3">
-      <label class="form-control">
-        <span class="label label-text">Matrix access token</span>
-        <textarea
-          name="access_token"
-          rows="6"
-          autocomplete="off"
-          spellcheck="false"
-          required
-          class="textarea textarea-bordered font-mono text-xs"></textarea>
-      </label>
-      <button type="submit" class="btn btn-outline">Probe &amp; save token only</button>
-    </form>
-  </div>
+<section class="console-card p-6 rise rise-delay-3">
+  <p class="kicker">Fallback · daily rotation</p>
+  <h2 class="section-title mt-1">Manual token paste</h2>
+
+  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
+    Paste a Matrix bearer JWT from DevTools on <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">chat.reddit.com</code>.
+    Lasts ~24h; expect to repeat daily. The bridge probes
+    <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">/account/whoami</code>
+    before saving, so a bad paste never clobbers a working token.
+  </p>
+
+  <form method="post" action="/auth" class="mt-5 space-y-3">
+    <div class="field">
+      <label for="access_token" class="field-label">Matrix access token</label>
+      <textarea
+        id="access_token"
+        name="access_token"
+        rows="4"
+        autocomplete="off"
+        spellcheck="false"
+        required
+        class="field-textarea"></textarea>
+    </div>
+    <button type="submit" class="btn btn-outline">Probe &amp; save token only</button>
+  </form>
 </section>

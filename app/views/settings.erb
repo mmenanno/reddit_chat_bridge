@@ -1,34 +1,109 @@
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h2 class="card-title">Settings</h2>
-    <p class="opacity-80">
-      Discord and Matrix configuration the bridge needs at runtime. The Matrix
-      access token itself is managed separately on the
-      <a href="/auth" class="link link-primary">auth</a> page because it probes
-      Reddit before saving.
-    </p>
+<% matrix_fields  = @fields.select { |f| f[:key].start_with?("matrix_") } %>
+<% bot_fields     = @fields.select { |f| ["discord_bot_token", "discord_guild_id"].include?(f[:key]) } %>
+<% channel_fields = @fields.select { |f| f[:key].end_with?("category_id", "channel_id") } %>
 
-    <% if @notice %>
-      <div role="status" data-auto-dismiss class="alert alert-success text-sm"><%= @notice %></div>
-    <% end %>
+<section class="rise">
+  <p class="kicker">§05 / Settings</p>
+  <h1 class="page-title mt-3">Runtime configuration</h1>
+  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    Discord and Matrix identifiers the bridge reads from the database at runtime. The Matrix
+    access token itself is managed separately on the
+    <a href="/auth" class="text-[color:var(--color-ember)] hover:underline">auth</a> page
+    because it probes Reddit before saving.
+  </p>
+</section>
 
-    <form method="post" action="/settings" class="space-y-5 mt-4">
-      <% @fields.each do |field| %>
-        <div>
-          <label class="label pb-1">
-            <span class="label-text font-medium"><%= field[:label] %></span>
-          </label>
+<% if @notice %>
+  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
+    <span class="banner__icon">OK</span>
+    <span><%= @notice %></span>
+  </div>
+<% end %>
+
+<form method="post" action="/settings" class="space-y-8">
+  <section class="console-card p-6 rise rise-delay-1">
+    <header class="mb-5">
+      <p class="kicker">Matrix</p>
+      <h2 class="section-title mt-1">Reddit's Matrix homeserver</h2>
+      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">Where the bridge long-polls for events.</p>
+    </header>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <% matrix_fields.each do |field| %>
+        <div class="field">
+          <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
           <input
+            id="<%= field[:key] %>"
             type="<%= field[:secret] ? "password" : "text" %>"
             name="<%= field[:key] %>"
             value="<%= field[:value] %>"
             autocomplete="off"
             spellcheck="false"
-            class="input input-bordered w-full bg-base-200 font-mono text-sm">
-          <p class="mt-1 text-xs opacity-70"><%= field[:hint] %></p>
+            class="field-input">
+          <span class="field-hint"><%= field[:hint] %></span>
         </div>
       <% end %>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </form>
+    </div>
+  </section>
+
+  <section class="console-card p-6 rise rise-delay-2">
+    <header class="mb-5">
+      <p class="kicker">Discord · bot</p>
+      <h2 class="section-title mt-1">Bot credentials and server</h2>
+      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
+        From the Discord Developer Portal → your app.
+        <a href="/guides/bot_setup.md" class="text-[color:var(--color-ember)] hover:underline">Setup guide</a>
+        walks through invite permissions + intents.
+      </p>
+    </header>
+    <div class="grid grid-cols-1 gap-5">
+      <% bot_fields.each do |field| %>
+        <div class="field">
+          <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
+          <input
+            id="<%= field[:key] %>"
+            type="<%= field[:secret] ? "password" : "text" %>"
+            name="<%= field[:key] %>"
+            value="<%= field[:value] %>"
+            autocomplete="off"
+            spellcheck="false"
+            class="field-input">
+          <span class="field-hint"><%= field[:hint] %></span>
+        </div>
+      <% end %>
+    </div>
+  </section>
+
+  <section class="console-card p-6 rise rise-delay-3">
+    <header class="mb-5">
+      <p class="kicker">Discord · channel targets</p>
+      <h2 class="section-title mt-1">Where to post</h2>
+      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
+        Right-click each in Discord (with Developer Mode on) → <em>Copy ID</em>.
+      </p>
+    </header>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <% channel_fields.each do |field| %>
+        <div class="field">
+          <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
+          <input
+            id="<%= field[:key] %>"
+            type="<%= field[:secret] ? "password" : "text" %>"
+            name="<%= field[:key] %>"
+            value="<%= field[:value] %>"
+            autocomplete="off"
+            spellcheck="false"
+            class="field-input">
+          <span class="field-hint"><%= field[:hint] %></span>
+        </div>
+      <% end %>
+    </div>
+  </section>
+
+  <div class="flex items-center justify-between gap-4 flex-wrap rise rise-delay-4">
+    <p class="text-sm text-[color:var(--color-bone-mute)]">
+      Saves are immediate. If the sync thread wasn't running and config is now complete,
+      it'll auto-start.
+    </p>
+    <button type="submit" class="btn btn-primary">Save configuration</button>
   </div>
-</section>
+</form>

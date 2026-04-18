@@ -1,58 +1,115 @@
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h2 class="card-title">Dashboard</h2>
+<% status = dashboard_sync_status %>
+<% checkpoint = SyncCheckpoint.current %>
+<% auth = AuthState.current %>
 
-    <div class="grid md:grid-cols-3 gap-4 mt-4">
-      <div class="p-4 rounded-box bg-base-200">
-        <h3 class="font-semibold mb-2">Sync</h3>
-        <p class="text-sm">
-          <% if Bridge::Application.running? %>
-            <span class="badge badge-success">running</span>
-          <% elsif Bridge::Application.configured? %>
-            <span class="badge badge-warning">stopped</span>
-            — <a href="/actions" class="link link-primary">start it</a>
-          <% else %>
-            <span class="badge badge-ghost">not configured</span>
-            — <a href="/settings" class="link link-primary">complete setup</a>
-          <% end %>
-          <% if SyncCheckpoint.current.last_batch_at %>
-            <br><span class="opacity-70">Last batch:</span> <%= SyncCheckpoint.current.last_batch_at.utc.iso8601 %>
-          <% end %>
-        </p>
-      </div>
+<section class="rise">
+  <p class="kicker">§01 / Overview</p>
+  <h1 class="page-title mt-3">
+    The console is
+    <em><%= status[:label].downcase %></em>
+  </h1>
+  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    Matrix <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">/sync</code>
+    runs every few seconds in a supervised thread. Events are normalized, deduped,
+    and delivered to Discord. Everything below is live state from the database.
+  </p>
+</section>
 
-      <div class="p-4 rounded-box bg-base-200">
-        <h3 class="font-semibold mb-2">Matrix</h3>
-        <p class="text-sm">
-          <% if AuthState.paused? %>
-            <span class="badge badge-error">paused</span>
-          <% elsif AuthState.access_token %>
-            <span class="badge badge-success">ok</span>
-          <% else %>
-            <span class="badge badge-warning">no token</span>
-          <% end %>
-          <% if AuthState.access_token %>
-            <br><span class="opacity-70">User:</span> <code><%= AuthState.user_id %></code>
-          <% end %>
-          <% if AuthState.current.last_ok_at %>
-            <br><span class="opacity-70">Last ok:</span> <%= AuthState.current.last_ok_at.utc.iso8601 %>
-          <% end %>
-          <% if AuthState.current.last_error %>
-            <br><span class="opacity-70">Last error:</span> <code class="text-error"><%= AuthState.current.last_error %></code>
-          <% end %>
+<section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+  <div class="metric rise rise-delay-1">
+    <div class="metric__trail">Bridge thread</div>
+    <div class="flex items-center gap-3">
+      <span class="status-pill status-pill--<%= status[:tone] %>">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <%= status[:label] %>
+      </span>
+    </div>
+    <div class="mt-6">
+      <p class="metric__label">Last /sync batch</p>
+      <p class="mt-2 font-mono text-lg text-[color:var(--color-bone)]">
+        <% if checkpoint.last_batch_at %>
+          <%= time_ago(checkpoint.last_batch_at) %>
+        <% else %>
+          —
+        <% end %>
+      </p>
+      <% if checkpoint.last_batch_at %>
+        <p class="mt-1 font-mono text-[0.7rem] text-[color:var(--color-bone-mute)] tabular-nums">
+          <%= checkpoint.last_batch_at.utc.iso8601 %>
         </p>
-      </div>
-
-      <div class="p-4 rounded-box bg-base-200">
-        <h3 class="font-semibold mb-2">Rooms</h3>
-        <p class="text-sm">
-          <span class="opacity-70">Bridged:</span>
-          <span class="font-mono text-lg"><%= Room.count %></span>
-        </p>
-        <p class="text-sm mt-2">
-          <a href="/rooms" class="link link-primary">View all →</a>
-        </p>
-      </div>
+      <% end %>
     </div>
   </div>
+
+  <div class="metric rise rise-delay-2">
+    <div class="metric__trail">Matrix auth</div>
+    <div class="flex items-center gap-3">
+      <% if AuthState.paused? %>
+        <span class="status-pill status-pill--danger"><span class="pulse-dot"></span> Paused</span>
+      <% elsif AuthState.access_token %>
+        <span class="status-pill status-pill--healthy"><span class="pulse-dot"></span> Authed</span>
+      <% else %>
+        <span class="status-pill status-pill--idle">No token</span>
+      <% end %>
+    </div>
+    <div class="mt-6 space-y-2">
+      <% if AuthState.user_id %>
+        <div>
+          <p class="metric__label">User</p>
+          <p class="mt-1 font-mono text-sm break-all"><%= AuthState.user_id %></p>
+        </div>
+      <% end %>
+      <% if auth.last_ok_at %>
+        <div>
+          <p class="metric__label">Last OK</p>
+          <p class="mt-1 font-mono text-sm"><%= time_ago(auth.last_ok_at) %></p>
+        </div>
+      <% end %>
+      <% if auth.last_error %>
+        <div>
+          <p class="metric__label" style="color: var(--color-rust)">Last error</p>
+          <p class="mt-1 font-mono text-xs text-[color:oklch(82%_0.1_25)] break-words"><%= auth.last_error %></p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="metric rise rise-delay-3">
+    <div class="metric__trail">Bridged</div>
+    <p class="metric__label">Rooms</p>
+    <p class="metric__value mt-2"><%= Room.count %></p>
+    <div class="mt-6 space-y-3">
+      <div class="flex items-center justify-between text-sm">
+        <span class="metric__label">With channels</span>
+        <span class="font-mono tabular-nums"><%= Room.where.not(discord_channel_id: nil).count %></span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="metric__label">Events posted</span>
+        <span class="font-mono tabular-nums"><%= PostedEvent.count %></span>
+      </div>
+      <a href="/rooms" class="inline-flex items-center gap-1 mt-3 text-sm text-[color:var(--color-ember)] hover:underline">
+        View rooms
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 rise rise-delay-4">
+  <% [
+    ["Auth", "Rotate cookies / paste a fresh token.", "/auth"],
+    ["Actions", "Resync, reconcile channels, full reset.", "/actions"],
+    ["Settings", "Discord IDs and Matrix homeserver.", "/settings"],
+    ["Rooms", "Per-room refresh and backfill.", "/rooms"],
+  ].each do |(label, hint, href)| %>
+    <a href="<%= href %>"
+       class="console-card block p-5 transition hover:border-[color:var(--color-ember)]/70 group">
+      <div class="flex items-center justify-between">
+        <p class="kicker kicker-ember">→ Go to</p>
+        <span class="font-mono text-xs text-[color:var(--color-bone-mute)] group-hover:text-[color:var(--color-ember)]"><%= href %></span>
+      </div>
+      <h3 class="section-title mt-2"><%= label %></h3>
+      <p class="mt-1 text-sm text-[color:var(--color-bone-dim)]"><%= hint %></p>
+    </a>
+  <% end %>
 </section>

@@ -2,6 +2,12 @@
 /vendor/bundle/
 /app/assets/built/
 /log/*.log
+
+# Local Tailwind/DaisyUI CLI install (the Dockerfile installs fresh in its
+# assets stage; nothing to check in).
+/node_modules/
+/package.json
+/package-lock.json
 *.sqlite3
 *.sqlite3-journal
 .env

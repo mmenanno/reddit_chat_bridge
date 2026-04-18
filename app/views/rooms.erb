@@ -1,58 +1,102 @@
-<section class="card bg-base-100 shadow-xl border border-base-300">
-  <div class="card-body">
-    <h2 class="card-title">Bridged rooms</h2>
-    <p class="opacity-80">One row per Reddit chat the bridge has seen. Channels are auto-created on first message.</p>
-
-    <% if @notice %><div role="status" data-auto-dismiss class="alert alert-success"><%= @notice %></div><% end %>
-    <% if @error %><div role="alert" class="alert alert-error"><%= @error %></div><% end %>
-
-    <% if @rooms.empty? %>
-      <p class="opacity-60 italic mt-4">No rooms yet. The first Matrix <code>/sync</code> will populate this list.</p>
-    <% else %>
-      <div class="overflow-x-auto mt-4">
-        <table class="table table-sm">
-          <thead>
-            <tr>
-              <th>Counterparty</th>
-              <th>Matrix room</th>
-              <th>Discord channel</th>
-              <th>Last event</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @rooms.each do |room| %>
-              <tr>
-                <td class="font-medium">
-                  <%= room.counterparty_username || room.counterparty_matrix_id || "unresolved" %>
-                </td>
-                <td><code class="text-xs"><%= room.matrix_room_id %></code></td>
-                <td>
-                  <% if room.discord_channel_id %>
-                    <code class="text-xs"><%= room.discord_channel_id %></code>
-                  <% else %>
-                    <span class="opacity-60 italic">not created yet</span>
-                  <% end %>
-                </td>
-                <td>
-                  <% if room.last_event_id %>
-                    <code class="text-xs"><%= room.last_event_id %></code>
-                  <% else %>
-                    <span class="opacity-60">—</span>
-                  <% end %>
-                </td>
-                <td>
-                  <form method="post" action="/rooms/<%= room.id %>/refresh">
-                    <button type="submit" class="btn btn-xs btn-outline" title="Re-fetch profile, rename channel if needed, and re-examine recent history">
-                      Refresh
-                    </button>
-                  </form>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-    <% end %>
-  </div>
+<section class="rise">
+  <p class="kicker">§02 / Rooms</p>
+  <h1 class="page-title mt-3">Bridged conversations</h1>
+  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    One card per Reddit chat the bridge has seen. Discord channels are auto-created on the
+    first message and self-heal when the counterparty's Reddit username resolves.
+  </p>
 </section>
+
+<% if @notice %>
+  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
+    <span class="banner__icon">OK</span>
+    <span><%= @notice %></span>
+  </div>
+<% end %>
+<% if @error %>
+  <div role="alert" class="banner banner--error rise rise-delay-1">
+    <span class="banner__icon">ERR</span>
+    <span><%= @error %></span>
+  </div>
+<% end %>
+
+<% if @rooms.empty? %>
+  <section class="console-card rise rise-delay-2 p-10 text-center">
+    <p class="kicker">Nothing bridged yet</p>
+    <h2 class="section-title mt-3">Waiting for the first /sync batch</h2>
+    <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-md mx-auto">
+      Rooms populate the moment Reddit Matrix ships an event. If this persists, check the
+      <a href="/auth" class="text-[color:var(--color-ember)] hover:underline">auth</a> page
+      and make sure the sync thread is running on
+      <a href="/actions" class="text-[color:var(--color-ember)] hover:underline">actions</a>.
+    </p>
+  </section>
+<% else %>
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 rise rise-delay-2">
+    <% @rooms.each_with_index do |room, idx| %>
+      <article class="room-card">
+        <header class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="room-card__label">Counterparty</p>
+            <% if room.counterparty_username %>
+              <h2 class="room-card__name mt-1"><%= room.counterparty_username %></h2>
+            <% elsif room.counterparty_matrix_id %>
+              <h2 class="room-card__name room-card__name--placeholder mt-1">unresolved</h2>
+            <% else %>
+              <h2 class="room-card__name room-card__name--placeholder mt-1">unknown</h2>
+            <% end %>
+          </div>
+          <% if room.discord_channel_id %>
+            <span class="status-pill status-pill--healthy text-[0.65rem] px-2 py-1">linked</span>
+          <% else %>
+            <span class="status-pill status-pill--idle text-[0.65rem] px-2 py-1">pending</span>
+          <% end %>
+        </header>
+
+        <div class="grid gap-3">
+          <div class="room-card__meta">
+            <span class="room-card__label">Matrix room</span>
+            <code class="room-card__mono"><%= room.matrix_room_id %></code>
+          </div>
+
+          <% if room.counterparty_matrix_id %>
+            <div class="room-card__meta">
+              <span class="room-card__label">Counterparty ID</span>
+              <code class="room-card__mono"><%= room.counterparty_matrix_id %></code>
+            </div>
+          <% end %>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="room-card__meta">
+              <span class="room-card__label">Discord channel</span>
+              <% if room.discord_channel_id %>
+                <code class="room-card__mono"><%= room.discord_channel_id %></code>
+              <% else %>
+                <span class="text-xs italic text-[color:var(--color-bone-mute)]">not created</span>
+              <% end %>
+            </div>
+            <div class="room-card__meta">
+              <span class="room-card__label">Last event</span>
+              <% if room.last_event_id %>
+                <code class="room-card__mono"><%= room.last_event_id.to_s[0, 24] %>…</code>
+              <% else %>
+                <span class="text-xs italic text-[color:var(--color-bone-mute)]">—</span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <footer class="room-card__footer">
+          <span class="kicker">room #<%= room.id %></span>
+          <form method="post" action="/rooms/<%= room.id %>/refresh">
+            <button type="submit"
+                    class="btn btn-outline btn-xs"
+                    title="Re-fetch profile, rename if needed, re-examine recent history">
+              ↻ Refresh
+            </button>
+          </form>
+        </footer>
+      </article>
+    <% end %>
+  </section>
+<% end %>

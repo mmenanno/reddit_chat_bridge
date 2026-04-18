@@ -25,7 +25,7 @@ module Bridge
         get "/rooms"
 
         assert_equal(200, last_response.status)
-        assert_match(/No rooms yet/, last_response.body)
+        assert_match(/Nothing bridged yet/, last_response.body)
       end
 
       test "GET /rooms renders a row for each known room" do
@@ -46,7 +46,7 @@ module Bridge
         assert_match(/!one:reddit\.com/, last_response.body)
       end
 
-      test "GET /rooms marks rooms without a discord channel as 'not created yet'" do
+      test "GET /rooms marks rooms without a discord channel as 'not created'" do
         Room.create!(
           matrix_room_id: "!one:reddit.com",
           counterparty_username: "nothnnn",
@@ -54,7 +54,7 @@ module Bridge
 
         get "/rooms"
 
-        assert_match(/not created yet/, last_response.body)
+        assert_match(/not created/, last_response.body)
       end
 
       test "GET /rooms redirects unauthenticated users to /login" do

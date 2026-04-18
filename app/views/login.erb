@@ -1,21 +1,55 @@
-<section class="card bg-base-100 shadow-xl border border-base-300 max-w-md mx-auto">
-  <div class="card-body">
-    <h2 class="card-title">Log in</h2>
+<section class="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center min-h-[70vh] rise">
+  <div>
+    <p class="kicker">Operator's console</p>
+    <h1 class="page-title mt-4">
+      A quiet <em>bridge</em> between
+      Reddit chat and your Discord server.
+    </h1>
+    <p class="mt-6 max-w-md text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+      Sign in to monitor the sync thread, rotate tokens, and reconcile bridged rooms.
+      Tailscale handles the network edge; this login is defense in depth.
+    </p>
+
+    <dl class="mt-10 grid grid-cols-3 gap-4 max-w-md">
+      <div>
+        <dt class="metric__label">Protocol</dt>
+        <dd class="mt-1 font-mono text-sm">Matrix</dd>
+      </div>
+      <div>
+        <dt class="metric__label">Destination</dt>
+        <dd class="mt-1 font-mono text-sm">Discord</dd>
+      </div>
+      <div>
+        <dt class="metric__label">Mode</dt>
+        <dd class="mt-1 font-mono text-sm flex items-center gap-2">
+          <span class="pulse-dot text-[color:var(--color-moss)]"></span>
+          Live
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="console-card p-8 rise rise-delay-2">
+    <p class="kicker">Log in</p>
+    <h2 class="section-title mt-2">Welcome back</h2>
 
     <% if @error %>
-      <div role="alert" class="alert alert-error text-sm"><%= @error %></div>
+      <div role="alert" class="banner banner--error mt-5">
+        <span class="banner__icon">ERR</span>
+        <span><%= @error %></span>
+      </div>
     <% end %>
 
-    <form method="post" action="/login" class="space-y-4 mt-4">
-      <div class="form-control">
-        <label class="label"><span class="label-text">Username</span></label>
-        <input type="text" name="username" required autocomplete="username" class="input input-bordered w-full">
+    <form method="post" action="/login" class="mt-6 space-y-4">
+      <div class="field">
+        <label for="username" class="field-label">Username</label>
+        <input id="username" type="text" name="username" required autocomplete="username" class="field-input">
       </div>
-      <div class="form-control">
-        <label class="label"><span class="label-text">Password</span></label>
-        <input type="password" name="password" required autocomplete="current-password" class="input input-bordered w-full">
+      <div class="field">
+        <label for="password" class="field-label">Password</label>
+        <input id="password" type="password" name="password" required autocomplete="current-password" class="field-input">
       </div>
-      <button type="submit" class="btn btn-primary w-full">Log in</button>
+      <button type="submit" class="btn btn-primary w-full mt-2">Log in</button>
     </form>
   </div>
 </section>

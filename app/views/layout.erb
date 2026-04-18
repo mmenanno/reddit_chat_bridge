@@ -1,42 +1,72 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dim">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reddit Chat Bridge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="/application.css">
   </head>
-  <body class="min-h-screen bg-base-300 text-base-content">
-    <header class="navbar bg-base-100 border-b border-base-300 px-6 h-16">
-      <div class="flex-1">
-        <a href="/" class="text-xl font-semibold">Reddit Chat Bridge</a>
-      </div>
-      <% if logged_in? %>
-        <nav class="flex-none flex items-center gap-1 mr-4 text-base">
-          <a href="/" class="btn btn-ghost">Dashboard</a>
-          <a href="/rooms" class="btn btn-ghost">Rooms</a>
-          <a href="/settings" class="btn btn-ghost">Settings</a>
-          <a href="/auth" class="btn btn-ghost">Auth</a>
-          <a href="/actions" class="btn btn-ghost">Actions</a>
-        </nav>
-        <form method="post" action="/logout" class="flex-none">
-          <button type="submit" class="btn btn-outline">
-            Log out <%= current_user.username %>
-          </button>
-        </form>
-      <% end %>
-    </header>
-    <main class="max-w-5xl mx-auto p-6 space-y-6">
-      <%= yield %>
-    </main>
+  <body>
+    <div class="page-shell flex flex-col min-h-[100dvh]">
+      <header class="px-6 lg:px-10 py-5">
+        <div class="max-w-6xl mx-auto flex items-center gap-6 flex-wrap">
+          <a href="/" class="logomark no-underline">
+            <span class="logomark__dot" aria-hidden="true"></span>
+            <span class="flex flex-col leading-tight">
+              <span class="logomark__mark">Reddit Chat Bridge</span>
+              <span class="logomark__meta">console · v1</span>
+            </span>
+          </a>
+
+          <% if logged_in? %>
+            <nav class="flex items-center gap-1 grow justify-center flex-wrap" aria-label="Primary">
+              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label| %>
+                <a href="<%= href %>" class="nav-link"<%= ' aria-current="page"' if current_nav?(href) %>><%= label %></a>
+              <% end %>
+            </nav>
+
+            <div class="flex items-center gap-3 ml-auto">
+              <% sync_status = dashboard_sync_status %>
+              <span class="status-pill status-pill--<%= sync_status[:tone] %>">
+                <span class="pulse-dot" aria-hidden="true"></span>
+                <%= sync_status[:label] %>
+              </span>
+              <form method="post" action="/logout">
+                <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
+                  Log out
+                </button>
+              </form>
+            </div>
+          <% end %>
+        </div>
+      </header>
+
+      <main class="px-6 lg:px-10 pb-16 w-full">
+        <div class="max-w-6xl mx-auto space-y-8">
+          <%= yield %>
+        </div>
+      </main>
+
+      <footer class="px-6 lg:px-10 py-8 mt-auto border-t border-[color:var(--color-line)]/60">
+        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-[color:var(--color-bone-mute)]">
+          <span>reddit_chat_bridge · bridging matrix.redditspace.com → discord</span>
+          <span>ts · <%= Time.now.utc.strftime("%Y-%m-%dT%H:%MZ") %></span>
+        </div>
+      </footer>
+    </div>
+
     <script>
-      // Success / status banners auto-dismiss after a few seconds so the page
-      // isn't cluttered by stale "saved" confirmations on subsequent visits.
-      // Error banners stick around so the admin actually reads them.
+      // Success banners auto-dismiss so stale confirmations don't linger on
+      // subsequent visits. Errors stick so the admin actually reads them.
       for (const banner of document.querySelectorAll("[data-auto-dismiss]")) {
         setTimeout(() => {
-          banner.style.transition = "opacity 400ms";
+          banner.style.transition = "opacity 400ms ease, transform 400ms ease";
           banner.style.opacity = "0";
+          banner.style.transform = "translateY(-4px)";
           setTimeout(() => banner.remove(), 400);
         }, 4000);
       }
