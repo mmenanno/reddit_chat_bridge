@@ -56,7 +56,8 @@ RUN npm init -y >/dev/null && \
       -o app/assets/built/application.css \
       --minify && \
     cp app/assets/icons/*.png app/assets/built/icons/ && \
-    cp app/assets/icon.svg app/assets/built/icon.svg
+    cp app/assets/icon.svg app/assets/built/icon.svg && \
+    cp app/assets/grain.png app/assets/built/grain.png
 
 # ---- final runtime ----
 FROM base

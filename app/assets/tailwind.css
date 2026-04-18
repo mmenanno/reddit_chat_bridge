@@ -111,15 +111,21 @@
     z-index: 0;
   }
 
-  /* Film grain — light enough to read as texture, not noise */
+  /* Film grain — a pre-rasterized 160x160 tile (/grain.png) served from
+   * the built assets folder. Earlier version used an inline SVG with
+   * feTurbulence + mix-blend-mode: overlay, which Safari caches as
+   * multiple composite layer buffers for long-lived pages and blows
+   * past the ~1.5 GB eviction threshold. A static PNG tile with a
+   * plain transparency is orders of magnitude cheaper to keep in
+   * memory and reads the same at this scale. */
   body::after {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.92' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    opacity: 0.6;
-    mix-blend-mode: overlay;
+    background-image: url("/grain.png");
+    background-repeat: repeat;
+    opacity: 0.55;
     z-index: 0;
   }
 
