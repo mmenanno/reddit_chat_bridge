@@ -118,7 +118,11 @@
               <% if room.discord_channel_id %>
                 <form method="post"
                       action="/rooms/<%= room.id %>/archive"
-                      onsubmit="return confirm('Delete the Discord channel and archive this room? A new channel is recreated when the next message arrives.');">
+                      data-confirm="Deletes the Discord channel for this room. The Matrix side stays linked, so a new channel is auto-recreated the moment the next message arrives. You can also Restore history later to backfill."
+                      data-confirm-title="Archive <%= room.counterparty_username || "this room" %>?"
+                      data-confirm-kicker="Archive · room #<%= room.id %>"
+                      data-confirm-label="⌫ Archive room"
+                      data-confirm-icon="reversible">
                   <button type="submit"
                           class="btn btn-outline btn-xs"
                           title="Delete the Discord channel; keeps the Matrix room linked">

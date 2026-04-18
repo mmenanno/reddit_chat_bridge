@@ -144,6 +144,20 @@
       <div class="shortcut-toast" data-shortcut-toast>g · waiting</div>
     <% end %>
 
+    <!-- Confirm dialog — replaces window.confirm() for forms with [data-confirm]. -->
+    <div class="confirm-overlay" data-confirm-overlay>
+      <div class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title" data-confirm-panel>
+        <span class="confirm-panel__icon" data-confirm-icon>confirm</span>
+        <p class="confirm-panel__kicker" data-confirm-kicker>Confirm action</p>
+        <h2 id="confirm-title" class="confirm-panel__title" data-confirm-title>Are you sure?</h2>
+        <p class="confirm-panel__body" data-confirm-message></p>
+        <div class="confirm-panel__actions">
+          <button type="button" class="btn btn-outline btn-sm" data-confirm-cancel>Cancel</button>
+          <button type="button" class="btn btn-error btn-sm" data-confirm-accept>Confirm</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       // Success banners fade after a few seconds; errors stick so the admin
       // actually reads them.
@@ -270,6 +284,108 @@
           if (key === "g") {
             e.preventDefault();
             armG();
+          }
+        });
+      })();
+
+      // Styled confirm dialog. Any <form> (or button) with a data-confirm
+      // attribute intercepts the submit and routes through this modal
+      // instead of the native window.confirm(). Attributes:
+      //   data-confirm        — body copy (required)
+      //   data-confirm-title  — heading (default "Are you sure?")
+      //   data-confirm-kicker — eyebrow label (default "Confirm action")
+      //   data-confirm-label  — accept-button text (default "Confirm")
+      //   data-confirm-tone   — "danger" (default) | "neutral"
+      (function () {
+        const overlay    = document.querySelector("[data-confirm-overlay]");
+        if (!overlay) return;
+        const panel      = overlay.querySelector("[data-confirm-panel]");
+        const titleEl    = overlay.querySelector("[data-confirm-title]");
+        const kickerEl   = overlay.querySelector("[data-confirm-kicker]");
+        const messageEl  = overlay.querySelector("[data-confirm-message]");
+        const acceptBtn  = overlay.querySelector("[data-confirm-accept]");
+        const cancelBtn  = overlay.querySelector("[data-confirm-cancel]");
+        const iconEl     = overlay.querySelector("[data-confirm-icon]");
+
+        let pendingForm = null;
+        let lastFocus = null;
+
+        const close = () => {
+          overlay.removeAttribute("data-open");
+          pendingForm = null;
+          if (lastFocus && typeof lastFocus.focus === "function") {
+            setTimeout(() => lastFocus.focus(), 50);
+          }
+        };
+
+        const accept = () => {
+          if (!pendingForm) return close();
+          // Short-circuit on the next submit so the listener doesn't re-open.
+          pendingForm.dataset.confirmed = "true";
+          const form = pendingForm;
+          close();
+          form.submit();
+        };
+
+        const open = (form) => {
+          pendingForm = form;
+          lastFocus   = document.activeElement;
+          const tone       = form.dataset.confirmTone || "danger";
+          const title      = form.dataset.confirmTitle || "Are you sure?";
+          const kicker     = form.dataset.confirmKicker || "Confirm action";
+          const message    = form.dataset.confirm || "";
+          const acceptLbl  = form.dataset.confirmLabel || "Confirm";
+          const iconLbl    = form.dataset.confirmIcon || (tone === "danger" ? "destructive" : "confirm");
+
+          titleEl.textContent  = title;
+          kickerEl.textContent = kicker;
+          messageEl.textContent = message;
+          acceptBtn.textContent = acceptLbl;
+          iconEl.textContent = iconLbl;
+
+          panel.classList.toggle("confirm-panel--danger", tone === "danger");
+          acceptBtn.classList.toggle("btn-error", tone === "danger");
+          acceptBtn.classList.toggle("btn-primary", tone !== "danger");
+
+          overlay.setAttribute("data-open", "true");
+          // Default focus on Cancel — safer default for destructive actions.
+          setTimeout(() => cancelBtn.focus(), 20);
+        };
+
+        document.addEventListener("submit", (e) => {
+          const form = e.target;
+          if (!form.hasAttribute || !form.hasAttribute("data-confirm")) return;
+          if (form.dataset.confirmed === "true") {
+            // Reset so a subsequent un-confirmed navigation re-prompts.
+            delete form.dataset.confirmed;
+            return;
+          }
+          e.preventDefault();
+          open(form);
+        }, true);
+
+        acceptBtn.addEventListener("click", accept);
+        cancelBtn.addEventListener("click", close);
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) close();
+        });
+
+        document.addEventListener("keydown", (e) => {
+          if (!overlay.hasAttribute("data-open")) return;
+          if (e.key === "Escape") {
+            e.preventDefault();
+            close();
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            accept();
+            return;
+          }
+          if (e.key === "Tab") {
+            // Two-element focus trap: toggle between cancel + accept.
+            e.preventDefault();
+            (document.activeElement === cancelBtn ? acceptBtn : cancelBtn).focus();
           }
         });
       })();

@@ -765,6 +765,118 @@
     from { opacity: 0; transform: translate(-50%, 0.5rem); }
     to   { opacity: 1; transform: translate(-50%, 0); }
   }
+
+  /* Custom confirm dialog — replaces window.confirm() for destructive actions */
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: color-mix(in oklab, oklch(5% 0.005 55) 82%, transparent);
+    backdrop-filter: blur(14px);
+    animation: rcb-overlay-fade 180ms ease-out;
+  }
+
+  .confirm-overlay[data-open="true"] { display: flex; }
+
+  .confirm-panel {
+    position: relative;
+    width: 100%;
+    max-width: 32rem;
+    background: linear-gradient(180deg, oklch(18% 0.014 55), oklch(13% 0.011 55));
+    border: 1px solid oklch(32% 0.018 55);
+    border-radius: 1.125rem;
+    padding: 2rem 2.25rem 1.75rem;
+    box-shadow:
+      0 40px 100px -24px oklch(0% 0 0 / 0.75),
+      0 0 0 1px oklch(22% 0.018 55) inset;
+    animation: rcb-panel-rise 240ms cubic-bezier(0.2, 0.65, 0.2, 1);
+    overflow: hidden;
+  }
+
+  /* Ember accent line at the top edge; re-toned per variant below. */
+  .confirm-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+      transparent,
+      color-mix(in oklab, var(--color-ember) 85%, transparent) 20%,
+      color-mix(in oklab, var(--color-ember-bright, var(--color-ember)) 100%, transparent) 50%,
+      color-mix(in oklab, var(--color-ember) 85%, transparent) 80%,
+      transparent);
+    opacity: 0.85;
+  }
+
+  .confirm-panel--danger::before {
+    background: linear-gradient(90deg,
+      transparent,
+      color-mix(in oklab, var(--color-rust, #b8452a) 85%, transparent) 20%,
+      var(--color-rust, #d85a2e) 50%,
+      color-mix(in oklab, var(--color-rust, #b8452a) 85%, transparent) 80%,
+      transparent);
+  }
+
+  .confirm-panel__kicker {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-ember);
+  }
+
+  .confirm-panel--danger .confirm-panel__kicker {
+    color: var(--color-rust, #d85a2e);
+  }
+
+  .confirm-panel__title {
+    font-family: var(--font-display, var(--font-display-sans));
+    font-size: 1.5rem;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    color: var(--color-bone);
+    margin-top: 0.55rem;
+  }
+
+  .confirm-panel__body {
+    margin-top: 0.9rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--color-bone-dim);
+  }
+
+  .confirm-panel__body strong {
+    color: var(--color-bone);
+    font-weight: 600;
+  }
+
+  .confirm-panel__actions {
+    margin-top: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .confirm-panel__icon {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--color-bone-mute);
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+  }
 }
 
 /* --------------------------------------------------------------------------

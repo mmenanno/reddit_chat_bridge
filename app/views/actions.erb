@@ -146,7 +146,11 @@
     Runs inline and can take a minute or two on a busy account.
   </p>
   <form method="post" action="/actions/full_resync" class="mt-5"
-        onsubmit="return confirm('Nuke all channel refs, dedup cache, and sync checkpoint? This is irreversible.');">
+        data-confirm="Deletes every Discord channel the bridge is tracking, wipes the dedup cache, resets the sync checkpoint, and rebuilds every room from scratch. Counterparty names are preserved so channels come back with the right slugs, but any manual edits to channel settings are lost."
+        data-confirm-title="Nuke and rebuild all channels?"
+        data-confirm-kicker="Full resync · destructive"
+        data-confirm-label="↯ Nuke and rebuild"
+        data-confirm-icon="irreversible">
     <button type="submit" class="btn btn-error">↯ Full resync now</button>
   </form>
 </section>

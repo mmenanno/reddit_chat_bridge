@@ -10,7 +10,11 @@
   <% if EventLogEntry.any? %>
     <form method="post"
           action="/events/clear"
-          onsubmit="return confirm('Delete every event-log entry? Old alerts are lost. Future events still log normally.');"
+          data-confirm="Deletes every row from the event log. Past warnings and errors won't be recoverable, but the journal will keep writing new entries as soon as the supervisor ticks."
+          data-confirm-title="Clear the event log?"
+          data-confirm-kicker="Event log · destructive"
+          data-confirm-label="⌫ Clear log"
+          data-confirm-icon="irreversible"
           class="mt-2">
       <button type="submit" class="btn btn-outline btn-sm" title="Delete every event-log row">
         ⌫ Clear log
