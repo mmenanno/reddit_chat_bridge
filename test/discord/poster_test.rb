@@ -47,7 +47,7 @@ module Discord
 
     test "creates a Room row for a previously unseen matrix_room_id" do
       assert_equal(0, Room.count)
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(body: "first-sighting")])
 
@@ -56,7 +56,7 @@ module Discord
     end
 
     test "records the counterparty username the first time we see it" do
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(body: "hello", sender_username: "nothnnn")])
 
@@ -70,7 +70,7 @@ module Discord
         counterparty_matrix_id: PEER,
         counterparty_username: "oldname",
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(body: "hi", sender_username: "newname")])
 
@@ -78,7 +78,7 @@ module Discord
     end
 
     test "does not record counterparty info from our own messages" do
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(sender: OWN, body: "self", sender_username: "RonanWolfe")])
 
@@ -86,7 +86,7 @@ module Discord
     end
 
     test "does not record counterparty info from the Reddit system account" do
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(sender: SYSTEM, body: "moderation", sender_username: "RedditSystem")])
 
@@ -172,7 +172,7 @@ module Discord
         reddit_profile_client: profile,
         sleeper: ->(_) {},
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       poster.call([event(event_id: "$1", sender_avatar_url: nil), event(event_id: "$2", sender_avatar_url: nil)])
     end
@@ -186,7 +186,7 @@ module Discord
         reddit_profile_client: profile,
         sleeper: ->(_) {},
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       poster.call([
         event(event_id: "$own", sender: OWN, body: "me"),
@@ -209,7 +209,7 @@ module Discord
         reddit_profile_client: profile,
         sleeper: ->(_) {},
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       poster.call([event(sender_avatar_url: nil)])
     end
@@ -229,7 +229,7 @@ module Discord
         reddit_profile_client: profile,
         sleeper: ->(_) {},
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       poster.call([event(sender_avatar_url: nil)])
     end
@@ -266,7 +266,7 @@ module Discord
     # ---- bookkeeping ----
 
     test "advances last_event_id after a successful post" do
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(event_id: "$evt_last")])
 
@@ -275,7 +275,7 @@ module Discord
 
     test "re-raises when the client fails and leaves last_event_id unchanged" do
       room = Room.create!(matrix_room_id: ROOM_ID, last_event_id: "$prev")
-      @client.stubs(:execute_webhook).raises(Discord::ServerError, "503")
+      @client.expects(:execute_webhook).raises(Discord::ServerError, "503")
 
       assert_raises(Discord::ServerError) { @poster.call([event(event_id: "$new")]) }
       assert_equal("$prev", room.reload.last_event_id)
@@ -285,7 +285,7 @@ module Discord
 
     test "skips own events whose event_id is in the sent registry (Discord-originated echo)" do
       registry = mock("Registry")
-      registry.stubs(:sent_by_us?).with("$echo").returns(true)
+      registry.expects(:sent_by_us?).with("$echo").returns(true)
       poster = Poster.new(client: @client, channel_index: @index, sent_registry: registry, sleeper: ->(s) {})
       @client.expects(:execute_webhook).never
 
@@ -302,7 +302,7 @@ module Discord
     end
 
     test "records posted event_id so checkpoint rewinds don't cause duplicates" do
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(event_id: "$once")])
       # Simulate a checkpoint rewind: same batch comes back on next iteration.
@@ -314,15 +314,10 @@ module Discord
     # ---- rate limit retry ----
 
     test "retries on RateLimited and sleeps for retry_after_ms" do
-      raise_once = false
-      @client.stubs(:execute_webhook).with do |*_|
-        if raise_once
-          true # succeed the second time
-        else
-          raise_once = true
-          raise(Discord::RateLimited.new("slow down", retry_after_ms: 2500))
-        end
-      end.returns("m")
+      @client.expects(:execute_webhook).twice
+        .raises(Discord::RateLimited.new("slow down", retry_after_ms: 2500))
+        .then
+        .returns("m")
 
       @poster.call([event])
 
@@ -330,7 +325,9 @@ module Discord
     end
 
     test "gives up on persistent RateLimited after the attempt cap" do
-      @client.stubs(:execute_webhook).raises(Discord::RateLimited.new("still", retry_after_ms: 100))
+      @client.expects(:execute_webhook)
+        .at_least(Discord::Poster::RATE_LIMIT_MAX_ATTEMPTS)
+        .raises(Discord::RateLimited.new("still", retry_after_ms: 100))
 
       assert_raises(Discord::RateLimited) { @poster.call([event]) }
     end
@@ -345,7 +342,7 @@ module Discord
         discord_webhook_token: WEBHOOK_TOKEN,
         counterparty_username: "peer",
       )
-      @client.stubs(:execute_webhook)
+      @client.expects(:execute_webhook).twice
         .raises(Discord::NotFound, "Unknown Webhook")
         .then
         .returns("msg-id")
@@ -385,7 +382,7 @@ module Discord
     end
 
     test "records PostedEvent and skips forward on Discord::BadRequest instead of looping" do
-      @client.stubs(:execute_webhook).raises(Discord::BadRequest, "Invalid Form Body")
+      @client.expects(:execute_webhook).raises(Discord::BadRequest, "Invalid Form Body")
 
       @poster.call([event(event_id: "$bad")])
 
@@ -402,7 +399,7 @@ module Discord
         counterparty_username: "testuser",
         archived_at: 1.day.ago,
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(body: "ping")])
 
@@ -412,14 +409,14 @@ module Discord
     # ---- permissions (Manage Webhooks missing on bot role) ----
 
     test "does not re-raise AuthError — swallows so the sync loop keeps advancing" do
-      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+      @index.expects(:ensure_webhook).at_least_once.raises(Discord::AuthError, "Missing Permissions")
 
       # No exception should bubble up.
       assert_nothing_raised { @poster.call([event(event_id: "$p1"), event(event_id: "$p2")]) }
     end
 
     test "records AuthError-blocked events as posted so they don't replay every tick" do
-      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+      @index.expects(:ensure_webhook).at_least_once.raises(Discord::AuthError, "Missing Permissions")
 
       @poster.call([event(event_id: "$p1")])
 
@@ -428,7 +425,7 @@ module Discord
 
     test "sets the global permissions-blocked flag when AuthError hits" do
       AppConfig.set("discord_permissions_blocked_at", "")
-      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+      @index.expects(:ensure_webhook).at_least_once.raises(Discord::AuthError, "Missing Permissions")
 
       @poster.call([event])
 
@@ -437,7 +434,7 @@ module Discord
 
     test "clears the permissions-blocked flag after a successful post" do
       AppConfig.set("discord_permissions_blocked_at", "2026-04-17T12:00:00Z")
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event])
 
@@ -453,7 +450,7 @@ module Discord
         logger: logger,
         sleeper: ->(_) {},
       )
-      @index.stubs(:ensure_webhook).raises(Discord::AuthError, "Missing Permissions")
+      @index.expects(:ensure_webhook).at_least_once.raises(Discord::AuthError, "Missing Permissions")
 
       poster.call([event(event_id: "$a"), event(event_id: "$b"), event(event_id: "$c")])
     end
@@ -461,7 +458,7 @@ module Discord
     # ---- matrix_id fallback when username can't be resolved ----
 
     test "records counterparty_matrix_id even when sender_username is nil" do
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event(body: "hi", sender_username: nil)])
 
@@ -480,7 +477,7 @@ module Discord
         matrix_client: matrix_client,
         sleeper: ->(_) {},
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       poster.call([event(body: "hi", sender_username: nil)])
 
@@ -495,7 +492,7 @@ module Discord
         counterparty_matrix_id: PEER,
         discord_channel_id: "chan_123",
       )
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
       @client.expects(:rename_channel).with(channel_id: "chan_123", name: "dm-nothnnn").returns(:ok)
 
       @poster.call([event(body: "hi", sender_username: "nothnnn")])
@@ -506,7 +503,7 @@ module Discord
     test "resolves the webhook via the channel index for each event" do
       @index.unstub(:ensure_webhook)
       @index.expects(:ensure_webhook).with(has_entry(:room, instance_of(Room))).returns([WEBHOOK_ID, WEBHOOK_TOKEN])
-      @client.stubs(:execute_webhook).returns("m")
+      @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event])
     end

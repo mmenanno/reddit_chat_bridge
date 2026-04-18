@@ -42,7 +42,7 @@ module Discord
     end
 
     test "swallows client errors so a broken log channel never takes the bridge down" do
-      @client.stubs(:send_message).raises(Discord::ServerError, "503")
+      @client.expects(:send_message).raises(Discord::ServerError, "503")
 
       assert_nothing_raised { @logger.info("anything") }
     end

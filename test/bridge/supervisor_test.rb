@@ -111,7 +111,7 @@ module Bridge
       AppConfig.set("session_secret", "t" * 64)
       AuthState.current.update_columns(reddit_session_expires_at: 30.days.from_now)
       notifier = mock("notifier")
-      notifier.stubs(:warn).never
+      notifier.expects(:warn).never
       supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, admin_notifier: notifier)
 
       supervisor.one_tick
@@ -130,7 +130,7 @@ module Bridge
     test "swallows prune failures and reports via admin_notifier" do
       notifier = mock("notifier")
       notifier.expects(:warn).with(regexp_matches(/prune/i))
-      PostedEvent.stubs(:prune!).raises(StandardError, "db gone")
+      PostedEvent.expects(:prune!).raises(StandardError, "db gone")
       supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, admin_notifier: notifier)
 
       assert_nothing_raised { supervisor.one_tick }

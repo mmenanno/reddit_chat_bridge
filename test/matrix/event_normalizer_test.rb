@@ -184,7 +184,7 @@ module Matrix
 
     test "marks media events with kind=:media and media? predicate" do
       resolver = mock("Resolver")
-      resolver.stubs(:resolve).returns("https://cdn/x.jpg")
+      resolver.expects(:resolve).returns("https://cdn/x.jpg")
       normalizer = EventNormalizer.new(own_user_id: OWN, media_resolver: resolver)
       body = sync(join: {
         "!r:reddit.com" => room(timeline: [image_message("photo.jpg", "mxc://server/id")]),

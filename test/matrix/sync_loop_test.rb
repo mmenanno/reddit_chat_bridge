@@ -67,7 +67,7 @@ module Matrix
 
     test "iterate dispatches the normalized events" do
       body = body_with_message(next_batch: "n1", room_id: "!r:reddit.com", body_text: "hi")
-      @client.stubs(:sync).returns(body)
+      @client.expects(:sync).returns(body)
 
       @loop.iterate
 
@@ -78,7 +78,7 @@ module Matrix
     end
 
     test "iterate advances the checkpoint on success" do
-      @client.stubs(:sync).returns(empty_body("n_advance"))
+      @client.expects(:sync).returns(empty_body("n_advance"))
 
       @loop.iterate
 
@@ -87,7 +87,7 @@ module Matrix
 
     test "iterate marks auth state healthy on success" do
       AuthState.mark_failure!("previous failure")
-      @client.stubs(:sync).returns(empty_body("n1"))
+      @client.expects(:sync).returns(empty_body("n1"))
 
       @loop.iterate
 
@@ -95,19 +95,19 @@ module Matrix
     end
 
     test "iterate returns :ok on success" do
-      @client.stubs(:sync).returns(empty_body("n1"))
+      @client.expects(:sync).returns(empty_body("n1"))
 
       assert_equal(:ok, @loop.iterate)
     end
 
     test "iterate returns :paused when the client raises TokenError" do
-      @client.stubs(:sync).raises(Matrix::TokenError, "M_UNKNOWN_TOKEN: bad")
+      @client.expects(:sync).raises(Matrix::TokenError, "M_UNKNOWN_TOKEN: bad")
 
       assert_equal(:paused, @loop.iterate)
     end
 
     test "iterate records the failure reason on TokenError" do
-      @client.stubs(:sync).raises(Matrix::TokenError, "M_UNKNOWN_TOKEN: bad")
+      @client.expects(:sync).raises(Matrix::TokenError, "M_UNKNOWN_TOKEN: bad")
 
       @loop.iterate
 
@@ -117,7 +117,7 @@ module Matrix
 
     test "iterate does not advance the checkpoint on TokenError" do
       SyncCheckpoint.advance!("safe_point")
-      @client.stubs(:sync).raises(Matrix::TokenError, "bad")
+      @client.expects(:sync).raises(Matrix::TokenError, "bad")
 
       @loop.iterate
 
@@ -125,14 +125,14 @@ module Matrix
     end
 
     test "iterate re-raises ServerError so the supervisor can back off" do
-      @client.stubs(:sync).raises(Matrix::ServerError, "503")
+      @client.expects(:sync).raises(Matrix::ServerError, "503")
 
       assert_raises(Matrix::ServerError) { @loop.iterate }
     end
 
     test "iterate does not advance the checkpoint when ServerError bubbles up" do
       SyncCheckpoint.advance!("safe_point")
-      @client.stubs(:sync).raises(Matrix::ServerError, "503")
+      @client.expects(:sync).raises(Matrix::ServerError, "503")
 
       assert_raises(Matrix::ServerError) { @loop.iterate }
 
@@ -141,7 +141,7 @@ module Matrix
 
     test "iterate does not advance the checkpoint when the dispatcher raises" do
       SyncCheckpoint.advance!("safe_point")
-      @client.stubs(:sync).returns(empty_body("new_token"))
+      @client.expects(:sync).returns(empty_body("new_token"))
       @dispatcher.raise!(RuntimeError, "dispatcher boom")
 
       assert_raises(RuntimeError) { @loop.iterate }
@@ -154,7 +154,7 @@ module Matrix
     test "iterate hands invites to the invite_handler before dispatching" do
       body = empty_body("n1")
       body["rooms"]["invite"] = { "!invite_a:reddit.com" => { "invite_state" => { "events" => [] } } }
-      @client.stubs(:sync).returns(body)
+      @client.expects(:sync).returns(body)
       handler = mock("InviteHandler")
       handler.expects(:call).with(body).once
       loop_with_handler = Matrix::SyncLoop.new(
@@ -170,7 +170,7 @@ module Matrix
     test "iterate with no invite_handler does not auto-join or crash" do
       body = empty_body("n1")
       body["rooms"]["invite"] = { "!invite_a:reddit.com" => { "invite_state" => { "events" => [] } } }
-      @client.stubs(:sync).returns(body)
+      @client.expects(:sync).returns(body)
       @client.expects(:join_room).never
 
       @loop.iterate

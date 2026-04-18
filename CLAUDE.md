@@ -45,6 +45,15 @@ The `.env` file is gitignored and holds real secrets. `.env.example` documents t
 - **TDD.** Write the failing test before the implementation. Always.
 - `ActiveSupport::TestCase` with `test "name" do … end` blocks.
 - `mocha` for stubbing (`stubs`, `expects`, `any_instance`).
+  - **Prefer `expects` over `stubs` inside a single test.** `stubs` permits any
+    call count (including zero), so if the code path changes and the method
+    never gets hit, the stub silently goes unused — wasted setup, and a
+    regression can hide behind it. `expects` asserts the method was actually
+    called at least once, catching that drift.
+  - `stubs` is fine in `setup` blocks and shared test helpers (`support/*.rb`,
+    private `def event(...)` factories) where the same fake is reused across
+    many tests and not every test exercises every stubbed method. Per-test
+    behavior should use `expects`.
 - `webmock` for all HTTP. No test hits the real Matrix / Discord / Reddit APIs; `WebMock.disable_net_connect!` is on in `test_helper.rb`.
 - `rack-test` for controller / integration tests.
 - Test DB is `:memory:` SQLite; each test runs inside a transaction that's rolled back at teardown, so the DB returns to its post-migration state between tests.

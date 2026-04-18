@@ -45,7 +45,7 @@ module Discord
         matrix_room_id: "!r:reddit.com",
         counterparty_username: "nothnnn",
       )
-      @client.stubs(:create_channel).returns("444")
+      @client.expects(:create_channel).returns("444")
 
       @index.ensure_channel(room: room)
 
@@ -108,7 +108,7 @@ module Discord
 
     test "propagates AuthError so the admin layer can alert" do
       room = Room.create!(matrix_room_id: "!r:reddit.com", counterparty_username: "peer")
-      @client.stubs(:create_channel).raises(Discord::AuthError, "401")
+      @client.expects(:create_channel).raises(Discord::AuthError, "401")
 
       assert_raises(Discord::AuthError) { @index.ensure_channel(room: room) }
       assert_nil(room.reload.discord_channel_id)
@@ -162,7 +162,7 @@ module Discord
         discord_channel_id: "gone",
         counterparty_username: "peer",
       )
-      @client.stubs(:create_webhook).raises(Discord::NotFound, "Unknown Channel")
+      @client.expects(:create_webhook).raises(Discord::NotFound, "Unknown Channel")
 
       assert_raises(Discord::NotFound) { @index.ensure_webhook(room: room) }
       assert_nil(room.reload.discord_channel_id)

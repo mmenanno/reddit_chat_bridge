@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "admin/reconciler"
+require "matrix/client"
 
 module Admin
   class ReconcilerTest < ActiveSupport::TestCase
@@ -66,9 +67,9 @@ module Admin
       other_peer = "@t2_other:reddit.com"
       Room.create!(matrix_room_id: other_room_id, counterparty_matrix_id: other_peer, discord_channel_id: "666")
 
-      @matrix_client.stubs(:profile).with(user_id: PEER).raises(Matrix::Error, "boom")
-      @matrix_client.stubs(:profile).with(user_id: other_peer).returns("displayname" => "good")
-      @channel_index.stubs(:channel_name_for).returns("dm-good")
+      @matrix_client.expects(:profile).with(user_id: PEER).raises(Matrix::Error, "boom")
+      @matrix_client.expects(:profile).with(user_id: other_peer).returns("displayname" => "good")
+      @channel_index.expects(:channel_name_for).at_least_once.returns("dm-good")
       @discord_client.expects(:rename_channel).with(channel_id: "666", name: "dm-good")
 
       stats = @reconciler.reconcile_all
@@ -138,8 +139,8 @@ module Admin
         counterparty_username: "nothnnn",
         discord_channel_id: CHANNEL_ID,
       )
-      @matrix_client.stubs(:profile).returns("displayname" => "nothnnn")
-      @channel_index.stubs(:channel_name_for).returns("dm-nothnnn")
+      @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
+      @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
       @discord_client.expects(:rename_channel)
         .with(channel_id: CHANNEL_ID, name: "dm-nothnnn")
         .raises(Discord::NotFound, "Unknown Channel")
@@ -158,13 +159,13 @@ module Admin
         counterparty_username: "nothnnn",
         discord_channel_id: CHANNEL_ID,
       )
-      @matrix_client.stubs(:profile).returns("displayname" => "nothnnn")
-      @channel_index.stubs(:channel_name_for).returns("dm-nothnnn")
-      @discord_client.stubs(:rename_channel).raises(Discord::NotFound, "Unknown Channel")
+      @matrix_client.expects(:profile).returns("displayname" => "nothnnn")
+      @channel_index.expects(:channel_name_for).at_least_once.returns("dm-nothnnn")
+      @discord_client.expects(:rename_channel).raises(Discord::NotFound, "Unknown Channel")
       @channel_index.expects(:ensure_channel).returns("999")
-      @matrix_client.stubs(:room_messages).returns("chunk" => [], "state" => [])
-      @normalizer.stubs(:normalize).returns([])
-      @poster.stubs(:call)
+      @matrix_client.expects(:room_messages).returns("chunk" => [], "state" => [])
+      @normalizer.expects(:normalize).returns([])
+      @poster.expects(:call)
 
       result = @reconciler.refresh_one(matrix_room_id: ROOM_ID)
 
@@ -188,7 +189,7 @@ module Admin
 
     test "delete_all_discord_channels! counts NotFound as successful deletion" do
       Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
-      @discord_client.stubs(:delete_channel).raises(Discord::NotFound, "Unknown Channel")
+      @discord_client.expects(:delete_channel).raises(Discord::NotFound, "Unknown Channel")
 
       stats = @reconciler.delete_all_discord_channels!
 
@@ -199,9 +200,9 @@ module Admin
     test "delete_all_discord_channels! counts other failures and keeps going" do
       Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
-      @discord_client.stubs(:delete_channel)
+      @discord_client.expects(:delete_channel)
         .with(channel_id: "111").raises(Discord::AuthError, "Missing Permissions")
-      @discord_client.stubs(:delete_channel)
+      @discord_client.expects(:delete_channel)
         .with(channel_id: "222").returns(:ok)
 
       stats = @reconciler.delete_all_discord_channels!
@@ -229,7 +230,7 @@ module Admin
 
     test "archive! tolerates a channel that Discord already forgot" do
       Room.create!(matrix_room_id: ROOM_ID, discord_channel_id: CHANNEL_ID)
-      @discord_client.stubs(:delete_channel).raises(Discord::NotFound, "Unknown Channel")
+      @discord_client.expects(:delete_channel).raises(Discord::NotFound, "Unknown Channel")
 
       assert_equal(:archived, @reconciler.archive!(matrix_room_id: ROOM_ID))
     end

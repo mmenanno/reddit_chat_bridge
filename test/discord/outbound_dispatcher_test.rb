@@ -68,7 +68,7 @@ module Discord
     end
 
     test "records a failure row when Matrix rejects the send" do
-      @matrix.stubs(:send_message).raises(Matrix::Error, "M_FORBIDDEN")
+      @matrix.expects(:send_message).raises(Matrix::Error, "M_FORBIDDEN")
 
       @dispatcher.dispatch(discord_message_hash("nope"))
 

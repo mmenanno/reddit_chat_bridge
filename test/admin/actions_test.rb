@@ -41,7 +41,7 @@ module Admin
     end
 
     test "reauth persists the token and user_id on probe success" do
-      @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
+      @probe_client.expects(:whoami).returns("user_id" => NEW_USER)
 
       @actions.reauth(access_token: NEW_TOKEN)
 
@@ -51,7 +51,7 @@ module Admin
 
     test "reauth marks auth state healthy on success" do
       AuthState.mark_failure!("earlier failure")
-      @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
+      @probe_client.expects(:whoami).returns("user_id" => NEW_USER)
 
       @actions.reauth(access_token: NEW_TOKEN)
 
@@ -59,13 +59,13 @@ module Admin
     end
 
     test "reauth returns :ok on success" do
-      @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
+      @probe_client.expects(:whoami).returns("user_id" => NEW_USER)
 
       assert_equal(:ok, @actions.reauth(access_token: NEW_TOKEN))
     end
 
     test "reauth propagates Matrix::TokenError without saving the bad token" do
-      @probe_client.stubs(:whoami).raises(Matrix::TokenError, "M_UNKNOWN_TOKEN")
+      @probe_client.expects(:whoami).raises(Matrix::TokenError, "M_UNKNOWN_TOKEN")
       AuthState.update_token!(access_token: "existing", user_id: "@t2_old:reddit.com")
 
       assert_raises(Matrix::TokenError) do
@@ -159,7 +159,7 @@ module Admin
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
 
       reconciler = mock("Reconciler")
-      reconciler.stubs(:delete_all_discord_channels!).returns(channels_deleted: 2, channel_delete_errors: 0)
+      reconciler.expects(:delete_all_discord_channels!).returns(channels_deleted: 2, channel_delete_errors: 0)
       reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").returns(renamed: true, posted_attempted: 3)
       reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 5)
 
@@ -180,12 +180,12 @@ module Admin
 
       call_order = []
       reconciler = mock("Reconciler")
-      reconciler.stubs(:delete_all_discord_channels!).with do
+      reconciler.expects(:delete_all_discord_channels!).with do
         call_order << :delete
         # Room still has discord_channel_id here — deletion must run before the nuke.
         Room.where.not(discord_channel_id: nil).any?
       end.returns(channels_deleted: 1, channel_delete_errors: 0)
-      reconciler.stubs(:refresh_one).with do
+      reconciler.expects(:refresh_one).with do
         call_order << :refresh
         true
       end.returns(renamed: true, posted_attempted: 0)
@@ -230,7 +230,7 @@ module Admin
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")
 
       reconciler = mock("Reconciler")
-      reconciler.stubs(:delete_all_discord_channels!).returns(channels_deleted: 2, channel_delete_errors: 0)
+      reconciler.expects(:delete_all_discord_channels!).returns(channels_deleted: 2, channel_delete_errors: 0)
       reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").raises(RuntimeError, "boom")
       reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 0)
 
@@ -251,7 +251,7 @@ module Admin
     test "set_reddit_cookies! mints a fresh token via RefreshFlow and saves everything" do
       result = Auth::RefreshFlow::Result.new(access_token: NEW_TOKEN, expires_at: Time.at(1_776_540_685).utc)
       @refresh_flow.expects(:refresh_now).with(cookie_jar: COOKIE_JAR).returns(result)
-      @probe_client.stubs(:whoami).returns("user_id" => NEW_USER)
+      @probe_client.expects(:whoami).returns("user_id" => NEW_USER)
 
       @actions.set_reddit_cookies!(COOKIE_JAR)
 
@@ -266,7 +266,7 @@ module Admin
 
     test "set_reddit_cookies! propagates RefreshError without touching AuthState" do
       AuthState.update_token!(access_token: "existing", user_id: "@t2_old:reddit.com")
-      @refresh_flow.stubs(:refresh_now).raises(Auth::RefreshFlow::RefreshError, "GET /chat/ returned 403")
+      @refresh_flow.expects(:refresh_now).raises(Auth::RefreshFlow::RefreshError, "GET /chat/ returned 403")
 
       assert_raises(Auth::RefreshFlow::RefreshError) { @actions.set_reddit_cookies!(COOKIE_JAR) }
 
