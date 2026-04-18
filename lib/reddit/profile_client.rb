@@ -12,7 +12,7 @@ module Reddit
   # instead of outright blocking.
   class ProfileClient
     BASE_URL = "https://www.reddit.com"
-    USER_AGENT = "reddit_chat_bridge/1.0 (by /u/mmenanno)"
+    USER_AGENT = "reddit_chat_bridge/1.0"
 
     def initialize(conn: nil, user_agent: USER_AGENT)
       @user_agent = user_agent
