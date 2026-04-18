@@ -48,6 +48,7 @@ GEM
       rest-client (>= 2.0.0)
     domain_name (0.6.20240107)
     drb (2.2.3)
+    ed25519 (1.4.0)
     erb (6.0.3)
     event_emitter (0.2.6)
     faraday (2.14.1)
@@ -248,6 +249,7 @@ DEPENDENCIES
   concurrent-ruby
   debug
   discordrb
+  ed25519
   faraday
   faraday-retry
   minitest (~> 5.25)
@@ -286,6 +288,7 @@ CHECKSUMS
   discordrb-webhooks (3.7.2) sha256=154d8c3a31aaeb6d580456b9624e0486c28812dcc19b51d91c43a6c5600112ea
   domain_name (0.6.20240107) sha256=5f693b2215708476517479bf2b3802e49068ad82167bcd2286f899536a17d933
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
+  ed25519 (1.4.0) sha256=16e97f5198689a154247169f3453ef4cfd3f7a47481fde0ae33206cdfdcac506
   erb (6.0.3) sha256=e43685a8a0a0ea6a924871b2162e8953ef73147ce46b75b36d1f6774fd286e91
   event_emitter (0.2.6) sha256=c72697bd5cce9d36594be1972c17f1c9a573236f44303a4d1d548080364e1391
   faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c

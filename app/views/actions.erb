@@ -87,6 +87,25 @@
   </div>
 </section>
 
+<section class="console-card p-6 rise rise-delay-3">
+  <p class="kicker">Slash commands</p>
+  <h2 class="section-title mt-1">Register commands with Discord</h2>
+  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
+    Bulk-registers <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/status</code>,
+    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/resync</code>,
+    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/reconcile</code>,
+    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/refresh_token</code>,
+    and <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/ping</code>
+    on the configured guild. Safe to re-run — Discord's bulk endpoint is idempotent.
+    Before this works, paste the app's <strong>Public Key</strong> + <strong>Application ID</strong> on <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">Settings</a>,
+    and set the Developer Portal's <em>Interactions Endpoint URL</em> to
+    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">https://reddit-chat-bridge.<your-tailnet>.ts.net/discord/interactions</code>.
+  </p>
+  <form method="post" action="/actions/register_slash_commands" class="mt-4">
+    <button type="submit" class="btn btn-outline">Register now</button>
+  </form>
+</section>
+
 <div class="rule-labeled rule-labeled--danger rise rise-delay-4">
   <span class="rule-labeled__text">⚠ Destructive zone</span>
 </div>

@@ -6,7 +6,9 @@ require "matrix/client"
 require "matrix/event_normalizer"
 require "discord/client"
 require "discord/channel_index"
+require "discord/interaction_verifier"
 require "discord/poster"
+require "discord/slash_command_router"
 require "admin/actions"
 require "admin/reconciler"
 
@@ -165,10 +167,43 @@ module Bridge
         pass if request.path_info.start_with?("/setup")
         pass if request.path_info == "/login"
         pass if request.path_info == "/logout"
+        pass if request.path_info == "/discord/interactions"
         pass if request.path_info.end_with?(".css", ".js", ".ico", ".png", ".svg")
 
         return redirect("/setup") if AdminUser.first_run?
         return redirect("/login") unless logged_in?
+      end
+
+      # Discord calls this when someone invokes a registered slash command
+      # in #commands. Must verify the Ed25519 signature on every request
+      # — Discord routinely tests an endpoint by sending invalid payloads
+      # and will deregister the URL if we ever return 2xx for a bad one.
+      post "/discord/interactions" do
+        raw = request.body.read || ""
+        request.body.rewind
+
+        verifier = Discord::InteractionVerifier.new(
+          public_key_hex: AppConfig.fetch("discord_public_key", ""),
+        )
+
+        unless verifier.valid?(
+          signature_hex: request.env["HTTP_X_SIGNATURE_ED25519"],
+          timestamp: request.env["HTTP_X_SIGNATURE_TIMESTAMP"],
+          body: raw,
+        )
+          halt 401, "invalid signature"
+        end
+
+        payload = JSON.parse(raw)
+        router = Discord::SlashCommandRouter.new(
+          admin_actions: admin_actions,
+          guild_id: AppConfig.fetch("discord_guild_id", ""),
+          commands_channel_id: AppConfig.fetch("discord_admin_commands_channel_id", ""),
+        )
+
+        response = router.dispatch(payload)
+        content_type :json
+        JSON.generate(response)
       end
 
       get "/health" do
@@ -291,6 +326,20 @@ module Bridge
           default: "",
           secret: false,
         },
+        {
+          key: "discord_application_id",
+          label: "Discord application ID",
+          hint: "Developer Portal → your app → General Information → Application ID.",
+          default: "",
+          secret: false,
+        },
+        {
+          key: "discord_public_key",
+          label: "Discord application public key",
+          hint: "Developer Portal → General Information → Public Key. Required to verify slash-command interaction signatures.",
+          default: "",
+          secret: false,
+        },
       ].freeze
 
       get "/settings" do
@@ -372,6 +421,27 @@ module Bridge
         stats = admin_actions.full_resync!
         @notice = "Full resync: cleared Discord channel refs on #{stats[:rooms_reset]} room(s), " \
                   "wiped #{stats[:events_cleared]} posted-event record(s), reset the sync checkpoint."
+        erb(:actions)
+      end
+
+      post "/actions/register_slash_commands" do
+        begin
+          app_id = AppConfig.fetch("discord_application_id", "")
+          guild_id = AppConfig.fetch("discord_guild_id", "")
+          if app_id.empty? || guild_id.empty?
+            @error = "Set discord_application_id + discord_guild_id on /settings first."
+          else
+            client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
+            client.bulk_set_guild_commands(
+              application_id: app_id,
+              guild_id: guild_id,
+              commands: Discord::SlashCommandRouter::COMMAND_DEFINITIONS,
+            )
+            @notice = "Registered #{Discord::SlashCommandRouter::COMMAND_DEFINITIONS.size} slash commands with Discord."
+          end
+        rescue Discord::Error => e
+          @error = "Discord rejected the registration: #{e.class}: #{e.message}"
+        end
         erb(:actions)
       end
 

@@ -62,6 +62,18 @@ module Discord
       :ok
     end
 
+    # Bulk-replaces the guild's registered slash commands. One POST
+    # with the full command list is the idempotent pattern Discord
+    # documents — no need to compare/ diff on our side.
+    def bulk_set_guild_commands(application_id:, guild_id:, commands:)
+      path = "applications/#{application_id}/guilds/#{guild_id}/commands"
+      response = @conn.put(path) do |req|
+        req.headers["Authorization"] = "Bot #{@bot_token}"
+        req.body = commands
+      end
+      handle(response).body
+    end
+
     private
 
     def post(path, payload:)
