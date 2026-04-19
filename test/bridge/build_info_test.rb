@@ -71,28 +71,16 @@ module Bridge
 
     # ---- label ----
 
-    test "label combines version, sha, and ref when all resolve" do
+    test "label is just the version prefixed with v — SHA/ref are redundant given the VERSION bump hook" do
       ENV["BUILD_VERSION"] = "1.2.3"
-      ENV["BUILD_SHA"] = "abcdef1234"
-      ENV["BUILD_REF"] = "main"
 
-      assert_equal("v1.2.3 · build abcdef1 (main)", BuildInfo.label)
+      assert_equal("v1.2.3", BuildInfo.label)
     end
 
-    test "label drops ref when only version + sha resolve" do
-      ENV["BUILD_VERSION"] = "1.2.3"
-      ENV["BUILD_SHA"] = "abcdef1234"
-      BuildInfo.stubs(:git_ref).returns(nil)
+    test "label falls back to UNKNOWN_VERSION when nothing resolves" do
+      BuildInfo.stubs(:version_file).returns(nil)
 
-      assert_equal("v1.2.3 · build abcdef1", BuildInfo.label)
-    end
-
-    test "label shows version + 'dev build' when nothing but version resolves" do
-      ENV["BUILD_VERSION"] = "1.2.3"
-      BuildInfo.stubs(:git_sha).returns(nil)
-      BuildInfo.stubs(:git_ref).returns(nil)
-
-      assert_equal("v1.2.3 · dev build", BuildInfo.label)
+      assert_equal("v#{BuildInfo::UNKNOWN_VERSION}", BuildInfo.label)
     end
 
     test "blank ENV values are ignored in favour of git lookups" do

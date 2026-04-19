@@ -32,18 +32,11 @@ module Bridge
     end
 
     # One-line human-readable label for logs + Discord notices.
+    # Since VERSION is bumped on every push (enforced by the pre-push
+    # hook), the version alone uniquely identifies the build — the
+    # commit SHA would be redundant noise.
     def label
-      version_str = "v#{version}"
-      sha = short_sha
-      ref_name = ref
-
-      if sha && ref_name
-        "#{version_str} · build #{sha} (#{ref_name})"
-      elsif sha
-        "#{version_str} · build #{sha}"
-      else
-        "#{version_str} · dev build"
-      end
+      "v#{version}"
     end
 
     class << self
