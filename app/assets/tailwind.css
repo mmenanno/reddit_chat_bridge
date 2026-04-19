@@ -298,7 +298,14 @@
   .status-pill--danger  { color: var(--color-rust); }
   .status-pill--idle    { color: var(--color-bone-mute); }
 
-  /* Logomark — bridge glyph + stacked wordmark */
+  /* Logomark — bridge glyph · wordmark │ console · version.
+   *
+   * Laid out on a single horizontal baseline, not stacked, so the
+   * italic Fraunces descender on "g" (which dips deep below the
+   * baseline) has no secondary line to collide with. A hairline
+   * vertical rule — echoing the line-stroke in the glyph itself —
+   * separates brand from metadata.
+   */
   .logomark {
     display: inline-flex;
     align-items: center;
@@ -331,21 +338,52 @@
   .logomark__mark {
     font-style: italic;
     font-variation-settings: "opsz" 72, "wght" 420;
-    line-height: 1.05;
+    line-height: 1;
+  }
+
+  /* Hairline divider between brand and metadata. */
+  .logomark__rule {
+    width: 1px;
+    height: 1.3rem;
+    background: var(--color-line);
+    opacity: 0.7;
+    margin: 0 0.25rem;
+    flex-shrink: 0;
   }
 
   .logomark__meta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
     font-family: var(--font-mono);
     font-size: 0.6rem;
     font-weight: 500;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-bone-mute);
     line-height: 1;
-    margin-top: 0.15rem;
+    white-space: nowrap;
+  }
+
+  /* Separator dot between the label and version — kept as a pseudo
+   * so the markup stays two-token and the dot picks up its own dimmer
+   * color. */
+  .logomark__meta-version::before {
+    content: "·";
+    margin-right: 0.45rem;
+    color: var(--color-bone-mute);
+    opacity: 0.5;
+  }
+
+  .logomark__meta-version {
+    color: var(--color-ember-soft);
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
   }
 
   @media (max-width: 540px) {
+    .logomark__rule,
     .logomark__meta { display: none; }
     .logomark__glyph { width: 1.5rem; height: 1.5rem; }
   }

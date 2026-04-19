@@ -24,9 +24,11 @@
               <circle cx="22" cy="14" r="2" fill="currentColor" opacity="0.5"/>
               <circle class="logomark__pulse" cx="14" cy="14" r="3.6"/>
             </svg>
-            <span class="flex flex-col leading-tight">
-              <span class="logomark__mark">Reddit Chat Bridge</span>
-              <span class="logomark__meta">console · v<%= Bridge::BuildInfo.version %></span>
+            <span class="logomark__mark">Reddit Chat Bridge</span>
+            <span class="logomark__rule" aria-hidden="true"></span>
+            <span class="logomark__meta">
+              <span class="logomark__meta-label">Console</span>
+              <span class="logomark__meta-version">v<%= Bridge::BuildInfo.version %></span>
             </span>
           </a>
 
