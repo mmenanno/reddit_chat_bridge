@@ -1,0 +1,12 @@
+{
+  "name": "reddit_chat_bridge",
+  "private": true,
+  "description": "Tailwind v4 + DaisyUI asset pipeline for the reddit_chat_bridge Ruby app. No JS ships at runtime; this exists solely to produce app/assets/built/application.css at Docker build time.",
+  "license": "MIT",
+  "repository": "github:mmenanno/reddit_chat_bridge",
+  "dependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "daisyui": "^5.5.19",
+    "tailwindcss": "^4.2.2"
+  }
+}

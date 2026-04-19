@@ -76,7 +76,9 @@ jobs:
             BUILD_REF=${{ github.ref_name }}
             BUILD_VERSION=${{ steps.version.outputs.value }}
           cache-from: type=gha
-          # mode=min writes only the final stage layers; mode=max writes
-          # all intermediates, which nearly doubles the post-build cache
-          # push time for marginal hit-rate gain on a 3-stage build.
-          cache-to: type=gha,mode=min
+          # mode=max caches intermediate stages too (gems + assets).
+          # Without it, bundle install + npm ci would re-run from
+          # scratch every build since the final stage only COPIEs
+          # their output. The extra cache-push cost is small vs. the
+          # 30+ seconds those stages take cold.
+          cache-to: type=gha,mode=max

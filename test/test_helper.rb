@@ -19,10 +19,31 @@ WebMock.disable_net_connect!
 Minitest::Reporters.use!(Minitest::Reporters::ProgressReporter.new)
 
 require "bridge/boot"
+# Parent-process boot — covers the serial fallback when the test count is
+# below the parallelize threshold (running a single file, for example).
 Bridge::Boot.call(database_path: ":memory:")
 
 module ActiveSupport
   class TestCase
+    # Fork-based parallelism. Each worker is its own process so the
+    # :memory: SQLite DB, Mocha mocks, WebMock state, and the
+    # Bridge::Application singleton are all naturally isolated. Threaded
+    # (`with: :threads`) would share those in one heap — none of them
+    # are thread-safe in the ways we rely on.
+    parallelize(workers: :number_of_processors, with: :processes)
+
+    # Post-fork the inherited AR connection references a :memory: DB that
+    # effectively no longer exists for the child. Drop it and re-run
+    # Bridge::Boot so each worker owns a fresh connection + schema.
+    parallelize_setup do |_worker|
+      ActiveRecord::Base.connection_handler.clear_all_connections!
+      Bridge::Boot.call(database_path: ":memory:")
+    end
+
+    parallelize_teardown do |_worker|
+      ActiveRecord::Base.connection_handler.clear_all_connections!
+    end
+
     # Rails auto-includes this; in our standalone setup it has to be
     # wired in manually. Gives every test travel_to / travel / freeze_time
     # with automatic cleanup — no Time.stubs needed.

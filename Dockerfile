@@ -47,10 +47,16 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y nodejs npm && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
+# Node deps: isolated in their own layer so it only invalidates when
+# package.json / package-lock.json change. `npm ci` is both faster and
+# deterministic vs. `npm install` (it respects the lockfile exactly
+# and skips dependency resolution against the registry).
+COPY package.json package-lock.json ./
+RUN npm ci --silent
+
+# App source + asset compile invalidates whenever app/ changes.
 COPY app ./app
-RUN npm init -y >/dev/null && \
-    npm install --silent --no-save tailwindcss@^4 @tailwindcss/cli@^4 daisyui@^5 && \
-    mkdir -p app/assets/built/icons && \
+RUN mkdir -p app/assets/built/icons && \
     npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
       -o app/assets/built/application.css \
