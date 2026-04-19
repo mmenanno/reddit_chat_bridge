@@ -285,12 +285,12 @@ module Admin
 
     # ---- end_chat! (hide locally — Reddit refuses Matrix /leave on DMs) ----
 
-    test "end_chat! marks the room terminated, deletes the Discord channel, and clears dedup state" do
+    test "end_chat! on a DM room skips Matrix /leave (Reddit always 403s), deletes the Discord channel, and clears dedup state" do
       room = Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
       PostedEvent.record!(event_id: "$past", room_id: ROOM_ID)
       PostedEvent.record!(event_id: "$keep", room_id: "!other:reddit.com")
       MessageRequest.create!(matrix_room_id: ROOM_ID, inviter_matrix_id: PEER)
-      @matrix_client.expects(:leave_room).with(room_id: ROOM_ID)
+      @matrix_client.expects(:leave_room).never
       @discord_client.expects(:delete_channel).with(channel_id: CHANNEL_ID).returns(:ok)
 
       result = @reconciler.end_chat!(matrix_room_id: ROOM_ID)
@@ -307,8 +307,13 @@ module Admin
       )
     end
 
-    test "end_chat! tolerates Matrix's M_FORBIDDEN on /leave and still terminates locally" do
-      room = Room.create!(matrix_room_id: ROOM_ID, counterparty_matrix_id: PEER, discord_channel_id: CHANNEL_ID)
+    test "end_chat! on a non-DM room still attempts Matrix /leave and tolerates M_FORBIDDEN" do
+      room = Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        discord_channel_id: CHANNEL_ID,
+        is_direct: false,
+      )
       @matrix_client.expects(:leave_room).raises(Matrix::Error, "M_FORBIDDEN: You cannot leave this room")
       @discord_client.expects(:delete_channel).with(channel_id: CHANNEL_ID).returns(:ok)
 
@@ -318,7 +323,7 @@ module Admin
 
     test "end_chat! skips Discord delete when the room never had a channel" do
       Room.create!(matrix_room_id: ROOM_ID)
-      @matrix_client.expects(:leave_room)
+      @matrix_client.expects(:leave_room).never
       @discord_client.expects(:delete_channel).never
 
       @reconciler.end_chat!(matrix_room_id: ROOM_ID)

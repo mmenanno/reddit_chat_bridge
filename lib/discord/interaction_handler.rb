@@ -98,12 +98,14 @@ module Discord
         payload: body,
       )
       @journal&.info("Interaction answered: #{label(payload)}", source: "gateway")
-    rescue Discord::NotFound => e
+    rescue Discord::NotFound
       # /endchat and /archive delete the channel the ephemeral "thinking…"
       # message lives in, so Discord 404s when we try to edit @original.
-      # The command itself succeeded — don't alert #app-status.
+      # The command itself succeeded — don't alert #app-status. Discord's
+      # raw "Unknown Message" text is omitted because it's opaque to
+      # operators and the explanation here is the real signal.
       @journal&.info(
-        "Interaction original gone (expected for self-destructive commands): #{label(payload)}: #{e.message}",
+        "Interaction follow-up skipped for #{label(payload)} (ephemeral host channel was deleted by the command).",
         source: "gateway",
       )
     rescue StandardError => e

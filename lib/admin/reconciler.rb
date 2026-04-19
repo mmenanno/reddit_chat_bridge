@@ -106,17 +106,18 @@ module Admin
 
     # Hide the chat locally. Reddit's Matrix server refuses Matrix
     # /leave on DM rooms (their own UI only offers a "Hide chat"
-    # button, no delete/leave), so we attempt the leave best-effort
-    # and always proceed with local termination: delete the Discord
-    # channel, clear dedup + message-request records, flip the Room's
-    # terminated_at flag. The Poster and InviteHandler filter events
-    # from terminated rooms so nothing gets re-bridged unless the
-    # operator explicitly restores.
+    # button, no delete/leave), so for DMs we skip the Matrix call
+    # entirely and go straight to local termination: delete the
+    # Discord channel, clear dedup + message-request records, flip
+    # the Room's terminated_at flag. The Poster and InviteHandler
+    # filter events from terminated rooms so nothing gets re-bridged
+    # unless the operator explicitly restores. Non-DM rooms (future
+    # edge cases — group chats, etc.) still attempt /leave.
     def end_chat!(matrix_room_id:)
       room = Room.find_by(matrix_room_id: matrix_room_id)
       raise(ArgumentError, "no such room: #{matrix_room_id}") unless room
 
-      try_leave_matrix!(room)
+      try_leave_matrix!(room) unless room.is_direct?
       delete_discord_channel!(room) if room.discord_channel_id
 
       ActiveRecord::Base.transaction do
@@ -198,9 +199,10 @@ module Admin
       @channel_index.ensure_channel(room: room)
     end
 
-    # Reddit's Matrix server returns M_FORBIDDEN on /leave for DM rooms
-    # — there's no Matrix-layer way out. Log it and proceed: local
-    # termination is what actually affects the bridge's behaviour.
+    # Only invoked for non-DM rooms now — end_chat! short-circuits the
+    # call for is_direct? rooms since Reddit's Matrix server always
+    # returns M_FORBIDDEN on /leave for DMs. Kept as a best-effort
+    # path for any future non-DM room type.
     def try_leave_matrix!(room)
       @matrix_client.leave_room(room_id: room.matrix_room_id)
     rescue Matrix::Error => e
