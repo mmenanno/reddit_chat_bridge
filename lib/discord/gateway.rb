@@ -22,6 +22,13 @@ module Discord
     OP_HELLO      = 10
     OP_HEARTBEAT_ACK = 11
 
+    # Close codes that are a normal part of Discord's lifecycle: 1000
+    # (normal closure) and 1001 (server going away — Discord routinely
+    # asks clients to reconnect for load-balancing). `nil` covers the
+    # network-level drop case where no close frame reached us. None of
+    # these warrant paging #app-status; the reconnect loop handles them.
+    BENIGN_CLOSE_CODES = [nil, 1000, 1001].freeze
+
     # Bitfield: GUILDS (1<<0) | GUILD_MESSAGES (1<<9) | MESSAGE_CONTENT (1<<15).
     DEFAULT_INTENTS = (1 << 0) | (1 << 9) | (1 << 15)
 
@@ -100,7 +107,12 @@ module Discord
     def log_close(msg)
       code = msg.respond_to?(:code) ? msg.code : nil
       reason = msg.data.to_s
-      journal_warn("socket close frame: code=#{code.inspect} reason=#{reason.inspect}")
+      text = "socket close frame: code=#{code.inspect} reason=#{reason.inspect}"
+      if BENIGN_CLOSE_CODES.include?(code)
+        @journal&.info(text, source: "gateway")
+      else
+        @journal&.warn(text, source: "gateway")
+      end
     end
 
     def stop_heartbeat!
