@@ -19,20 +19,20 @@ Unraid UI → **Docker** → **Add Container**.
 
 ### Top section
 
-| Field | Value |
-|---|---|
-| **Name** | `reddit_chat_bridge` |
-| **Repository** | `ghcr.io/mmenanno/reddit_chat_bridge:latest` |
-| **Registry URL** | `https://github.com/mmenanno/reddit_chat_bridge/pkgs/container/reddit_chat_bridge` |
-| **Network Type** | `Custom : proxynet` (shared with Traefik/TSDProxy like every other service) |
-| **Fixed IP address** | *(leave blank)* |
-| **Use Tailscale** | OFF (we expose via TSDProxy, not a sidecar tailscaled) |
-| **Console shell command** | `Shell` |
-| **Privileged** | OFF |
-| **Icon URL** | *(optional — e.g. the Reddit orange-R or a custom bridge icon)* |
-| **WebUI** | `http://[IP]:[PORT:4567]/` (lets Unraid's "WebUI" action open the dashboard in a browser) |
-| **Extra Parameters** | *(leave blank)* |
-| **Post Arguments** | *(leave blank)* |
+| Field                     | Value                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| **Name**                  | `reddit_chat_bridge`                                                                      |
+| **Repository**            | `ghcr.io/mmenanno/reddit_chat_bridge:latest`                                              |
+| **Registry URL**          | `https://github.com/mmenanno/reddit_chat_bridge/pkgs/container/reddit_chat_bridge`        |
+| **Network Type**          | `Custom : proxynet` (shared with Traefik/TSDProxy like every other service)               |
+| **Fixed IP address**      | *(leave blank)*                                                                           |
+| **Use Tailscale**         | OFF (we expose via TSDProxy, not a sidecar tailscaled)                                    |
+| **Console shell command** | `Shell`                                                                                   |
+| **Privileged**            | OFF                                                                                       |
+| **Icon URL**              | *(optional — e.g. the Reddit orange-R or a custom bridge icon)*                           |
+| **WebUI**                 | `http://[IP]:[PORT:4567]/` (lets Unraid's "WebUI" action open the dashboard in a browser) |
+| **Extra Parameters**      | *(leave blank)*                                                                           |
+| **Post Arguments**        | *(leave blank)*                                                                           |
 
 ### Paths (Add another Path, Port, Variable… → Path)
 
@@ -40,9 +40,9 @@ The SQLite database and any future runtime state live under `/app/state`
 inside the container. Map the Unraid appdata dir onto it so the DB
 persists across container recreations:
 
-| Name | Container Path | Host Path | Access Mode |
-|---|---|---|---|
-| `appdata` | `/app/state` | `/mnt/cache/appdata/reddit_chat_bridge` | Read/Write |
+| Name      | Container Path | Host Path                               | Access Mode |
+| --------- | -------------- | --------------------------------------- | ----------- |
+| `appdata` | `/app/state`   | `/mnt/cache/appdata/reddit_chat_bridge` | Read/Write  |
 
 The container runs as uid/gid `1000:1000` (the `app` user baked into the
 image). Before saving the template, create the appdata dir and match its
@@ -59,9 +59,9 @@ container name, so publishing the port to the Unraid host is optional
 — only add this if you want LAN access for debugging without going
 through the tailnet.
 
-| Name | Container Port | Host Port | Protocol |
-|---|---|---|---|
-| `web` *(optional)* | `4567` | `4567` | TCP |
+| Name               | Container Port | Host Port | Protocol |
+| ------------------ | -------------- | --------- | -------- |
+| `web` *(optional)* | `4567`         | `4567`    | TCP      |
 
 ### Environment variables
 
@@ -70,21 +70,21 @@ container is running — the container template itself doesn't need any
 secrets. Only override an env var here if you want to deviate from the
 defaults baked into the Dockerfile:
 
-| Name | Default | Override only if… |
-|---|---|---|
-| `PORT` | `4567` | You need a different internal port |
-| `LOG_LEVEL` | `info` | Debugging: bump to `debug` |
-| `RACK_ENV` | `production` (from Dockerfile ENV) | *(don't) — staging isn't supported* |
+| Name        | Default                            | Override only if…                   |
+| ----------- | ---------------------------------- | ----------------------------------- |
+| `PORT`      | `4567`                             | You need a different internal port  |
+| `LOG_LEVEL` | `info`                             | Debugging: bump to `debug`          |
+| `RACK_ENV`  | `production` (from Dockerfile ENV) | *(don't) — staging isn't supported* |
 
 ### Labels (TSDProxy exposure)
 
 Add one label per entry:
 
-| Name | Value |
-|---|---|
-| `tsdproxy.enable` | `true` |
-| `tsdproxy.name` | `reddit-chat-bridge` |
-| `tsdproxy.container_port` | `4567` |
+| Name                      | Value                |
+| ------------------------- | -------------------- |
+| `tsdproxy.enable`         | `true`               |
+| `tsdproxy.name`           | `reddit-chat-bridge` |
+| `tsdproxy.container_port` | `4567`               |
 
 Once the container starts, TSDProxy picks up those labels and publishes
 the web UI at `https://reddit-chat-bridge.<your-tailnet>.ts.net/`.

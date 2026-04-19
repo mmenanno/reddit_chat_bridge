@@ -30,8 +30,8 @@ procedure and paste the fresh value. The bridge probes the new token via
 ## Paste it into the bridge
 
 1. Open the bridge's web UI → **Auth** → **Replace the token**.
-2. Paste into the textarea. The `Bearer ` prefix is harmless — the bridge
-   strips it either way.
+2. Paste into the textarea. A leading `Bearer` prefix (with its trailing
+   space) is harmless — the bridge strips it either way.
 3. Click **Probe & save**. If Reddit accepts the token, the bridge calls
    `/account/whoami`, learns your canonical `@t2_…:reddit.com` user id,
    and saves both to the `auth_state` row. The sync loop resumes on its
