@@ -23,6 +23,12 @@ require "bridge/boot"
 # below the parallelize threshold (running a single file, for example).
 Bridge::Boot.call(database_path: ":memory:")
 
+# bcrypt's default cost (12 rounds) is ~250ms per hash — by far the
+# slowest single operation in the suite. Drop to MIN_COST for tests
+# so AdminUser#update_password! and friends don't dominate the profile.
+require "bcrypt"
+BCrypt::Engine.cost = BCrypt::Engine::MIN_COST
+
 module ActiveSupport
   class TestCase
     # Fork-based parallelism. Each worker is its own process so the
