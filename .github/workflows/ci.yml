@@ -23,6 +23,10 @@ jobs:
   test:
     name: minitest
     runs-on: ubuntu-latest
+    # Match the 4 vCPUs Linux runners actually have. Etc.nprocessors
+    # underreports as 2 so :number_of_processors would undershoot.
+    env:
+      MINITEST_WORKERS: 4
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1

@@ -36,7 +36,16 @@ module ActiveSupport
     # Bridge::Application singleton are all naturally isolated. Threaded
     # (`with: :threads`) would share those in one heap — none of them
     # are thread-safe in the ways we rely on.
-    parallelize(workers: :number_of_processors, with: :processes)
+    #
+    # Worker count defaults to `:number_of_processors` (what `Etc.nprocessors`
+    # reports), which is what developers want locally. GitHub Actions'
+    # standard Linux runners underreport at 2 even though they give 4 vCPUs
+    # to the job, so CI overrides with MINITEST_WORKERS=4.
+    env_workers = ENV["MINITEST_WORKERS"].to_s.strip
+    parallelize(
+      workers: env_workers.empty? ? :number_of_processors : Integer(env_workers),
+      with: :processes,
+    )
 
     # Post-fork the inherited AR connection references a :memory: DB that
     # effectively no longer exists for the child. Drop it and re-run
