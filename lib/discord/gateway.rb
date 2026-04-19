@@ -54,7 +54,6 @@ module Discord
       @last_sequence = nil
       @heartbeat = nil
       @socket = nil
-      @connected_once = false
       @reconnecting = false
     end
 
@@ -118,13 +117,17 @@ module Discord
 
     def log_close(msg)
       code = msg.respond_to?(:code) ? msg.code : nil
+      # Benign codes (1000/1001/nil) mean Discord asked us to reconnect;
+      # the reconnect loop handles that automatically and nothing about it
+      # is actionable. Only surface non-benign closes (4xxx protocol errors,
+      # auth failures, etc.) — those actually need operator attention.
+      return if BENIGN_CLOSE_CODES.include?(code)
+
       reason = msg.data.to_s
-      text = "socket close frame: code=#{code.inspect} reason=#{reason.inspect}"
-      if BENIGN_CLOSE_CODES.include?(code)
-        @journal&.info(text, source: "gateway")
-      else
-        @journal&.warn(text, source: "gateway")
-      end
+      @journal&.warn(
+        "socket close frame: code=#{code.inspect} reason=#{reason.inspect}",
+        source: "gateway",
+      )
     end
 
     def stop_heartbeat!
@@ -170,11 +173,10 @@ module Discord
         gateway.journal_warn("socket error: #{e.message}")
       end
 
-      # First connect piggybacks on Bridge::Application's "Bridge online …
-      # discord gateway up" notice — no need to double-log. Reconnects
-      # after a crash are the informative transition, so call those out.
-      @journal&.info("Discord gateway reconnected", source: "gateway") if @connected_once
-      @connected_once = true
+      # Silent on routine reconnects — successful reconnects are the
+      # expected outcome of a benign close and shouldn't page the log
+      # channel. Failures bubble out of run_once and are warned by `run`'s
+      # rescue clause, which is the signal that actually matters.
 
       # Block the caller thread until shutdown OR the socket closes (in
       # which case we fall through and `run` reconnects us).

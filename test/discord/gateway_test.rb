@@ -16,23 +16,23 @@ module Discord
       )
     end
 
-    test "normal close (1000) is journaled at info — Discord load-balancer reconnects aren't an #app-status page" do
-      @journal.expects(:info).with(regexp_matches(/code=1000/), source: "gateway")
+    test "benign close (1000 normal) is silent — routine reconnects don't need operator attention" do
+      @journal.expects(:info).never
+      @journal.expects(:warn).never
 
       @gateway.dispatch_frame(CloseMsg.new(:close, "Normal closure.", 1000))
     end
 
-    test "going-away close (1001) is journaled at info — Discord routinely asks clients to reconnect" do
-      @journal.expects(:info).with(
-        regexp_matches(/code=1001.*Discord WebSocket requesting client reconnect/),
-        source: "gateway",
-      )
+    test "benign close (1001 going away) is silent — Discord load-balancer routinely asks clients to reconnect" do
+      @journal.expects(:info).never
+      @journal.expects(:warn).never
 
       @gateway.dispatch_frame(CloseMsg.new(:close, "Discord WebSocket requesting client reconnect.", 1001))
     end
 
-    test "missing close code is treated as benign (network-level drop — server never sent a code)" do
-      @journal.expects(:info).with(regexp_matches(/code=nil/), source: "gateway")
+    test "missing close code is treated as benign — network-level drop with no server-sent code" do
+      @journal.expects(:info).never
+      @journal.expects(:warn).never
 
       @gateway.dispatch_frame(CloseMsg.new(:close, "", nil))
     end
