@@ -2,20 +2,20 @@
 
 Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process hosted on Unraid (Unraid). Built slice-by-slice via TDD.
 
-## Current state (April 2026)
+## Current state
 
-**Phase 0 — spike:** ✅ complete. Proved Ruby 4.0.2 gem compatibility, Matrix `/sync` + `PUT /rooms/.../send` both work with a bearer JWT, and (in a later spike) that Reddit re-mints JWTs on demand when you GET `/chat/` without the `token_v2` cookie. See `docs/phase-0-spike.md` and `docs/token-refresh-spike.md`.
+1.0 is shipped and running on Unraid. The bridge is bidirectional, the chat lifecycle works end-to-end, and there is no active roadmap — future work is reactive (bug fixes, adjustments for upstream API drift, occasional UX polish).
 
-**Phase 1 — outbound (Reddit → Discord):** ✅ built and in production. Receives Reddit chat events, posts to per-conversation Discord channels via channel-owned webhooks (so each bubble looks like it came from the real Reddit user), refreshes the Matrix token automatically from stored Reddit session cookies, falls back to Reddit's public `/about.json` snoovatar when chat state has no avatar.
+**Reddit → Discord:** Reddit chat events land in per-conversation `#dm-*` channels under the "Reddit DMs" category. Each bubble posts through a channel-owned webhook so it shows the real Reddit user's display name + snoovatar instead of the bot. Matrix access token is auto-refreshed from stored Reddit session cookies; `/user/<name>/about.json` is the snoovatar fallback when Matrix state has no avatar. Images auto-embed (mxc → https); voice/video and E2E encryption are out of scope forever.
 
-**Phase 2 — inbound (Discord → Reddit):** ✅ built. `OutboundDispatcher` relays operator messages from `#dm-*` channels to Reddit via `PUT /rooms/.../send`, registers the event id in `SentRegistry` so `/sync` echoes don't double-post, and replaces the original Discord-typed bubble with a webhook repost under the operator's Reddit identity so the channel reads uniformly.
+**Discord → Reddit:** `OutboundDispatcher` relays operator-typed messages from `#dm-*` channels to Reddit via `PUT /rooms/.../send`, records the event id in `SentRegistry` so `/sync` echoes don't double-post, and rewrites the operator's original Discord bubble into a webhook repost under the operator's Reddit identity so the channel reads uniformly.
 
-**Phase 2.5 — chat lifecycle:** ✅ built.
-- **Message requests:** strangers land in a pending `MessageRequest`; `#message-requests` channel surfaces each with Approve/Decline buttons. Approve joins the Matrix room; Decline leaves it (this works for invite-state rooms) and future DMs from the same user land as a fresh request.
+**Chat lifecycle:**
+- **Message requests:** strangers land in a pending `MessageRequest`; `#message-requests` channel surfaces each with Approve/Decline buttons. Approve joins the Matrix room; Decline leaves it (this works on invite-state rooms). Future DMs from the same user land as a fresh request.
 - **Archive:** delete the Discord channel, keep the Matrix link, auto-unarchive on next message.
-- **End chat (hide):** delete the channel, mark Room terminated, filter every future event for that matrix_room_id. Reddit's Matrix server refuses `/leave` on DM rooms (same limit their own "Hide chat" button has to live with), so this is a local-hide semantic with a Restore counterpart.
+- **End chat (hide):** delete the channel, mark `Room` terminated, filter every future event for that `matrix_room_id`. Reddit's Matrix server refuses `/leave` on DM rooms — same limit their own "Hide chat" button has to live with — so `end_chat!` skips the call for `is_direct?` rooms entirely; the local-hide + Restore pair is the semantic.
 
-**Phase 3 — polish:** partial. Media URLs resolve (images auto-embed). Edit/redaction sync, voice, E2E encryption — still out of scope forever.
+**Intentionally not shipping:** Reddit → Discord edit / redaction sync, voice/video, E2E encryption. Reddit cookie auto-rotation is unsolved (supervisor warns at T-7 days; operator pastes a fresh jar manually) and stays that way until Reddit exposes a long-lived refresh path.
 
 ## Non-negotiable decisions
 
@@ -236,18 +236,7 @@ lib/
 
 ## Pointers
 
-- `docs/plan.md` — the full approved plan (gitignored; never out of date because nobody's overwriting it).
-- `docs/phase-0-spike.md` — the original feasibility spike notes.
-- `docs/token-refresh-spike.md` — the auto-refresh discovery work.
 - `guides/bot_setup.md` — Discord app + server + roles + intents.
 - `guides/extracting_matrix_token.md` — manual token fallback path.
 - `guides/unraid_deployment.md` — Unraid template walkthrough.
 - `guides/runbook.md` — operating the bridge when it misbehaves.
-
-## What's next (open items)
-
-Most of the original plan's open items are done. Remaining:
-
-- **Phase 3 polish** — Reddit → Discord edit / redaction sync (if an operator edits or deletes on Reddit, we don't propagate).
-- **Reddit cookie auto-rotation** — supervisor warns at T-7 days before `reddit_session` JWT expires, but the operator still has to paste a fresh cookie jar manually. An automated refresh path from a long-lived credential (if Reddit exposes one) would close this loop.
-- **4-step setup wizard** — the plan originally spec'd a 4-step wizard (admin → Discord → Matrix → confirmation). We shipped step 1 + send the operator to `/settings` and `/auth`. Works; not a true wizard.
