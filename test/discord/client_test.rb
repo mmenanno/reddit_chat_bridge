@@ -248,5 +248,33 @@ module Discord
 
       assert_equal(250, error.retry_after_ms)
     end
+
+    test "edit_original_interaction_response PATCHes the @original webhook path with no bot header" do
+      stub_request(:patch, "#{BASE}/webhooks/app_1/tok_int/messages/@original")
+        .with(body: { content: "done" }.to_json)
+        .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+      assert_equal(
+        :ok,
+        @client.edit_original_interaction_response(
+          application_id: "app_1",
+          interaction_token: "tok_int",
+          payload: { content: "done" },
+        ),
+      )
+    end
+
+    test "edit_original_interaction_response raises NotFound when the 15-minute follow-up window has expired" do
+      stub_request(:patch, "#{BASE}/webhooks/app_1/tok_int/messages/@original")
+        .to_return(status: 404, body: { message: "Unknown Webhook" }.to_json)
+
+      assert_raises(Discord::NotFound) do
+        @client.edit_original_interaction_response(
+          application_id: "app_1",
+          interaction_token: "tok_int",
+          payload: { content: "x" },
+        )
+      end
+    end
   end
 end

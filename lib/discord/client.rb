@@ -164,6 +164,20 @@ module Discord
       :ok
     end
 
+    # Follow-up endpoint paired with a deferred create_interaction_response
+    # (types 5 or 6). Replaces the "thinking…" pill on a slash command, or
+    # rewrites the component-bearing message after the handler's async work
+    # finishes. Like execute_webhook, no bot-token header — the interaction
+    # token in the URL is the auth, valid for 15 minutes from dispatch.
+    def edit_original_interaction_response(application_id:, interaction_token:, payload:)
+      path = "webhooks/#{application_id}/#{interaction_token}/messages/@original"
+      response = @conn.patch(path) do |req|
+        req.body = payload
+      end
+      handle(response)
+      :ok
+    end
+
     private
 
     def post(path, payload:)

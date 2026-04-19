@@ -102,6 +102,7 @@ lib/
 │   ├── poster.rb              # Inbound dispatcher: NormalizedEvent → webhook post under Reddit identity
 │   ├── outbound_dispatcher.rb # MESSAGE_CREATE → Matrix relay → delete original → webhook persona rewrite
 │   ├── gateway.rb             # Websocket (IDENTIFY/HEARTBEAT/DISPATCH/INTERACTION_CREATE)
+│   ├── interaction_handler.rb # Deferred-ACK orchestrator: types 5/6 ACK + async work + edit @original
 │   ├── slash_command_router.rb    # /status /resync /reconcile /rebuild /refresh_token /ping /test_discord
 │   │                              #  + per-#dm-*: /refresh /archive /endchat /room
 │   ├── message_component_router.rb# button clicks (mr:approve:<id> / mr:decline:<id>)
@@ -185,6 +186,7 @@ lib/
 - `lib/discord/outbound_dispatcher.rb` — Discord → Matrix relay. Records in SentRegistry so `/sync` echoes don't double-post. Reposts under the operator's Reddit persona (Matrix /profile → AppConfig cache → Reddit snoovatar → matrix_id localpart). Deletes the operator's original Discord bubble after the webhook repost.
 - `lib/discord/channel_reorderer.rb` — sorts `#dm-*` most-recent-first via bulk reorder. Triggered from Poster (batch end) + OutboundDispatcher (per dispatch).
 - `lib/discord/slash_command_router.rb` — global + per-#dm-* slash commands. `UNRESTRICTED_CHANNEL_COMMANDS` allow-list routes `/refresh /archive /endchat /room` past the `#commands`-only gate.
+- `lib/discord/interaction_handler.rb` — sits between `Discord::Gateway` and the two routers. ACKs every interaction with a *deferred* callback (type 5 ephemeral for slash commands, type 6 for buttons) so the 3-second Discord deadline is met even when the router's work (Matrix `join_room`, reconciler operations, etc.) takes several seconds. The real response is PATCHed to `@original` via the 15-minute interaction-webhook window. Don't revert to the synchronous pattern — "This interaction failed" on Approve/Decline was caused by it.
 - `lib/auth/refresh_flow.rb` — mints a fresh JWT via `/chat/` + registers it with Matrix via `/login`. Both steps are required.
 - `app/views/layout.erb` — themed confirm dialog (all destructive forms use `data-confirm` attributes instead of `window.confirm`). Shift+R / Shift+C go through the same dialog via hidden forms.
 

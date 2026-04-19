@@ -14,6 +14,7 @@ require "discord/outbound_dispatcher"
 require "discord/poster"
 require "discord/admin_notifier"
 require "discord/logger"
+require "discord/interaction_handler"
 require "discord/message_request_notifier"
 require "discord/message_component_router"
 require "discord/slash_command_router"
@@ -213,10 +214,11 @@ module Bridge
       bot_token = AppConfig.fetch("discord_bot_token", "")
       return if bot_token.empty?
 
+      interaction_handler = build_interaction_handler
       Discord::Gateway.new(
         bot_token: bot_token,
         on_message_create: ->(msg) { @outbound_dispatcher.dispatch(msg) },
-        on_interaction_create: ->(interaction) { handle_gateway_interaction(interaction) },
+        on_interaction_create: ->(interaction) { interaction_handler.call(interaction) },
         journal: @journal,
       )
     end
@@ -224,42 +226,17 @@ module Bridge
     # Gateway-delivered interactions. When Discord's Interactions Endpoint
     # URL is blank (e.g. tailnet-only deployments), Discord ships every
     # interaction — slash commands AND button clicks — over the websocket
-    # as INTERACTION_CREATE. We branch on payload.type to pick the right
-    # router and reply via the REST callback endpoint within 3 seconds.
-    def handle_gateway_interaction(payload)
-      type = payload["type"]
-      @journal&.info("Interaction received: #{interaction_label(payload)}", source: "gateway")
-
-      response = route_interaction(payload, type)
-      return unless response
-
-      @discord_client.create_interaction_response(
-        interaction_id: payload["id"],
-        interaction_token: payload["token"],
-        payload: response,
+    # as INTERACTION_CREATE. The handler defers the ACK (types 5/6) so the
+    # 3-second callback deadline is met even when the router does blocking
+    # Matrix work, then edits @original via the interaction webhook once
+    # the real response is ready.
+    def build_interaction_handler
+      Discord::InteractionHandler.new(
+        client: @discord_client,
+        slash_command_router: slash_command_router,
+        message_component_router: message_component_router,
+        journal: @journal,
       )
-      @journal&.info("Interaction answered: #{interaction_label(payload)}", source: "gateway")
-    rescue StandardError => e
-      @journal&.warn(
-        "Gateway interaction callback failed: #{e.class}: #{e.message}",
-        source: "gateway",
-      )
-    end
-
-    def route_interaction(payload, type)
-      case type
-      when 1, 2 then slash_command_router.dispatch(payload)
-      when 3 then message_component_router.dispatch(payload)
-      end
-    end
-
-    def interaction_label(payload)
-      case payload["type"]
-      when 1 then "PING"
-      when 2 then "/#{payload.dig("data", "name")}"
-      when 3 then "button #{payload.dig("data", "custom_id")}"
-      else "(type=#{payload["type"]})"
-      end
     end
 
     def slash_command_router
