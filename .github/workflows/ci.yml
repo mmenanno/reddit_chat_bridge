@@ -45,7 +45,8 @@ jobs:
         id: version
         run: echo "value=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-qemu-action@v4
+      # No setup-qemu-action: runner is already linux/amd64 and we build
+      # amd64 only. QEMU would just add ~7s of setup+teardown for nothing.
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
@@ -75,4 +76,7 @@ jobs:
             BUILD_REF=${{ github.ref_name }}
             BUILD_VERSION=${{ steps.version.outputs.value }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # mode=min writes only the final stage layers; mode=max writes
+          # all intermediates, which nearly doubles the post-build cache
+          # push time for marginal hit-rate gain on a 3-stage build.
+          cache-to: type=gha,mode=min
