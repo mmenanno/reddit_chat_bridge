@@ -32,18 +32,30 @@ module Discord
     # Bitfield: GUILDS (1<<0) | GUILD_MESSAGES (1<<9) | MESSAGE_CONTENT (1<<15).
     DEFAULT_INTENTS = (1 << 0) | (1 << 9) | (1 << 15)
 
-    def initialize(bot_token:, on_message_create:, on_interaction_create: nil, journal: nil, intents: DEFAULT_INTENTS, url: URL)
+    DEFAULT_SOCKET_FACTORY = ->(url) { WebSocket::Client::Simple.connect(url) }
+
+    def initialize(
+      bot_token:,
+      on_message_create:,
+      on_interaction_create: nil,
+      journal: nil,
+      intents: DEFAULT_INTENTS,
+      url: URL,
+      socket_factory: DEFAULT_SOCKET_FACTORY
+    )
       @bot_token = bot_token
       @on_message_create = on_message_create
       @on_interaction_create = on_interaction_create
       @journal = journal
       @intents = intents
       @url = url
+      @socket_factory = socket_factory
       @stopped = false
       @last_sequence = nil
       @heartbeat = nil
       @socket = nil
       @connected_once = false
+      @reconnecting = false
     end
 
     def run(stop_signal: -> { false })
@@ -120,6 +132,16 @@ module Discord
       @heartbeat = nil
     end
 
+    # Called from the `:close` callback on every socket close. Flips the
+    # run_once sleep loop's exit condition so we fall through and the
+    # outer `run` loop reconnects — without this, a Discord-initiated
+    # close (code=1001 is routine) leaves the supervisor parked on a
+    # dead socket forever: no heartbeat, no reconnect, no MESSAGE_CREATE
+    # dispatch, no outbound relay. Only the supervisor's restart fixes it.
+    def note_closed!
+      @reconnecting = true
+    end
+
     def journal_warn(message)
       @journal&.warn(message, source: "gateway")
     end
@@ -128,14 +150,16 @@ module Discord
 
     def run_once(stop_signal)
       gateway = self
+      @reconnecting = false
 
-      @socket = WebSocket::Client::Simple.connect(@url)
+      @socket = @socket_factory.call(@url)
 
       @socket.on(:message) do |msg|
         gateway.dispatch_frame(msg)
       end
       @socket.on(:close) do
         gateway.stop_heartbeat!
+        gateway.note_closed!
       end
       @socket.on(:error) do |e|
         # Closing the socket from stop! races with the reader thread and
@@ -152,9 +176,11 @@ module Discord
       @journal&.info("Discord gateway reconnected", source: "gateway") if @connected_once
       @connected_once = true
 
-      # Block the caller thread until the supervisor asks us to stop.
-      sleep(0.2) until @stopped || stop_signal.call
+      # Block the caller thread until shutdown OR the socket closes (in
+      # which case we fall through and `run` reconnects us).
+      sleep(0.2) until @stopped || stop_signal.call || @reconnecting
       @socket.close
+      stop_heartbeat!
     end
 
     def on_hello(payload)
