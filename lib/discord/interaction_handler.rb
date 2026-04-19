@@ -98,6 +98,14 @@ module Discord
         payload: body,
       )
       @journal&.info("Interaction answered: #{label(payload)}", source: "gateway")
+    rescue Discord::NotFound => e
+      # /endchat and /archive delete the channel the ephemeral "thinking…"
+      # message lives in, so Discord 404s when we try to edit @original.
+      # The command itself succeeded — don't alert #app-status.
+      @journal&.info(
+        "Interaction original gone (expected for self-destructive commands): #{label(payload)}: #{e.message}",
+        source: "gateway",
+      )
     rescue StandardError => e
       @journal&.warn(
         "Gateway interaction callback failed: #{e.class}: #{e.message}",

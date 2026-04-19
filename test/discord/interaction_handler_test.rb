@@ -113,6 +113,31 @@ module Discord
       run_scheduled_work
     end
 
+    # Regression: /endchat and /archive delete the channel the ephemeral
+    # "thinking…" message lives in, so the edit_original PATCH 404s. The
+    # command succeeded, so don't alert #app-status.
+    test "a 404 on edit_original is journaled at info (not warn) — self-destructive commands kill their own response" do
+      payload = command_payload(name: "endchat")
+      journal = mock("Journal")
+      journal.stubs(:info)
+      journal.expects(:warn).never
+
+      handler = Discord::InteractionHandler.new(
+        client: @client,
+        slash_command_router: @slash,
+        message_component_router: @component,
+        journal: journal,
+        scheduler: @scheduler,
+      )
+
+      @client.stubs(:create_interaction_response).returns(:ok)
+      @slash.expects(:dispatch).with(payload).returns({ type: 4, data: { content: "ok" } })
+      @client.expects(:edit_original_interaction_response).raises(Discord::NotFound, "Unknown Message")
+
+      handler.call(payload)
+      run_scheduled_work
+    end
+
     # ---- ACK failure ----
 
     test "an ACK failure is journaled but does not raise" do
