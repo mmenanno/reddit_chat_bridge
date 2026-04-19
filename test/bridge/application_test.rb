@@ -60,6 +60,21 @@ module Bridge
       assert_equal("rotated", client.send(:current_token))
     end
 
+    # Regression: the Application-level Admin::Actions is what Discord slash
+    # commands and button components run through. Without a Reconciler, every
+    # /endchat / /archive / /refresh and every message-request button raises
+    # Admin::Actions::NotConfiguredError.
+    test "build wires a Reconciler into admin_actions so slash commands don't raise NotConfiguredError" do
+      app = Application.build
+      Room.create!(matrix_room_id: "!abc:reddit.com")
+      reconciler = app.admin_actions.instance_variable_get(:@reconciler)
+
+      assert_instance_of(Admin::Reconciler, reconciler)
+      reconciler.expects(:end_chat!).with(matrix_room_id: "!abc:reddit.com").returns(:ok)
+
+      assert_equal(:ok, app.admin_actions.end_chat!(matrix_room_id: "!abc:reddit.com"))
+    end
+
     private
 
     def populate_complete_config

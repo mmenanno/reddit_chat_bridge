@@ -20,6 +20,7 @@ require "discord/message_component_router"
 require "discord/slash_command_router"
 require "reddit/profile_client"
 require "admin/actions"
+require "admin/reconciler"
 require "auth/refresh_flow"
 require "bridge/build_info"
 require "bridge/journal"
@@ -310,7 +311,27 @@ module Bridge
     def build_admin_actions
       matrix_homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
       factory = ->(token) { Matrix::Client.new(access_token: token, homeserver: matrix_homeserver) }
-      Admin::Actions.new(matrix_client_factory: factory)
+      Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+    end
+
+    # Without this, every /endchat, /archive, /refresh, and message-request
+    # button click through the Discord gateway raises NotConfiguredError —
+    # Admin::Actions' reconciler-backed methods all go through require_reconciler!.
+    def build_reconciler
+      media_resolver = Matrix::MediaResolver.new(
+        homeserver: AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER),
+      )
+      Admin::Reconciler.new(
+        matrix_client: @matrix_client,
+        discord_client: @discord_client,
+        channel_index: build_channel_index,
+        poster: @poster,
+        normalizer: Matrix::EventNormalizer.new(
+          own_user_id: AppConfig.fetch("matrix_user_id", ""),
+          media_resolver: media_resolver,
+        ),
+        logger: @logger,
+      )
     end
 
     def build_supervisor
