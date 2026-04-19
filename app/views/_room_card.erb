@@ -53,7 +53,7 @@
         <% if room.discord_channel_id %>
           <code class="room-card__mono"><%= room.discord_channel_id %></code>
         <% else %>
-          <span class="text-xs italic text-[color:var(--color-bone-mute)]">not created</span>
+          <span class="text-xs italic text-bone-mute">not created</span>
         <% end %>
       </div>
       <div class="room-card__meta">
@@ -61,7 +61,7 @@
         <% if room.last_event_id %>
           <code class="room-card__mono"><%= room.last_event_id.to_s[0, 24] %>…</code>
         <% else %>
-          <span class="text-xs italic text-[color:var(--color-bone-mute)]">—</span>
+          <span class="text-xs italic text-bone-mute">—</span>
         <% end %>
       </div>
     </div>

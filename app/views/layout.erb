@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/application.css">
   </head>
   <body>
-    <div class="page-shell flex flex-col min-h-[100dvh]">
+    <div class="page-shell flex flex-col min-h-dvh">
       <header class="px-4 sm:px-6 lg:px-10 py-5">
         <div class="max-w-6xl mx-auto flex items-center gap-4 flex-wrap">
           <a href="/" class="logomark no-underline">
@@ -71,13 +71,13 @@
         </div>
       </main>
 
-      <footer class="px-4 sm:px-6 lg:px-10 py-8 mt-auto border-t border-[color:var(--color-line)]/60">
-        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-[color:var(--color-bone-mute)]">
+      <footer class="px-4 sm:px-6 lg:px-10 py-8 mt-auto border-t border-line/60">
+        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-bone-mute">
           <span>reddit_chat_bridge · bridging matrix.redditspace.com → discord</span>
           <span class="flex items-center gap-3">
             <span>ts · <%= Time.now.utc.strftime("%Y-%m-%dT%H:%MZ") %></span>
             <% if logged_in? %>
-              <button type="button" class="link hover:text-[color:var(--color-bone)]" data-shortcut-toggle>
+              <button type="button" class="link hover:text-bone" data-shortcut-toggle>
                 press <kbd class="key">?</kbd> for shortcuts
               </button>
             <% end %>
@@ -99,7 +99,7 @@
 
           <div class="mt-6 grid gap-6 md:grid-cols-2">
             <section>
-              <p class="kicker text-[color:var(--color-bone-mute)]">Navigate</p>
+              <p class="kicker text-bone-mute">Navigate</p>
               <div class="shortcut-group mt-3">
                 <span class="shortcut-group__label">Dashboard</span>
                 <span class="shortcut-keys"><kbd class="key">G</kbd><kbd class="key">D</kbd></span>
@@ -122,7 +122,7 @@
             </section>
 
             <section>
-              <p class="kicker text-[color:var(--color-bone-mute)]">Trigger</p>
+              <p class="kicker text-bone-mute">Trigger</p>
               <div class="shortcut-group mt-3">
                 <span class="shortcut-group__label">Resync checkpoint</span>
                 <span class="shortcut-keys"><kbd class="key">⇧</kbd><kbd class="key">R</kbd></span>
@@ -139,7 +139,7 @@
             </section>
           </div>
 
-          <p class="mt-6 text-xs text-[color:var(--color-bone-mute)] leading-relaxed">
+          <p class="mt-6 text-xs text-bone-mute leading-relaxed">
             Shortcuts are disabled while typing in a field. Trigger keys confirm before firing;
             full-resync has no shortcut on purpose.
           </p>

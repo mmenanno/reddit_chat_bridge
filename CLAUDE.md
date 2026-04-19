@@ -11,6 +11,7 @@ Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord
 **Discord → Reddit:** `OutboundDispatcher` relays operator-typed messages from `#dm-*` channels to Reddit via `PUT /rooms/.../send`, records the event id in `SentRegistry` so `/sync` echoes don't double-post, and rewrites the operator's original Discord bubble into a webhook repost under the operator's Reddit identity so the channel reads uniformly.
 
 **Chat lifecycle:**
+
 - **Message requests:** strangers land in a pending `MessageRequest`; `#message-requests` channel surfaces each with Approve/Decline buttons. Approve joins the Matrix room; Decline leaves it (this works on invite-state rooms). Future DMs from the same user land as a fresh request.
 - **Archive:** delete the Discord channel, keep the Matrix link, auto-unarchive on next message.
 - **End chat (hide):** delete the channel, mark `Room` terminated, filter every future event for that `matrix_room_id`. Reddit's Matrix server refuses `/leave` on DM rooms — same limit their own "Hide chat" button has to live with — so `end_chat!` skips the call for `is_direct?` rooms entirely; the local-hide + Restore pair is the semantic.
@@ -92,7 +93,7 @@ CI reads `VERSION` and publishes the GHCR image with three tags on every push to
 
 ## Service graph (lib/)
 
-```
+```text
 lib/
 ├── models/
 │   ├── application_record.rb
@@ -150,7 +151,7 @@ lib/
 - `app_configs` (key, value) — /settings fields + session_secret + `discord_permissions_blocked_at` + `own_display_name` + `own_avatar_url` + `reddit_session_warned_expires_at`
 - `auth_state` (singleton) — access_token, user_id, paused flag, reddit_cookie_jar (encrypted), reddit_session_expires_at
 - `sync_checkpoints` (singleton) — next_batch_token, last_batch_at
-- `rooms` — matrix_room_id (unique), discord_channel_id, discord_webhook_id + token, counterparty_matrix_id, counterparty_username, counterparty_avatar_url + _checked_at, counterparty_deleted_at, last_event_id, archived_at, terminated_at, last_activity_at, is_direct
+- `rooms` — `matrix_room_id` (unique), `discord_channel_id`, `discord_webhook_id` + token, `counterparty_matrix_id`, `counterparty_username`, `counterparty_avatar_url` + `_checked_at`, `counterparty_deleted_at`, `last_event_id`, `archived_at`, `terminated_at`, `last_activity_at`, `is_direct`
 - `admin_users` — username (unique), password_digest (bcrypt)
 - `posted_events` — event_id (unique), room_id, posted_at
 - `event_log_entries` — level, source, message, context (json), created_at (ring-buffer capped at 2000)

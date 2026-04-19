@@ -6,10 +6,10 @@
 <section class="rise">
   <p class="kicker">§05 / Settings</p>
   <h1 class="page-title mt-3">Runtime configuration</h1>
-  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+  <p class="mt-4 max-w-2xl text-bone-dim text-base leading-relaxed">
     Discord and Matrix identifiers the bridge reads from the database at runtime. The Matrix
     access token itself is managed separately on the
-    <a href="/auth" class="text-[color:var(--color-ember)] hover:underline">auth</a> page
+    <a href="/auth" class="text-ember hover:underline">auth</a> page
     because it probes Reddit before saving.
   </p>
 </section>
@@ -26,7 +26,7 @@
     <header class="mb-5">
       <p class="kicker">Matrix</p>
       <h2 class="section-title mt-1">Reddit's Matrix homeserver</h2>
-      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">Where the bridge long-polls for events.</p>
+      <p class="mt-2 text-sm text-bone-dim">Where the bridge long-polls for events.</p>
     </header>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
       <% matrix_fields.each do |field| %>
@@ -50,9 +50,9 @@
     <header class="mb-5">
       <p class="kicker">Discord · bot</p>
       <h2 class="section-title mt-1">Bot credentials and server</h2>
-      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
+      <p class="mt-2 text-sm text-bone-dim">
         From the Discord Developer Portal → your app.
-        <a href="/guides/bot_setup.md" class="text-[color:var(--color-ember)] hover:underline">Setup guide</a>
+        <a href="/guides/bot_setup.md" class="text-ember hover:underline">Setup guide</a>
         walks through invite permissions + intents.
       </p>
     </header>
@@ -78,7 +78,7 @@
     <header class="mb-5">
       <p class="kicker">Discord · channel targets</p>
       <h2 class="section-title mt-1">Where to post</h2>
-      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
+      <p class="mt-2 text-sm text-bone-dim">
         Right-click each in Discord (with Developer Mode on) → <em>Copy ID</em>.
       </p>
     </header>
@@ -104,11 +104,11 @@
     <header class="mb-5">
       <p class="kicker">Discord · slash commands &amp; outbound</p>
       <h2 class="section-title mt-1">Interactions endpoint + operator allow-list</h2>
-      <p class="mt-2 text-sm text-[color:var(--color-bone-dim)]">
-        Needed for <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/status</code>,
-        <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/resync</code>,
-        <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">/reconcile</code> in
-        <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">#commands</code>,
+      <p class="mt-2 text-sm text-bone-dim">
+        Needed for <code class="font-mono text-xs bg-base-300/60 px-1 rounded">/status</code>,
+        <code class="font-mono text-xs bg-base-300/60 px-1 rounded">/resync</code>,
+        <code class="font-mono text-xs bg-base-300/60 px-1 rounded">/reconcile</code> in
+        <code class="font-mono text-xs bg-base-300/60 px-1 rounded">#commands</code>,
         and for relaying Discord messages back to Reddit.
       </p>
     </header>
@@ -131,7 +131,7 @@
   </section>
 
   <div class="flex items-center justify-between gap-4 flex-wrap rise rise-delay-4">
-    <p class="text-sm text-[color:var(--color-bone-mute)]">
+    <p class="text-sm text-bone-mute">
       Saves are immediate. If the sync thread wasn't running and config is now complete,
       it'll auto-start.
     </p>

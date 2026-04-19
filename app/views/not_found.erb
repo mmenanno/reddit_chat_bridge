@@ -16,13 +16,13 @@
     <span>Nothing</span>
     <em>here.</em>
   </h1>
-  <p class="mt-5 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+  <p class="mt-5 max-w-2xl text-bone-dim text-base leading-relaxed">
     <%= reason %>
   </p>
-  <p class="mt-4 font-mono text-xs text-[color:var(--color-bone-mute)] break-all">
-    <span class="text-[color:var(--color-bone-dim)]">request ·</span>
+  <p class="mt-4 font-mono text-xs text-bone-mute break-all">
+    <span class="text-bone-dim">request ·</span>
     <%= request&.request_method || "GET" %>
-    <span class="text-[color:var(--color-ember)]"><%= attempted %></span>
+    <span class="text-ember"><%= attempted %></span>
   </p>
 </section>
 

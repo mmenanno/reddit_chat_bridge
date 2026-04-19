@@ -4,7 +4,7 @@
     <h1 class="page-title mt-4">
       Bring the <em>console</em> online.
     </h1>
-    <p class="mt-6 max-w-md text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+    <p class="mt-6 max-w-md text-bone-dim text-base leading-relaxed">
       Create the admin account that'll sign in here from now on. After this, you'll paste
       Discord credentials on the settings page and your Reddit session cookies on the auth
       page — and the bridge starts syncing.
@@ -13,8 +13,8 @@
     <ol class="mt-10 space-y-3 max-w-md">
       <% [["01", "Create an admin account"], ["02", "Configure Discord IDs in settings"], ["03", "Paste Reddit session cookies"], ["04", "Bridge starts syncing"]].each_with_index do |(num, step), i| %>
         <li class="flex gap-4 items-baseline">
-          <span class="font-mono text-xs text-[color:var(--color-ember)] w-6"><%= num %></span>
-          <span class="text-sm <%= i.zero? ? "text-[color:var(--color-bone)]" : "text-[color:var(--color-bone-dim)]" %>"><%= step %></span>
+          <span class="font-mono text-xs text-ember w-6"><%= num %></span>
+          <span class="text-sm <%= i.zero? ? "text-bone" : "text-bone-dim" %>"><%= step %></span>
         </li>
       <% end %>
     </ol>

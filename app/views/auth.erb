@@ -1,7 +1,7 @@
 <section class="rise">
   <p class="kicker">§04 / Auth</p>
   <h1 class="page-title mt-3">Matrix access token</h1>
-  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+  <p class="mt-4 max-w-2xl text-bone-dim text-base leading-relaxed">
     Reddit's chat JWTs live ~24 hours. Paste your long-lived Reddit session cookies once
     and the bridge re-mints tokens on its own. Manual paste is a fallback when you just need
     to get a working token in immediately.
@@ -54,7 +54,7 @@
         <div>
           <dt class="metric__label">Token expires</dt>
           <dd class="mt-1 font-mono text-sm"><%= AuthState.access_token_expires_at.utc.iso8601 %></dd>
-          <dd class="mt-0.5 font-mono text-xs text-[color:var(--color-bone-mute)]"><%= time_ago(AuthState.access_token_expires_at) %></dd>
+          <dd class="mt-0.5 font-mono text-xs text-bone-mute"><%= time_ago(AuthState.access_token_expires_at) %></dd>
         </div>
       <% end %>
       <% if AuthState.current.last_ok_at %>
@@ -66,7 +66,7 @@
       <% if AuthState.current.last_error %>
         <div>
           <dt class="metric__label" style="color: var(--color-rust)">Last error</dt>
-          <dd class="mt-1 font-mono text-xs break-words text-[color:oklch(82%_0.1_25)]"><%= AuthState.current.last_error %></dd>
+          <dd class="mt-1 font-mono text-xs wrap-break-word text-[oklch(82%_0.1_25)]"><%= AuthState.current.last_error %></dd>
         </div>
       <% end %>
     </dl>
@@ -84,20 +84,20 @@
     <% end %>
   </div>
 
-  <p class="mt-4 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
-    Paste the full <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">Cookie:</code>
-    header from a logged-in <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">www.reddit.com</code>
-    session. The bridge stores the long-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">reddit_session</code>
-    JWT (~6-month lifespan), strips the short-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">token_v2</code>,
+  <p class="mt-4 text-sm text-bone-dim max-w-3xl leading-relaxed">
+    Paste the full <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">Cookie:</code>
+    header from a logged-in <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">www.reddit.com</code>
+    session. The bridge stores the long-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">reddit_session</code>
+    JWT (~6-month lifespan), strips the short-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">token_v2</code>,
     and has Reddit re-mint Matrix tokens on demand.
   </p>
 
-  <details class="mt-4 text-sm text-[color:var(--color-bone-dim)]">
-    <summary class="cursor-pointer select-none font-medium text-[color:var(--color-bone)] hover:text-[color:var(--color-ember)]">How to grab the cookie →</summary>
+  <details class="mt-4 text-sm text-bone-dim">
+    <summary class="cursor-pointer select-none font-medium text-bone hover:text-ember">How to grab the cookie →</summary>
     <ol class="list-decimal list-inside mt-3 space-y-1.5 ml-2">
-      <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-[color:var(--color-base-300)]/60">reddit.com</code> tab.</li>
-      <li>DevTools → Network tab → right-click any <code class="font-mono text-xs px-1 rounded bg-[color:var(--color-base-300)]/60">www.reddit.com/...</code> request → Copy → Copy as cURL.</li>
-      <li>Find <code class="font-mono text-xs px-1 rounded bg-[color:var(--color-base-300)]/60">-H 'cookie: …'</code> and paste just the value below.</li>
+      <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit.com</code> tab.</li>
+      <li>DevTools → Network tab → right-click any <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com/...</code> request → Copy → Copy as cURL.</li>
+      <li>Find <code class="font-mono text-xs px-1 rounded bg-base-300/60">-H 'cookie: …'</code> and paste just the value below.</li>
     </ol>
   </details>
 
@@ -132,10 +132,10 @@
   <p class="kicker">Fallback · daily rotation</p>
   <h2 class="section-title mt-1">Manual token paste</h2>
 
-  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
-    Paste a Matrix bearer JWT from DevTools on <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">chat.reddit.com</code>.
+  <p class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed">
+    Paste a Matrix bearer JWT from DevTools on <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">chat.reddit.com</code>.
     Lasts ~24h; expect to repeat daily. The bridge probes
-    <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">/account/whoami</code>
+    <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">/account/whoami</code>
     before saving, so a bad paste never clobbers a working token.
   </p>
 

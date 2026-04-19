@@ -9,8 +9,8 @@
     The console is
     <em><%= status[:label].downcase %></em>
   </h1>
-  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
-    Matrix <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">/sync</code>
+  <p class="mt-4 max-w-2xl text-bone-dim text-base leading-relaxed">
+    Matrix <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">/sync</code>
     runs every few seconds in a supervised thread. Events are normalized, deduped,
     and delivered to Discord. Everything below is live state from the database.
   </p>
@@ -42,7 +42,7 @@
     </div>
     <div class="mt-6">
       <p class="metric__label">Last /sync batch</p>
-      <p class="mt-2 font-mono text-lg text-[color:var(--color-bone)]">
+      <p class="mt-2 font-mono text-lg text-bone">
         <% if checkpoint.last_batch_at %>
           <%= time_ago(checkpoint.last_batch_at) %>
         <% else %>
@@ -50,7 +50,7 @@
         <% end %>
       </p>
       <% if checkpoint.last_batch_at %>
-        <p class="mt-1 font-mono text-[0.7rem] text-[color:var(--color-bone-mute)] tabular-nums">
+        <p class="mt-1 font-mono text-[0.7rem] text-bone-mute tabular-nums">
           <%= checkpoint.last_batch_at.utc.iso8601 %>
         </p>
       <% end %>
@@ -84,7 +84,7 @@
       <% if auth.last_error %>
         <div>
           <p class="metric__label" style="color: var(--color-rust)">Last error</p>
-          <p class="mt-1 font-mono text-xs text-[color:oklch(82%_0.1_25)] break-words"><%= auth.last_error %></p>
+          <p class="mt-1 font-mono text-xs text-[oklch(82%_0.1_25)] wrap-break-word"><%= auth.last_error %></p>
         </div>
       <% end %>
     </div>
@@ -103,7 +103,7 @@
         <span class="metric__label">Events posted</span>
         <span class="font-mono tabular-nums"><%= PostedEvent.count %></span>
       </div>
-      <a href="/rooms" class="inline-flex items-center gap-1 mt-3 text-sm text-[color:var(--color-ember)] hover:underline">
+      <a href="/rooms" class="inline-flex items-center gap-1 mt-3 text-sm text-ember hover:underline">
         View rooms
         <span aria-hidden="true">→</span>
       </a>

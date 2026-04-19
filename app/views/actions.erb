@@ -1,9 +1,9 @@
 <section class="rise">
   <p class="kicker">§03 / Actions</p>
   <h1 class="page-title mt-3">Operator controls</h1>
-  <p class="mt-4 max-w-2xl text-[color:var(--color-bone-dim)] text-base leading-relaxed">
+  <p class="mt-4 max-w-2xl text-bone-dim text-base leading-relaxed">
     Every action below is also available as a Discord slash command in
-    <code class="font-mono text-xs px-1 py-0.5 rounded bg-[color:var(--color-base-300)]/60">#commands</code>.
+    <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">#commands</code>.
   </p>
 </section>
 
@@ -31,14 +31,14 @@
   </div>
 
   <% unless Bridge::Application.running? %>
-    <p class="mt-4 text-sm text-[color:var(--color-bone-dim)] max-w-2xl">
+    <p class="mt-4 text-sm text-bone-dim max-w-2xl">
       <% if Bridge::Application.configured? %>
         Config is complete but the supervisor thread isn't running — probably because the
         container booted before setup was finished. Kick it off here; no container restart
         required.
       <% else %>
-        Finish the <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">settings</a>
-        form and paste a Matrix token on <a href="/auth" class="text-[color:var(--color-ember)] hover:underline">auth</a>.
+        Finish the <a href="/settings" class="text-ember hover:underline">settings</a>
+        form and paste a Matrix token on <a href="/auth" class="text-ember hover:underline">auth</a>.
         Sync spins up automatically on successful save.
       <% end %>
     </p>
@@ -60,8 +60,8 @@
       <p class="kicker">Resync checkpoint</p>
       <h2 class="section-title mt-2">Re-pull recent history</h2>
     </div>
-    <p class="text-sm text-[color:var(--color-bone-dim)]">
-      Clears the Matrix <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">next_batch</code> pointer.
+    <p class="text-sm text-bone-dim">
+      Clears the Matrix <code class="font-mono text-xs bg-base-300/60 px-1 rounded">next_batch</code> pointer.
       The next /sync iteration will pull recent history from Reddit. PostedEvent dedup keeps
       this idempotent — you won't get duplicates.
     </p>
@@ -75,10 +75,10 @@
       <p class="kicker">Reconcile channels</p>
       <h2 class="section-title mt-2">Fix stale channel names</h2>
     </div>
-    <p class="text-sm text-[color:var(--color-bone-dim)]">
+    <p class="text-sm text-bone-dim">
       Sweeps every bridged room, re-fetches the counterparty's Reddit profile, and renames
       the Discord channel to match. Use after the initial sync creates channels with opaque
-      <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">dm-t2_&lt;id&gt;</code>
+      <code class="font-mono text-xs bg-base-300/60 px-1 rounded">dm-t2_&lt;id&gt;</code>
       names that didn't auto-heal.
     </p>
     <form method="post" action="/actions/reconcile" class="mt-auto">
@@ -91,10 +91,10 @@
       <p class="kicker">Test Discord</p>
       <h2 class="section-title mt-2">Probe the bot connection</h2>
     </div>
-    <p class="text-sm text-[color:var(--color-bone-dim)]">
+    <p class="text-sm text-bone-dim">
       Posts a one-line probe to
-      <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">#app-status</code>
-      using the current bot token + channel ID. Use after changing either on <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">settings</a>
+      <code class="font-mono text-xs bg-base-300/60 px-1 rounded">#app-status</code>
+      using the current bot token + channel ID. Use after changing either on <a href="/settings" class="text-ember hover:underline">settings</a>
       to verify the new config actually works without waiting for the next sync tick.
     </p>
     <form method="post" action="/actions/test_discord" class="mt-auto">
@@ -106,11 +106,11 @@
 <section class="console-card p-6 rise rise-delay-3">
   <p class="kicker">Rebuild everything</p>
   <h2 class="section-title mt-1">Refresh every room and backfill recent history</h2>
-  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
+  <p class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed">
     Runs the per-room Refresh action on every room in one pass: re-fetches each counterparty's
     Reddit profile, renames channels, pulls the last 50 events from Matrix, and replays any
     that aren't already in the dedup cache. Safe to run anytime — nothing is deleted and
-    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">PostedEvent</code>
+    <code class="font-mono text-xs bg-base-300/60 px-1 rounded">PostedEvent</code>
     keeps replays idempotent. Use this after fixing a Discord permissions issue to backfill
     messages that the bot couldn't post while blocked.
   </p>
@@ -122,14 +122,14 @@
 <section class="console-card p-6 rise rise-delay-3">
   <p class="kicker">Slash commands</p>
   <h2 class="section-title mt-1">Register commands with Discord</h2>
-  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
-    <% code = "font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded" %>
+  <p class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed">
+    <% code = "font-mono text-xs bg-base-300/60 px-1 rounded" %>
     Bulk-registers the bridge's slash commands on the configured guild —
     safe to re-run, Discord's bulk endpoint is idempotent.
   </p>
-  <ul class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed list-disc pl-5 space-y-1">
+  <ul class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed list-disc pl-5 space-y-1">
     <li>
-      <strong class="text-[color:var(--color-bone)]">Global (run in #commands):</strong>
+      <strong class="text-bone">Global (run in #commands):</strong>
       <code class="<%= code %>">/status</code>,
       <code class="<%= code %>">/resync</code>,
       <code class="<%= code %>">/reconcile</code>,
@@ -139,18 +139,18 @@
       <code class="<%= code %>">/ping</code>.
     </li>
     <li>
-      <strong class="text-[color:var(--color-bone)]">Per-room (run inside the <code class="<%= code %>">#dm-*</code> channel):</strong>
+      <strong class="text-bone">Per-room (run inside the <code class="<%= code %>">#dm-*</code> channel):</strong>
       <code class="<%= code %>">/refresh</code>,
       <code class="<%= code %>">/archive</code>,
       <code class="<%= code %>">/endchat</code>,
       <code class="<%= code %>">/room</code>.
     </li>
   </ul>
-  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl leading-relaxed">
-    Paste the app's <strong>Application ID</strong> on <a href="/settings" class="text-[color:var(--color-ember)] hover:underline">Settings</a> first.
+  <p class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed">
+    Paste the app's <strong>Application ID</strong> on <a href="/settings" class="text-ember hover:underline">Settings</a> first.
   </p>
-  <p class="mt-3 text-sm text-[color:var(--color-bone-mute)] max-w-3xl leading-relaxed">
-    <strong class="text-[color:var(--color-bone)]">Tailnet-only deployments:</strong> leave the Developer Portal's
+  <p class="mt-3 text-sm text-bone-mute max-w-3xl leading-relaxed">
+    <strong class="text-bone">Tailnet-only deployments:</strong> leave the Developer Portal's
     <em>Interactions Endpoint URL</em> blank. Commands flow in over the bot's websocket gateway (the same
     connection used for relaying Discord messages back to Reddit), so no public HTTP endpoint is required.
   </p>
@@ -169,11 +169,11 @@
     <span class="status-pill status-pill--danger text-[0.65rem]">irreversible</span>
   </div>
   <h2 class="section-title mt-2">Nuke channel refs and start fresh</h2>
-  <p class="mt-3 text-sm text-[color:var(--color-bone-dim)] max-w-3xl">
+  <p class="mt-3 text-sm text-bone-dim max-w-3xl">
     Three-stage hard reset: (1) deletes the actual Discord channels the bridge is
     tracking so nothing stale is left on the server, (2) clears every Room's cached
     channel + webhook, wipes the
-    <code class="font-mono text-xs bg-[color:var(--color-base-300)]/60 px-1 rounded">PostedEvent</code>
+    <code class="font-mono text-xs bg-base-300/60 px-1 rounded">PostedEvent</code>
     dedup cache, and resets the sync checkpoint, (3) immediately rebuilds every room with
     fresh channels + webhooks and recent history pulled from Matrix. Room metadata
     (counterparty username) is preserved so the rebuilt channels come up with the right names.
