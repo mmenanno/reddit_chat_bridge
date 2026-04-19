@@ -1,0 +1,36 @@
+#!/bin/bash
+set -euo pipefail
+
+# Blocks pushes to `main` when VERSION hasn't changed relative to the
+# remote tip. The bridge publishes GHCR images tagged with the VERSION
+# file's contents, so forgetting to bump it produces a released image
+# that overwrites the previous same-version tag — effectively making
+# `:v1.0.0` a moving target. This gate catches that before push.
+#
+# Skipped for non-main branches and for ref deletes.
+
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$remote_ref" == "refs/heads/main" ]] || continue
+  [[ "$local_sha" != "$ZERO_SHA" ]] || continue
+
+  local_version="$(git show "$local_sha:VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+
+  if [[ -z "$local_version" ]]; then
+    echo "❌ VERSION file missing at $local_sha — cannot push to main without it." >&2
+    exit 1
+  fi
+
+  if [[ "$remote_sha" != "$ZERO_SHA" ]]; then
+    remote_version="$(git show "$remote_sha:VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ "$local_version" == "$remote_version" ]]; then
+      echo "❌ VERSION not bumped (still ${local_version})." >&2
+      echo "   Edit VERSION with a semver bump before pushing to main:" >&2
+      echo "     - bug fix          → patch (1.0.0 → 1.0.1)" >&2
+      echo "     - new feature      → minor (1.0.0 → 1.1.0)" >&2
+      echo "     - breaking change  → major (1.0.0 → 2.0.0)" >&2
+      exit 1
+    fi
+  fi
+done

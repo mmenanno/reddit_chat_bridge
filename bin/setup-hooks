@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+# Activate the repo-committed hooks under .githooks/. Run once per
+# checkout; the config setting is stored in .git/config (user-local)
+# so it's safe to re-run.
+cd "$(git rev-parse --show-toplevel)"
+git config core.hooksPath .githooks
+echo "✅ core.hooksPath set to .githooks"
+echo "   Active hooks:"
+ls -1 .githooks | sed 's/^/     - /'

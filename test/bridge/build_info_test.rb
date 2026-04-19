@@ -8,14 +8,40 @@ module Bridge
     setup do
       @original_sha = ENV.fetch("BUILD_SHA", nil)
       @original_ref = ENV.fetch("BUILD_REF", nil)
+      @original_version = ENV.fetch("BUILD_VERSION", nil)
       ENV["BUILD_SHA"] = nil
       ENV["BUILD_REF"] = nil
+      ENV["BUILD_VERSION"] = nil
     end
 
     teardown do
       ENV["BUILD_SHA"] = @original_sha
       ENV["BUILD_REF"] = @original_ref
+      ENV["BUILD_VERSION"] = @original_version
     end
+
+    # ---- version ----
+
+    test "version prefers BUILD_VERSION env when set" do
+      ENV["BUILD_VERSION"] = "2.3.4"
+      BuildInfo.expects(:version_file).never
+
+      assert_equal("2.3.4", BuildInfo.version)
+    end
+
+    test "version reads the VERSION file when BUILD_VERSION is absent" do
+      BuildInfo.stubs(:version_file).returns("1.0.0")
+
+      assert_equal("1.0.0", BuildInfo.version)
+    end
+
+    test "version falls back to UNKNOWN_VERSION when neither source resolves" do
+      BuildInfo.stubs(:version_file).returns(nil)
+
+      assert_equal(BuildInfo::UNKNOWN_VERSION, BuildInfo.version)
+    end
+
+    # ---- sha / ref ----
 
     test "sha prefers BUILD_SHA when set" do
       ENV["BUILD_SHA"] = "abc1234"
@@ -43,25 +69,30 @@ module Bridge
       assert_nil(BuildInfo.short_sha)
     end
 
-    test "label combines sha and ref when both resolve" do
+    # ---- label ----
+
+    test "label combines version, sha, and ref when all resolve" do
+      ENV["BUILD_VERSION"] = "1.2.3"
       ENV["BUILD_SHA"] = "abcdef1234"
       ENV["BUILD_REF"] = "main"
 
-      assert_equal("build abcdef1 (main)", BuildInfo.label)
+      assert_equal("v1.2.3 · build abcdef1 (main)", BuildInfo.label)
     end
 
-    test "label shows sha alone when ref is missing" do
+    test "label drops ref when only version + sha resolve" do
+      ENV["BUILD_VERSION"] = "1.2.3"
       ENV["BUILD_SHA"] = "abcdef1234"
       BuildInfo.stubs(:git_ref).returns(nil)
 
-      assert_equal("build abcdef1", BuildInfo.label)
+      assert_equal("v1.2.3 · build abcdef1", BuildInfo.label)
     end
 
-    test "label falls back to 'dev build' when nothing is resolvable" do
+    test "label shows version + 'dev build' when nothing but version resolves" do
+      ENV["BUILD_VERSION"] = "1.2.3"
       BuildInfo.stubs(:git_sha).returns(nil)
       BuildInfo.stubs(:git_ref).returns(nil)
 
-      assert_equal("dev build", BuildInfo.label)
+      assert_equal("v1.2.3 · dev build", BuildInfo.label)
     end
 
     test "blank ENV values are ignored in favour of git lookups" do

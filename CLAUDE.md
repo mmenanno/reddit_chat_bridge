@@ -45,6 +45,22 @@ dotenvx run -- bundle exec bin/spike_token_refresh  # Reddit-cookie → fresh JW
 
 The `.env` file is gitignored and holds real secrets. `.env.example` documents the schema.
 
+## Versioning
+
+Semantic version lives in `VERSION` (plain text, one line). Every push to `main` must bump it — the repo-committed `.githooks/pre-push` rejects a push to `main` when `VERSION` matches the remote tip's. Activate hooks after cloning with:
+
+```bash
+bin/setup-hooks    # sets core.hooksPath to .githooks
+```
+
+Bump rules (conventional-commits aligned):
+
+- patch (`1.0.0 → 1.0.1`) — bug fixes, docs, refactors, test-only changes.
+- minor (`1.0.0 → 1.1.0`) — new features.
+- major (`1.0.0 → 2.0.0`) — breaking changes (there shouldn't be any in a single-user bridge, but the lane exists).
+
+CI reads `VERSION` and publishes the GHCR image with three tags on every push to `main`: `:latest`, `:v<version>`, and `:sha-<short>`. `Bridge::BuildInfo.version` surfaces the version in logs + the web UI's logomark (`console · v<version>`).
+
 ## Testing conventions
 
 - **TDD.** Write the failing test before the implementation. Always.

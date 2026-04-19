@@ -1,13 +1,20 @@
 # frozen_string_literal: true
 
 module Bridge
-  # Resolves the build identity (commit SHA + ref) that the running image
-  # was built from. The CI pipeline bakes these in as ENV at image build
-  # time (see .github/workflows/ci.yml + Dockerfile). Locally they're
-  # filled in by shelling to `git` inside the checkout; if neither
-  # source has anything useful the label falls back to "dev build".
+  # Resolves the build identity (semantic version + commit SHA + ref) that
+  # the running image was built from. The CI pipeline bakes these in as
+  # ENV at image build time (see .github/workflows/ci.yml + Dockerfile).
+  # Locally they're filled in by reading the VERSION file + shelling to
+  # `git` inside the checkout; if nothing resolves the label falls back
+  # to "dev build".
   module BuildInfo
     extend self
+
+    UNKNOWN_VERSION = "0.0.0"
+
+    def version
+      env_value("BUILD_VERSION") || version_file || UNKNOWN_VERSION
+    end
 
     def sha
       env_value("BUILD_SHA") || git_sha
@@ -26,15 +33,16 @@ module Bridge
 
     # One-line human-readable label for logs + Discord notices.
     def label
+      version_str = "v#{version}"
       sha = short_sha
       ref_name = ref
 
       if sha && ref_name
-        "build #{sha} (#{ref_name})"
+        "#{version_str} · build #{sha} (#{ref_name})"
       elsif sha
-        "build #{sha}"
+        "#{version_str} · build #{sha}"
       else
-        "dev build"
+        "#{version_str} · dev build"
       end
     end
 
@@ -44,6 +52,12 @@ module Bridge
       def env_value(name)
         value = ENV[name].to_s.strip
         value.empty? ? nil : value
+      end
+
+      def version_file
+        File.read(File.join(repo_root, "VERSION")).strip.presence
+      rescue Errno::ENOENT
+        nil
       end
 
       def git_sha
