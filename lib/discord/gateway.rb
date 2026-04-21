@@ -74,15 +74,11 @@ module Discord
       @socket&.close
     end
 
-    def stopping?
-      @stopped
-    end
-
     # The callback methods below (`dispatch_frame`, `handle_frame`,
-    # `stop_heartbeat!`, `journal_warn`) have to stay public:
-    # WebSocket::Client::Simple invokes its `on` blocks with an explicit
-    # receiver, and private methods in Ruby raise `NoMethodError` for
-    # explicit-receiver calls — the error would get swallowed in the
+    # `stop_heartbeat!`, `note_closed!`, `journal_warn`) have to stay
+    # public: WebSocket::Client::Simple invokes its `on` blocks with an
+    # explicit receiver, and private methods in Ruby raise NoMethodError
+    # for explicit-receiver calls — the error would get swallowed in the
     # websocket thread.
 
     # websocket-client-simple emits every decoded frame through :message —
@@ -164,13 +160,15 @@ module Discord
         gateway.stop_heartbeat!
         gateway.note_closed!
       end
-      @socket.on(:error) do |e|
-        # Closing the socket from stop! races with the reader thread and
-        # surfaces here as IOError("stream closed in another thread"). That's
-        # how shutdown is supposed to end — stay silent on the way out.
-        next if gateway.stopping?
-
-        gateway.journal_warn("socket error: #{e.message}")
+      @socket.on(:error) do |_e|
+        # Mid-session socket errors (SSL EOF, connection reset, read timeout,
+        # also the IOError("stream closed in another thread") that stop!
+        # races with) always accompany a connection drop: :close fires
+        # right after and our reconnect loop picks it up. Hard failures at
+        # connect time throw from @socket_factory.call and are caught by
+        # `run`'s rescue. Logging here was pure noise. The handler stays
+        # registered so websocket-client-simple doesn't kill its own thread
+        # looking for one.
       end
 
       # Silent on routine reconnects — successful reconnects are the
