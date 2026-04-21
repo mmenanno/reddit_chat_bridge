@@ -1,10 +1,10 @@
 # reddit_chat_bridge — Project Context for Claude Code
 
-Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process hosted on Unraid (Unraid). Built slice-by-slice via TDD.
+Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process self-hosted on an Unraid container. Built slice-by-slice via TDD.
 
 ## Current state
 
-1.0 is shipped and running on Unraid. The bridge is bidirectional, the chat lifecycle works end-to-end, and there is no active roadmap — future work is reactive (bug fixes, adjustments for upstream API drift, occasional UX polish).
+1.0 is shipped and running in production. The bridge is bidirectional, the chat lifecycle works end-to-end, and there is no active roadmap — future work is reactive (bug fixes, adjustments for upstream API drift, occasional UX polish).
 
 **Reddit → Discord:** Reddit chat events land in per-conversation `#dm-*` channels under the "Reddit DMs" category. Each bubble posts through a channel-owned webhook so it shows the real Reddit user's display name + snoovatar instead of the bot. Matrix access token is auto-refreshed from stored Reddit session cookies; `/user/<name>/about.json` is the snoovatar fallback when Matrix state has no avatar. Images auto-embed (mxc → https); voice/video and E2E encryption are out of scope forever.
 
@@ -247,7 +247,7 @@ lib/
 ## Infrastructure
 
 - **Image:** `ghcr.io/mmenanno/reddit_chat_bridge:latest` (also tagged `:<short-sha>`) — published by `.github/workflows/ci.yml` on push to main after CI green.
-- **Container:** deployed to Unraid (Unraid) via the web UI per `guides/unraid_deployment.md`. Runs as uid/gid `1000:1000`. SQLite on `/mnt/cache/appdata/reddit_chat_bridge/state.sqlite3` (mapped to `/app/state`).
+- **Container:** deployed to Unraid via the web UI per `guides/unraid_deployment.md`. Runs as uid/gid `1000:1000`. SQLite on `/mnt/cache/appdata/reddit_chat_bridge/state.sqlite3` (mapped to `/app/state`).
 - **Network:** on `proxynet`, exposed via TSDProxy labels (`tsdproxy.enable=true`, `tsdproxy.name=reddit-chat-bridge`, `tsdproxy.container_port=4567`) as `https://reddit-chat-bridge.<your-tailnet>.ts.net`.
 - **Secrets model:** operator keeps cookies/tokens in 1Password (personal backup). At runtime, the web UI's `/auth` and `/settings` pages write them to SQLite. The Unraid template has no secrets in env vars.
 

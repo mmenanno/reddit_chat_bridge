@@ -1,7 +1,7 @@
-# Deploying to Unraid (Unraid)
+# Deploying to Unraid
 
 Creating the container via the Unraid web UI — the only supported path
-(the Unraid CLAUDE.md gotcha is explicit: never `docker run` new
+(the project's CLAUDE.md gotcha is explicit: never `docker run` new
 containers, their template XML is the source of truth).
 
 ## Prerequisites
@@ -11,7 +11,7 @@ containers, their template XML is the source of truth).
 - You've completed `guides/bot_setup.md` and have the Discord IDs handy
   (they go into the web UI after the container is up, not into the
   Unraid template).
-- SSH access to Unraid: `ssh unraid`.
+- SSH access to the Unraid host: `ssh unraid`.
 
 ## 1. Add the container
 

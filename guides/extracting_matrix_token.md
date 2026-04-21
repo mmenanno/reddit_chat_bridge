@@ -52,5 +52,5 @@ procedure and paste the fresh value. The bridge probes the new token via
 
 The access token is the full key to your Reddit chat account. Treat it
 like a password. The `/auth` page runs over HTTPS via TSDProxy; the token
-is stored in the SQLite `auth_state` row on Unraid's `appdata` volume
+is stored in the SQLite `auth_state` row on the Unraid host's `appdata` volume
 (not synced to any cloud service by default).

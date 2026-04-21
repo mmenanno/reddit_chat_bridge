@@ -1,40 +1,52 @@
 # reddit_chat_bridge
 
-A self-hosted bridge between Reddit Chat and a dedicated Discord server. Every Reddit chat event — incoming messages, invites, and your own outgoing messages — surfaces in Discord. Later: replies typed in Discord flow back to Reddit.
+A self-hosted bridge between Reddit Chat and a dedicated Discord server. Every Reddit chat event — incoming messages, invites, your own outgoing messages — surfaces in Discord. Messages typed in Discord flow back to Reddit under your Reddit identity. Reddit Chat is Matrix under the hood (homeserver `matrix.redditspace.com`), so this is a specialized Matrix ↔ Discord bridge that happens to target Reddit.
 
-**Status:** Phase 0 — feasibility spike. Not yet functional.
+**Status:** 1.0 shipped. Bidirectional, production-running, no active roadmap — future work is reactive (bug fixes, API-drift adjustments, occasional UX polish).
 
-Reddit Chat is built on Matrix (homeserver `matrix.redditspace.com`), so this is really a specialized Matrix ↔ Discord bridge that happens to point at Reddit's homeserver.
+## What it does
+
+**Reddit → Discord.** Reddit chat events land in per-conversation `#dm-*` channels under a "Reddit DMs" category. Each bubble posts via a channel-owned webhook so it shows the real Reddit user's display name + snoovatar instead of the bot. Images auto-embed; voice, video, and E2E encryption are out of scope forever.
+
+**Discord → Reddit.** Messages you type in a `#dm-*` channel are relayed to Reddit; the original Discord bubble is replaced with a webhook repost under your Reddit identity so the channel reads uniformly.
+
+**Chat lifecycle.** Incoming message requests from strangers land in `#message-requests` with Approve/Decline buttons. Archive deletes the Discord channel but keeps the Matrix link (auto-unarchives on next message). End chat (hide) is a local-only terminal state since Reddit's Matrix server refuses `/leave` on DM rooms.
 
 ## Stack
 
-- Ruby 4.0.2, Sinatra + Puma
-- ActiveRecord + ActiveSupport standalone (no Rails)
-- Tailwind CSS v4 (standalone CLI) + DaisyUI v5
-- SQLite persistence
-- Matrix SDK (or Faraday fallback — TBD in spike)
-- discordrb (or websocket-client-simple fallback — TBD in spike)
-- Mocha + Webmock + ActiveSupport::TestCase for tests (TDD)
+- Ruby 4.0.2, Sinatra + Puma (no Rails)
+- Standalone ActiveRecord + ActiveSupport + SQLite
+- Tailwind CSS v4 + DaisyUI v5 (standalone CLI, built into the Docker image)
+- Faraday for Matrix + Discord REST; `websocket-client-simple` for the Discord gateway
+- Mocha + WebMock + ActiveSupport::TestCase for tests (TDD, 480+ tests, parallel)
+
+## Running locally
+
+```bash
+mise install                     # ensures Ruby 4.0.2
+bundle install
+npm ci                           # Tailwind + DaisyUI for the asset build
+bin/setup-hooks                  # activates the pre-push VERSION-bump gate
+bin/start                        # boots Puma + background supervisor if configured
+bundle exec rake test            # full suite (parallel minitest)
+bundle exec rubocop              # must be green for CI
+```
+
+First run: visit the web UI, create an admin account, fill `/settings` with Discord + Matrix config, paste a Reddit Matrix access token at `/auth`. See `guides/` for step-by-step setup.
 
 ## Guides
 
 User-facing documentation lives in [`guides/`](./guides/):
 
-- `bot_setup.md` — creating the Discord bot, configuring the server, roles, intents
-- `extracting_matrix_token.md` — pulling the Reddit Matrix access token from your browser
-- `unraid_deployment.md` — filling out the Unraid container template (paths, ports, labels, TSDProxy)
-- `runbook.md` — operating the bridge; what to do when things go wrong
-
-## Development
-
-```bash
-mise install                # ensure Ruby 4.0.2
-bundle install
-bin/start                   # boots web UI + background threads
-bundle exec rake test
-bundle exec rubocop
-```
+- `bot_setup.md` — creating the Discord bot, server layout, roles, intents
+- `extracting_matrix_token.md` — pulling the Reddit Matrix access token from DevTools
+- `unraid_deployment.md` — filling out the Unraid container template (paths, ports, TSDProxy labels)
+- `runbook.md` — operating the bridge when it misbehaves
 
 ## Deployment
 
-Builds to `ghcr.io/mmenanno/reddit_chat_bridge:latest` on merge to `main`. Runs on Unraid (Unraid) via the usual container-template flow, exposed on the tailnet through TSDProxy at `reddit-chat-bridge.<your-tailnet>.ts.net`.
+CI publishes `ghcr.io/mmenanno/reddit_chat_bridge:latest`, `:v<version>`, and `:sha-<short>` on every push to `main`. The container runs as uid/gid `1000:1000`, persists state under `/app/state` (mapped to Unraid's appdata volume), and exposes its web UI on port 4567. A TSDProxy label puts it on your tailnet at `reddit-chat-bridge.<your-tailnet>.ts.net`. See [`guides/unraid_deployment.md`](./guides/unraid_deployment.md).
+
+## License
+
+MIT — see [`LICENSE`](./LICENSE).

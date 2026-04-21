@@ -75,7 +75,7 @@ Hit **Save**.
 With config saved, the bridge should be able to post startup banners to
 `#app-status`. If you don't see `🟢 reddit_chat_bridge started`:
 
-- Check the container logs on Unraid:
+- Check the container logs on the Unraid host:
   `ssh unraid "docker logs --tail 100 reddit_chat_bridge"`.
 - Common causes: token typo, guild ID belongs to a different server, bot
   wasn't actually invited, bot lacks permission on the category.
