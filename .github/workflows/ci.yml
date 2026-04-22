@@ -86,3 +86,5 @@ jobs:
           # their output. The extra cache-push cost is small vs. the
           # 30+ seconds those stages take cold.
           cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
