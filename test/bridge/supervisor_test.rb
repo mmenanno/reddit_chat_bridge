@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "bridge/supervisor"
+require "faraday"
 require "matrix/client"
 
 module Bridge
@@ -65,6 +66,41 @@ module Bridge
       supervisor.one_tick
 
       assert_equal(3, @loop.iterations)
+    end
+
+    test "one_tick retries Faraday::ConnectionFailed via the configured backoff policy" do
+      attempts = 0
+      @loop.on_iterate do
+        attempts += 1
+        raise(Faraday::ConnectionFailed, "Network is unreachable") if attempts < 3
+
+        :ok
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.1, max_attempts: 5),
+      )
+
+      supervisor.one_tick
+
+      assert_equal(3, @loop.iterations)
+    end
+
+    test "one_tick alerts once (not per attempt) when Faraday::ConnectionFailed exhausts retries" do
+      notifier = mock("notifier")
+      notifier.expects(:critical).with(regexp_matches(/ConnectionFailed/), anything).once
+      @loop.on_iterate { raise(Faraday::ConnectionFailed, "Network is unreachable") }
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        admin_notifier: notifier,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 2),
+      )
+
+      assert_equal(:error, supervisor.one_tick)
     end
 
     test "one_tick catches unexpected exceptions, alerts, and swallows them" do

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "faraday"
 require "matrix/client"
 require "retry/backoff"
 
@@ -11,6 +12,19 @@ module Bridge
   # Designed for one `one_tick` to be testable in isolation; the production
   # entrypoint `run_forever` just loops `one_tick` until asked to stop.
   class Supervisor
+    # Errors that represent temporary upstream problems — Matrix 5xx, network
+    # unreachable, DNS glitches, TLS/TCP resets, read timeouts. The backoff
+    # wrapper rides these out in-place; without it, every transient blip
+    # escapes to `rescue StandardError` and pages #app-status on every tick,
+    # flooding the channel during any sustained outage (matrix.redditspace.com
+    # briefly unreachable → hundreds of crit alerts per minute).
+    TRANSIENT_UPSTREAM_ERRORS = [
+      Matrix::ServerError,
+      Faraday::ConnectionFailed,
+      Faraday::TimeoutError,
+      Faraday::SSLError,
+    ].freeze
+
     DEFAULT_RETRY_POLICY = Retry::Backoff::Policy.new(
       base: 2.0, factor: 2.0, max_sleep: 300.0, max_attempts: 6,
     )
@@ -32,7 +46,7 @@ module Bridge
       @journal = journal
       @sleeper = sleeper
       @backoff = Retry::Backoff.new(
-        rescue_from: [Matrix::ServerError],
+        rescue_from: TRANSIENT_UPSTREAM_ERRORS,
         policy: retry_policy,
         sleep: sleeper,
       )
@@ -50,8 +64,8 @@ module Bridge
       end
 
       @backoff.call { @sync_loop.iterate }
-    rescue Matrix::ServerError => e
-      alert_critical("Matrix server errors exhausted retries: #{e.message}")
+    rescue *TRANSIENT_UPSTREAM_ERRORS => e
+      alert_critical("Sync loop gave up after retries: #{e.class}: #{e.message}")
       :error
     rescue StandardError => e
       alert_critical("Sync loop crashed: #{e.class}: #{e.message}")
