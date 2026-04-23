@@ -388,34 +388,45 @@
     .logomark__glyph { width: 1.5rem; height: 1.5rem; }
   }
 
-  /* Nav — horizontal set of low-key links with one active. On narrow
-   * viewports the container scrolls horizontally instead of wrapping. */
+  /* Nav — a dedicated tab strip that always occupies its own row under
+   * the logomark + controls, and scrolls horizontally when the label
+   * set is wider than the viewport.
+   *
+   * Earlier iteration kept the nav inline with the logomark on wide
+   * screens and only collapsed under 720px. The math never worked —
+   * 7 labelled tabs need ~630px, but after the logomark and the
+   * status/logout cluster there's never that much room inside the
+   * max-w-6xl (1152px) container. The nav ended up wrapping its own
+   * children onto two or three rows at every width between 720px and
+   * infinity, which looked like a broken layout.
+   *
+   * Own-row scroll-strip is the cleaner editorial pattern, and keeps
+   * the header composition stable across desktop, tablet, and phone. */
   .nav-primary {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    flex: 1;
+    flex: 0 0 100%;
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* padding-bottom has to clear the active link's ::before underline
+     * (bottom: -0.18rem + 2px tall) because overflow-x: auto implicitly
+     * clips the y-axis too. */
+    padding: 0.55rem 0 0.5rem;
+    margin: 0.35rem -0.25rem 0;
+    border-top: 1px solid oklch(24% 0.014 55 / 0.7);
+    mask-image: linear-gradient(90deg, transparent 0, #000 1rem, #000 calc(100% - 1rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 1rem, #000 calc(100% - 1rem), transparent 100%);
   }
 
-  @media (max-width: 720px) {
-    .nav-primary {
-      flex-wrap: nowrap;
-      justify-content: flex-start;
-      overflow-x: auto;
-      scroll-snap-type: x proximity;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-      width: 100%;
-      order: 3;
-      padding: 0.25rem 0;
-      margin: 0.25rem -0.25rem 0;
-      mask-image: linear-gradient(90deg, transparent 0, #000 1rem, #000 calc(100% - 1rem), transparent 100%);
-    }
-    .nav-primary::-webkit-scrollbar { display: none; }
-    .nav-primary .nav-link { scroll-snap-align: start; flex-shrink: 0; }
-  }
+  .nav-primary::-webkit-scrollbar { display: none; }
+  .nav-primary .nav-link { scroll-snap-align: start; flex-shrink: 0; }
 
   .nav-link {
     display: inline-flex;
