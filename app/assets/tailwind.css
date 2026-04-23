@@ -339,6 +339,7 @@
     font-style: italic;
     font-variation-settings: "opsz" 72, "wght" 420;
     line-height: 1;
+    white-space: nowrap;
   }
 
   /* Hairline divider between brand and metadata. */
@@ -388,54 +389,211 @@
     .logomark__glyph { width: 1.5rem; height: 1.5rem; }
   }
 
-  /* Nav — a dedicated tab strip that lives on its own row under the
-   * logomark + controls header, and scrolls horizontally when the
-   * label set is wider than the viewport.
-   *
-   * Structurally the nav is a block-level sibling of the logomark/
-   * controls flex row (see layout.erb) rather than a third flex child
-   * — an earlier version tried to coerce wrap via `flex: 0 0 100%`
-   * inside the same flex container, and at wide viewports the wrap
-   * didn't always engage, leaving the nav inline-and-overflowing to
-   * the right of the logout button. Keeping the nav outside that
-   * flex context entirely makes the "own row" guarantee structural
-   * instead of behavioural. */
+  /* Ultra-narrow: drop the italic wordmark too — the bridge-glyph alone
+   * is enough to anchor the brand and leaves room for the burger +
+   * controls on a single row. */
+  @media (max-width: 460px) {
+    .logomark__mark { display: none; }
+    .nav-burger__label { display: none; }
+    .nav-burger { padding: 0.35rem 0.55rem; }
+  }
+
+  /* Header row — single line: logomark · primary nav (shrink + scroll)
+   * · controls. At narrow viewports the inline nav gives way to a
+   * burger trigger (see .nav-burger) that toggles a dropdown panel
+   * anchored to the header row. */
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: nowrap;
+    position: relative;
+  }
+
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  /* Burger trigger — hidden by default; shown in the same media query
+   * that hides the inline nav strip. Styled as an outline-button sibling
+   * of .btn-outline so it reads as part of the header-controls family. */
+  .nav-burger {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.7rem 0.35rem 0.55rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-bone-dim);
+    background: transparent;
+    border: 1px solid var(--color-line);
+    border-radius: 0.55rem;
+    cursor: pointer;
+    transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+  }
+
+  .nav-burger:hover {
+    color: var(--color-bone);
+    border-color: oklch(40% 0.018 55);
+    background: oklch(22% 0.012 55 / 0.6);
+  }
+
+  .nav-burger__glyph {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .nav-burger__glyph span {
+    display: block;
+    height: 1.5px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  .nav-burger__glyph span:nth-child(1) { width: 14px; }
+  .nav-burger__glyph span:nth-child(2) { width: 10px; }
+  .nav-burger__glyph span:nth-child(3) { width: 14px; }
+
+  .nav-burger[aria-expanded="true"] .nav-burger__glyph span:nth-child(1) {
+    transform: translateY(4.5px) rotate(45deg); width: 14px;
+  }
+  .nav-burger[aria-expanded="true"] .nav-burger__glyph span:nth-child(2) {
+    opacity: 0;
+  }
+  .nav-burger[aria-expanded="true"] .nav-burger__glyph span:nth-child(3) {
+    transform: translateY(-4.5px) rotate(-45deg); width: 14px;
+  }
+
+  .nav-burger__label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: var(--color-bone-mute);
+  }
+
+  .nav-burger:hover .nav-burger__label {
+    color: var(--color-bone-dim);
+  }
+
+  /* Nav — inline tab rack between logomark and controls. Lives in a
+   * full-bleed header row (no max-w-6xl cap) and the inline breakpoint
+   * is picked so every item fits without horizontal scrolling. Below
+   * that breakpoint the inline nav hides entirely and the burger panel
+   * takes over — the app never shows a scroll-strip of nav labels. */
   .nav-primary {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.15rem;
+    flex: 0 1 auto;
     flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    /* padding-bottom has to clear the active link's ::before underline
-     * (bottom: -0.18rem + 2px tall) because overflow-x: auto implicitly
-     * clips the y-axis too. */
-    padding: 0.55rem 0 0.5rem;
-    margin: 0.35rem -0.25rem 0;
-    border-top: 1px solid oklch(24% 0.014 55 / 0.7);
-    mask-image: linear-gradient(90deg, transparent 0, #000 1rem, #000 calc(100% - 1rem), transparent 100%);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 1rem, #000 calc(100% - 1rem), transparent 100%);
+    justify-content: center;
+    /* vertical room for the active link's ::before underline
+     * (sits at bottom: -0.2rem and is 2px tall). */
+    padding: 0.4rem 0 0.55rem;
+    margin: 0 auto;
   }
 
-  .nav-primary::-webkit-scrollbar { display: none; }
-  .nav-primary .nav-link { scroll-snap-align: start; flex-shrink: 0; }
+  /* Section-number prefix (01, 02, …) — only surfaced inside the
+   * burger dropdown where there's vertical breathing room. The inline
+   * state stays dense so all seven labels fit on one line. */
+  .nav-link__num { display: none; }
+
+  /* Below the inline-fit threshold the nav swaps to a burger-toggled
+   * dropdown panel — no horizontal scrolling, every item visible at
+   * once when opened. The panel is absolutely-positioned under the
+   * header row so the logomark/controls row stays pinned. Breakpoint
+   * (1200px) is picked so the inline row always fits all seven labels
+   * plus logomark + controls without overflow. */
+  @media (max-width: 1200px) {
+    .nav-burger { display: inline-flex; }
+
+    .nav-primary {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.15rem;
+      padding: 0.75rem;
+      margin: 0;
+      background: oklch(14% 0.012 55 / 0.97);
+      border: 1px solid var(--color-line);
+      border-radius: 0.75rem;
+      box-shadow:
+        0 18px 40px -18px oklch(4% 0.01 55 / 0.9),
+        0 2px 0 oklch(0% 0 0 / 0.3);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+      z-index: 40;
+    }
+
+    .nav-primary[data-expanded="true"] {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      visibility: visible;
+      transition: opacity 180ms ease, transform 180ms ease, visibility 0s;
+    }
+
+    .nav-primary .nav-link {
+      padding: 0.7rem 0.85rem;
+      border-radius: 0.5rem;
+    }
+
+    /* Surface the editorial section-number prefix inside the panel —
+     * stacked rows have room for the monospace gutter, and it ties the
+     * nav back to the `§NN / SECTION` kickers on each page. */
+    .nav-primary .nav-link__num {
+      display: inline-flex;
+      min-width: 1.75rem;
+    }
+
+    /* Vertical-panel active indicator: left ember rail instead of the
+     * bottom underline, which suits a stacked list better. */
+    .nav-primary .nav-link[aria-current="page"]::before {
+      left: 0;
+      right: auto;
+      top: 0.55rem;
+      bottom: 0.55rem;
+      width: 2px;
+      height: auto;
+      border-radius: 2px;
+    }
+  }
 
   .nav-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 0.85rem;
+    gap: 0.45rem;
+    padding: 0.4rem 0.65rem;
     font-family: var(--font-sans);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 500;
     letter-spacing: -0.005em;
     color: var(--color-bone-dim);
     border-radius: 0.5rem;
     position: relative;
-    transition: color 120ms ease, background 120ms ease;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 140ms ease, background 140ms ease, transform 140ms ease;
   }
 
   .nav-link:hover {
@@ -443,20 +601,51 @@
     background: oklch(24% 0.014 55 / 0.6);
   }
 
+  .nav-link:hover .nav-link__num {
+    color: var(--color-ember-soft);
+    opacity: 1;
+  }
+
   .nav-link[aria-current="page"] {
     color: var(--color-bone);
-    background: oklch(26% 0.017 55 / 0.8);
+    background: oklch(26% 0.017 55 / 0.85);
+  }
+
+  .nav-link[aria-current="page"] .nav-link__num {
+    color: var(--color-ember);
+    opacity: 1;
   }
 
   .nav-link[aria-current="page"]::before {
     content: "";
     position: absolute;
-    left: 0.85rem;
-    right: 0.85rem;
-    bottom: -0.18rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: -0.2rem;
     height: 2px;
     border-radius: 2px;
     background: var(--color-ember);
+    box-shadow: 0 0 12px oklch(65% 0.18 42 / 0.55);
+  }
+
+  /* Small editorial numeral prefix (01, 02, …) — ties each nav item
+   * back to the `§NN / SECTION` kickers that open each page. Lives
+   * as a sibling to the label so it can restyle independently on
+   * hover / active without text-decoration inheritance. */
+  .nav-link__num {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--color-bone-mute);
+    opacity: 0.6;
+    line-height: 1;
+    padding-top: 1px;
+    transition: color 140ms ease, opacity 140ms ease;
+  }
+
+  .nav-link__label {
+    line-height: 1;
   }
 
   /* Unread/pending counter on a nav link (e.g. pending message requests). */

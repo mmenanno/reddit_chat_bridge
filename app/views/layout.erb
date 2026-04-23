@@ -16,57 +16,69 @@
   <body>
     <div class="page-shell flex flex-col min-h-dvh">
       <header class="px-4 sm:px-6 lg:px-10 py-5">
-        <div class="max-w-6xl mx-auto">
-          <div class="flex items-center gap-4 flex-wrap">
-            <a href="/" class="logomark no-underline">
-              <svg class="logomark__glyph" viewBox="0 0 28 28" aria-hidden="true">
-                <circle cx="6" cy="14" r="2" fill="currentColor" opacity="0.5"/>
-                <line x1="8" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.4" opacity="0.3" stroke-linecap="round"/>
-                <circle cx="22" cy="14" r="2" fill="currentColor" opacity="0.5"/>
-                <circle class="logomark__pulse" cx="14" cy="14" r="3.6"/>
-              </svg>
-              <span class="logomark__mark">Reddit Chat Bridge</span>
-              <span class="logomark__rule" aria-hidden="true"></span>
-              <span class="logomark__meta">
-                <span class="logomark__meta-label">Console</span>
-                <span class="logomark__meta-version">v<%= Bridge::BuildInfo.version %></span>
-              </span>
-            </a>
-
-            <% if logged_in? %>
-              <div class="flex items-center gap-2 ml-auto">
-                <% sync_status = dashboard_sync_status %>
-                <span class="status-pill status-pill--<%= sync_status[:tone] %>">
-                  <span class="pulse-dot" aria-hidden="true"></span>
-                  <%= sync_status[:label] %>
-                </span>
-                <button type="button"
-                        class="btn btn-outline btn-sm hidden sm:inline-flex"
-                        data-shortcut-toggle
-                        title="Keyboard shortcuts (press ?)">
-                  <kbd class="font-mono text-xs">?</kbd>
-                </button>
-                <form method="post" action="/logout">
-                  <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
-                    <span class="hidden sm:inline">Log out</span>
-                    <span class="sm:hidden">↪</span>
-                  </button>
-                </form>
-              </div>
-            <% end %>
-          </div>
+        <div class="header-row">
+          <a href="/" class="logomark no-underline">
+            <svg class="logomark__glyph" viewBox="0 0 28 28" aria-hidden="true">
+              <circle cx="6" cy="14" r="2" fill="currentColor" opacity="0.5"/>
+              <line x1="8" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.4" opacity="0.3" stroke-linecap="round"/>
+              <circle cx="22" cy="14" r="2" fill="currentColor" opacity="0.5"/>
+              <circle class="logomark__pulse" cx="14" cy="14" r="3.6"/>
+            </svg>
+            <span class="logomark__mark">Reddit Chat Bridge</span>
+            <span class="logomark__rule" aria-hidden="true"></span>
+            <span class="logomark__meta">
+              <span class="logomark__meta-label">Console</span>
+              <span class="logomark__meta-version">v<%= Bridge::BuildInfo.version %></span>
+            </span>
+          </a>
 
           <% if logged_in? %>
-            <nav class="nav-primary" aria-label="Primary">
-              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/requests", "Requests", MessageRequest.pending.count], ["/events", "Events"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each do |href, label, badge| %>
+            <button type="button"
+                    class="nav-burger"
+                    aria-expanded="false"
+                    aria-controls="primary-nav"
+                    aria-label="Toggle navigation">
+              <span class="nav-burger__glyph" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="nav-burger__label">Menu</span>
+              <% pending = MessageRequest.pending.count %>
+              <% if pending.positive? %>
+                <span class="nav-link__badge" aria-label="<%= pending %> pending"><%= pending %></span>
+              <% end %>
+            </button>
+
+            <nav class="nav-primary" id="primary-nav" aria-label="Primary">
+              <% [["/", "Dashboard"], ["/rooms", "Rooms"], ["/requests", "Requests", MessageRequest.pending.count], ["/events", "Events"], ["/settings", "Settings"], ["/auth", "Auth"], ["/actions", "Actions"]].each_with_index do |(href, label, badge), i| %>
                 <a href="<%= href %>" class="nav-link"<%= ' aria-current="page"' if current_nav?(href) %>>
-                  <%= label %>
+                  <span class="nav-link__num" aria-hidden="true"><%= format("%02d", i + 1) %></span>
+                  <span class="nav-link__label"><%= label %></span>
                   <% if badge.is_a?(Integer) && badge.positive? %>
                     <span class="nav-link__badge" aria-label="<%= badge %> pending"><%= badge %></span>
                   <% end %>
                 </a>
               <% end %>
             </nav>
+
+            <div class="header-controls">
+              <% sync_status = dashboard_sync_status %>
+              <span class="status-pill status-pill--<%= sync_status[:tone] %>">
+                <span class="pulse-dot" aria-hidden="true"></span>
+                <%= sync_status[:label] %>
+              </span>
+              <button type="button"
+                      class="btn btn-outline btn-sm hidden sm:inline-flex"
+                      data-shortcut-toggle
+                      title="Keyboard shortcuts (press ?)">
+                <kbd class="font-mono text-xs">?</kbd>
+              </button>
+              <form method="post" action="/logout">
+                <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
+                  <span class="hidden sm:inline">Log out</span>
+                  <span class="sm:hidden">↪</span>
+                </button>
+              </form>
+            </div>
           <% end %>
         </div>
       </header>
@@ -201,6 +213,58 @@
           setTimeout(() => banner.remove(), 400);
         }, 4000);
       }
+
+      // Burger nav — visible only at narrow viewports (media query hides
+      // the inline scroll-strip there). Click toggles the dropdown panel;
+      // outside-click, nav-link-click, and Escape all close it. Single
+      // source of truth is the nav's data-expanded attribute.
+      (function () {
+        const burger = document.querySelector(".nav-burger");
+        const nav    = document.getElementById("primary-nav");
+        if (!burger || !nav) return;
+
+        const setOpen = (open) => {
+          burger.setAttribute("aria-expanded", open ? "true" : "false");
+          if (open) {
+            nav.setAttribute("data-expanded", "true");
+          } else {
+            nav.removeAttribute("data-expanded");
+          }
+        };
+
+        burger.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setOpen(burger.getAttribute("aria-expanded") !== "true");
+        });
+
+        // Any click outside the nav or burger closes the panel.
+        document.addEventListener("click", (e) => {
+          if (burger.getAttribute("aria-expanded") !== "true") return;
+          if (e.target.closest(".nav-primary") || e.target.closest(".nav-burger")) return;
+          setOpen(false);
+        });
+
+        // A click on one of the nav links closes the panel too — the
+        // following page navigation will unmount the panel anyway, but
+        // this keeps the animation honest for middle-click + cmd-click
+        // flows where the page doesn't change.
+        nav.addEventListener("click", (e) => {
+          if (e.target.closest(".nav-link")) setOpen(false);
+        });
+
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && burger.getAttribute("aria-expanded") === "true") {
+            setOpen(false);
+            burger.focus();
+          }
+        });
+
+        // If the viewport is resized above the breakpoint while the
+        // burger panel is open, reset the state so the panel doesn't
+        // flash back as inline styles stick through the class swap.
+        const mq = window.matchMedia("(min-width: 1201px)");
+        mq.addEventListener("change", (e) => { if (e.matches) setOpen(false); });
+      })();
 
       // Keyboard shortcuts. Two-chord "g <letter>" for navigation, Shift+R /
       // Shift+C for routine actions (with confirm), `?` toggles help, `Esc`
