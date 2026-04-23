@@ -89,15 +89,21 @@ ENV BUILD_SHA=$BUILD_SHA \
     LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2 \
     MALLOC_CONF=background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000
 
+COPY --link --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY --link --from=assets /app/app/assets/built ./app/assets/built
+COPY --link . .
+
+# User creation comes AFTER the COPYs. Rationale: this RUN's output is
+# non-deterministic (useradd embeds today's date in /etc/shadow and sets
+# mtime=now on /home/app/*), so the layer changes every build regardless
+# of position. Putting it here keeps the ~3 KB layer at the tail of the
+# manifest so downstream consumers (Unraid's pull UI in particular) don't
+# re-fetch the large stable layers that follow in build order.
 RUN set -eux; \
     groupadd --gid 1000 app; \
     useradd --uid 1000 --gid app --create-home --shell /bin/bash app; \
     mkdir -p /app/state /app/log; \
     chown -R 1000:1000 /app/state /app/log
-
-COPY --link --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY --link --from=assets /app/app/assets/built ./app/assets/built
-COPY --link . .
 
 USER 1000:1000
 
