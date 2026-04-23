@@ -35,8 +35,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       libsqlite3-dev
 
 COPY --link Gemfile Gemfile.lock ./
-RUN --mount=type=cache,target=/root/.bundle/cache,sharing=locked \
-    bundle install && \
+# No --mount=type=cache here: with BUNDLE_PATH=/usr/local/bundle, the
+# real download cache lives at ${BUNDLE_PATH}/ruby/*/cache (which we
+# rm at the end), not at ~/.bundle/cache. Mounting /root/.bundle/cache
+# would both miss the real cache AND collide with the `rm -rf ~/.bundle/`
+# cleanup below ("Device or resource busy"). CI's existing type=gha
+# layer cache already caches the whole gems stage when Gemfile.lock
+# is unchanged, which is the dominant win here.
+RUN bundle install && \
     rm -rf \
       ~/.bundle/ \
       "${BUNDLE_PATH}"/ruby/*/cache \
