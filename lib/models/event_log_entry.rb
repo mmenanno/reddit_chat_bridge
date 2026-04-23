@@ -6,13 +6,13 @@
 # tail without relying on Discord's #app-logs channel being scrolled.
 #
 # Ring-buffer semantics: we prune to MAX_ROWS every write so the table
-# stays bounded. At N=2000 rows it's still tiny (~200KB), and the tail
-# goes back far enough to cover any routine debugging session.
+# stays bounded. At N=250 rows the tail covers a routine debugging
+# session without letting the log grow unbounded.
 class EventLogEntry < ApplicationRecord
   self.table_name = "event_log_entries"
 
   LEVELS = ["info", "warn", "error", "critical"].freeze
-  MAX_ROWS = 2000
+  MAX_ROWS = 250
 
   validates(:level, inclusion: { in: LEVELS })
   validates(:message, presence: true)
