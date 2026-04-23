@@ -175,6 +175,70 @@ module Matrix
       @loop.iterate
     end
 
+    # ---- Reddit counter snapshot ----
+
+    test "iterate persists all Reddit counter values from the sync body" do
+      body = empty_body("n1").merge(
+        "com.reddit.global_navigation_counter" => 5,
+        "com.reddit.main_timeline_counter" => 3,
+        "com.reddit.invites_counter" => 1,
+        "com.reddit.spam_invites_counter" => 0,
+      )
+      @client.expects(:sync).returns(body)
+
+      @loop.iterate
+
+      assert_equal(
+        {
+          "reddit_counter_global_navigation" => "5",
+          "reddit_counter_main_timeline" => "3",
+          "reddit_counter_invites" => "1",
+          "reddit_counter_spam_invites" => "0",
+        },
+        ["reddit_counter_global_navigation", "reddit_counter_main_timeline", "reddit_counter_invites", "reddit_counter_spam_invites"]
+          .to_h { |key| [key, AppConfig.fetch(key, "")] },
+      )
+    end
+
+    test "iterate stamps reddit_counters_updated_at when any counter is persisted" do
+      body = empty_body("n1").merge("com.reddit.main_timeline_counter" => 3)
+      @client.expects(:sync).returns(body)
+
+      freeze_time do
+        @loop.iterate
+
+        assert_equal(Time.current.utc.iso8601, AppConfig.fetch("reddit_counters_updated_at", ""))
+      end
+    end
+
+    test "iterate unwraps counter hashes with a numeric count-like key" do
+      # Defensive parser — we don't yet know Reddit's exact value shape in
+      # all cases. If the server wraps the value as `{ "unread" => N }` or
+      # `{ "count" => N }`, pick up the scalar rather than serializing the
+      # whole hash.
+      body = empty_body("n1").merge(
+        "com.reddit.global_navigation_counter" => { "unread" => 7 },
+        "com.reddit.main_timeline_counter" => { "count" => 2 },
+      )
+      @client.expects(:sync).returns(body)
+
+      @loop.iterate
+
+      assert_equal("7", AppConfig.fetch("reddit_counter_global_navigation", ""))
+      assert_equal("2", AppConfig.fetch("reddit_counter_main_timeline", ""))
+    end
+
+    test "iterate leaves prior counter values intact when sync body omits the keys" do
+      AppConfig.set("reddit_counter_main_timeline", "9")
+      AppConfig.set("reddit_counters_updated_at", "2024-01-01T00:00:00Z")
+      @client.expects(:sync).returns(empty_body("n1"))
+
+      @loop.iterate
+
+      assert_equal("9", AppConfig.fetch("reddit_counter_main_timeline", ""))
+      assert_equal("2024-01-01T00:00:00Z", AppConfig.fetch("reddit_counters_updated_at", ""))
+    end
+
     private
 
     def empty_body(next_batch)

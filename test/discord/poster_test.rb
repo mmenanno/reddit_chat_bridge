@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "matrix/client"
 require "matrix/event_normalizer"
 require "discord/client"
 require "discord/channel_index"
@@ -527,6 +528,7 @@ module Discord
     test "falls back to Matrix::Client#profile when sender_username is nil" do
       matrix_client = mock("MatrixClient")
       matrix_client.expects(:profile).with(user_id: PEER).returns("displayname" => "nothnnn")
+      matrix_client.stubs(:set_read_marker)
       poster = Discord::Poster.new(
         client: @client,
         channel_index: @index,
@@ -546,6 +548,7 @@ module Discord
       # first event resolves the name onto the room, the next two read it
       # from the row instead of hammering Matrix.
       matrix_client.expects(:profile).with(user_id: PEER).once.returns("displayname" => "nothnnn")
+      matrix_client.stubs(:set_read_marker)
       poster = Discord::Poster.new(
         client: @client,
         channel_index: @index,
@@ -641,6 +644,50 @@ module Discord
       @client.expects(:execute_webhook).at_least_once.returns("m")
 
       @poster.call([event])
+    end
+
+    test "marks the Matrix event read after a successful post" do
+      matrix_client = mock("MatrixClient")
+      matrix_client.expects(:set_read_marker).with(room_id: ROOM_ID, event_id: "$1").once
+      poster = Discord::Poster.new(
+        client: @client,
+        channel_index: @index,
+        matrix_client: matrix_client,
+        sleeper: ->(s) { @sleeps << s },
+      )
+      @client.expects(:execute_webhook).returns("m1")
+
+      poster.call([event(body: "hi", event_id: "$1", sender_username: "peer")])
+    end
+
+    test "swallows Matrix::Error from set_read_marker without breaking the post" do
+      logger = mock("Logger")
+      logger.stubs(:info)
+      logger.expects(:warn).with(regexp_matches(/read marker/i)).at_least_once
+      matrix_client = mock("MatrixClient")
+      matrix_client.expects(:set_read_marker).raises(Matrix::ServerError.new("boom"))
+      poster = Discord::Poster.new(
+        client: @client,
+        channel_index: @index,
+        matrix_client: matrix_client,
+        logger: logger,
+        sleeper: ->(s) { @sleeps << s },
+      )
+      @client.expects(:execute_webhook).returns("m1")
+
+      poster.call([event(body: "hi", event_id: "$1", sender_username: "peer")])
+
+      assert(PostedEvent.posted?("$1"), "PostedEvent should still be recorded when set_read_marker fails")
+    end
+
+    test "does not call set_read_marker when matrix_client is not injected" do
+      # Default @poster in setup has matrix_client: nil — mirrors early boot
+      # before auth is wired. Must not raise.
+      @client.expects(:execute_webhook).returns("m1")
+
+      assert_nothing_raised do
+        @poster.call([event(body: "hi", event_id: "$1", sender_username: "peer")])
+      end
     end
 
     private

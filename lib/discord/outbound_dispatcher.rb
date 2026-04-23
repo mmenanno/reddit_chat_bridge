@@ -68,6 +68,7 @@ module Discord
       )
       room.advance_event!(event_id)
       room.mark_activity!
+      mark_read_quietly(room.matrix_room_id, event_id)
       replace_with_reddit_persona!(message, room, body)
       @channel_reorderer&.reorder!
       @journal&.info(
@@ -198,6 +199,12 @@ module Discord
       @matrix_client.profile(user_id: user_id)
     rescue Matrix::Error
       nil
+    end
+
+    def mark_read_quietly(room_id, event_id)
+      @matrix_client.set_read_marker(room_id: room_id, event_id: event_id)
+    rescue Matrix::Error => e
+      @journal&.warn("read marker for #{event_id} in #{room_id} failed: #{e.message}", source: "outbound")
     end
 
     # Accept only messages from the configured operator(s), and only when

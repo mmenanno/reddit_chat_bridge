@@ -47,6 +47,22 @@ module Matrix
       response.body.fetch("event_id")
     end
 
+    # Marks `event_id` as read in `room_id` by posting all three standard
+    # markers at once. Reddit's server emits `m.read.private` for our own
+    # reads (confirmed via live /sync probe), so that key is the one most
+    # likely to drive the unread counter; `m.read` and `m.fully_read` are
+    # sent alongside as cheap insurance matching what Element-class clients
+    # send. Matrix receipts are latest-wins, so one call clears everything
+    # prior in the room.
+    def set_read_marker(room_id:, event_id:)
+      path = "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/read_markers"
+      post(path, payload: {
+        "m.fully_read" => event_id,
+        "m.read" => event_id,
+        "m.read.private" => event_id,
+      }).body
+    end
+
     # Accepts a Matrix room invite. Strangers DMing for the first time show
     # up under `/sync → rooms.invite`; this call promotes the room to the
     # joined state so the next /sync sees the timeline and the bridge can

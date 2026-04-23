@@ -74,6 +74,7 @@ module Discord
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room.advance_event!(event.event_id)
       room.mark_activity!(time: activity_time_for(event))
+      mark_read_quietly(event.room_id, event.event_id)
       @activity_posted = true
     rescue Discord::BadRequest => e
       # Unrecoverable request-shape error. Record anyway so we don't loop.
@@ -376,6 +377,17 @@ module Discord
 
       AppConfig.set(PERMISSIONS_FLAG_KEY, "")
       @permissions_flag_set = false
+    end
+
+    # Latest-wins on Matrix's side — one call clears all earlier events in
+    # the room. A flaky receipt endpoint must never interrupt the post loop,
+    # so we log and move on.
+    def mark_read_quietly(room_id, event_id)
+      return unless @matrix_client
+
+      @matrix_client.set_read_marker(room_id: room_id, event_id: event_id)
+    rescue Matrix::Error => e
+      @logger&.warn("read marker for #{event_id} in #{room_id} failed: #{e.message}")
     end
   end
 end

@@ -150,5 +150,55 @@ module Matrix
         @client.send_message(room_id: "!r:reddit.com", body: "x", txn_id: "t")
       end
     end
+
+    READ_MARKER_ROOM = "!B3f4egr29DfLGF1wtJLCK7JPIdJHfTDb9rLbRcP4AX4:reddit.com"
+    READ_MARKER_ESCAPED = "%21B3f4egr29DfLGF1wtJLCK7JPIdJHfTDb9rLbRcP4AX4%3Areddit.com"
+    READ_MARKER_EVENT = "$evt_abc"
+
+    test "set_read_marker POSTs read_markers with fully_read, read, and read.private" do
+      stub_request(:post, "#{HOMESERVER}/_matrix/client/v3/rooms/#{READ_MARKER_ESCAPED}/read_markers")
+        .with(
+          headers: {
+            "Authorization" => "Bearer #{TOKEN}",
+            "Content-Type" => "application/json",
+          },
+          body: {
+            "m.fully_read" => READ_MARKER_EVENT,
+            "m.read" => READ_MARKER_EVENT,
+            "m.read.private" => READ_MARKER_EVENT,
+          }.to_json,
+        )
+        .to_return(
+          status: 200,
+          body: "{}",
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      @client.set_read_marker(room_id: READ_MARKER_ROOM, event_id: READ_MARKER_EVENT)
+
+      assert_requested(:post, "#{HOMESERVER}/_matrix/client/v3/rooms/#{READ_MARKER_ESCAPED}/read_markers")
+    end
+
+    test "set_read_marker raises Matrix::TokenError on 401" do
+      stub_request(:post, %r{/_matrix/client/v3/rooms/[^/]+/read_markers\z})
+        .to_return(
+          status: 401,
+          body: { errcode: "M_UNKNOWN_TOKEN", error: "nope" }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      assert_raises(Matrix::TokenError) do
+        @client.set_read_marker(room_id: "!r:reddit.com", event_id: "$e")
+      end
+    end
+
+    test "set_read_marker raises Matrix::ServerError on 5xx" do
+      stub_request(:post, %r{/_matrix/client/v3/rooms/[^/]+/read_markers\z})
+        .to_return(status: 502, body: "bad gateway")
+
+      assert_raises(Matrix::ServerError) do
+        @client.set_read_marker(room_id: "!r:reddit.com", event_id: "$e")
+      end
+    end
   end
 end

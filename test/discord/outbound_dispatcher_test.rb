@@ -17,6 +17,10 @@ module Discord
       AuthState.update_token!(access_token: "tok", user_id: "@t2_me:reddit.com")
 
       @matrix = mock("MatrixClient")
+      # Every successful send now fires set_read_marker after register_sent!.
+      # Most tests don't care about that call — per-test `expects` still wins
+      # over this stub when a test needs to assert the specific arguments.
+      @matrix.stubs(:set_read_marker)
       @dispatcher = OutboundDispatcher.new(
         matrix_client: @matrix,
         operator_discord_ids: [OP_USER_ID],
@@ -317,6 +321,35 @@ module Discord
 
       assert_equal("RonanWolfe", AppConfig.fetch("own_display_name", ""))
       assert_equal("https://cdn/resolved.png", AppConfig.fetch("own_avatar_url", ""))
+    end
+
+    # ---- self read markers ----
+
+    test "marks our own outbound Matrix event read after a successful send" do
+      @matrix.expects(:send_message).returns("$outbound_evt")
+      @matrix.expects(:set_read_marker).with(room_id: "!r:reddit.com", event_id: "$outbound_evt").once
+
+      @dispatcher.dispatch(discord_message_hash("hi"))
+    end
+
+    test "swallows Matrix::Error from set_read_marker after a successful send" do
+      journal = mock("Journal")
+      journal.stubs(:info)
+      journal.expects(:warn).with(regexp_matches(/read marker/i), source: "outbound").at_least_once
+      dispatcher = OutboundDispatcher.new(
+        matrix_client: @matrix,
+        operator_discord_ids: [OP_USER_ID],
+        journal: journal,
+      )
+      @matrix.expects(:send_message).returns("$outbound_evt")
+      @matrix.expects(:set_read_marker).raises(Matrix::ServerError.new("boom"))
+
+      dispatcher.dispatch(discord_message_hash("hi"))
+
+      assert_not_nil(
+        OutboundMessage.find_by(matrix_event_id: "$outbound_evt"),
+        "OutboundMessage row should still be recorded when set_read_marker fails",
+      )
     end
 
     private
