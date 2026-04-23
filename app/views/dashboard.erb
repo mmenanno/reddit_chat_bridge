@@ -90,15 +90,65 @@
     </div>
   </div>
 
+  <%
+    rooms_by_state = Room.group(
+      Arel.sql("CASE WHEN terminated_at IS NOT NULL THEN 'hidden' " \
+               "WHEN archived_at IS NOT NULL THEN 'archived' " \
+               "ELSE 'active' END"),
+    ).count
+    active_count   = rooms_by_state["active"]   || 0
+    archived_count = rooms_by_state["archived"] || 0
+    hidden_count   = rooms_by_state["hidden"]   || 0
+    total_count    = active_count + archived_count + hidden_count
+  %>
   <div class="metric rise rise-delay-3">
     <div class="metric__trail">Bridged</div>
     <p class="metric__label">Rooms</p>
-    <p class="metric__value mt-2"><%= Room.count %></p>
-    <div class="mt-6 space-y-3">
-      <div class="flex items-center justify-between text-sm">
-        <span class="metric__label">With channels</span>
-        <span class="font-mono tabular-nums"><%= Room.where.not(discord_channel_id: nil).count %></span>
+    <p class="metric__value mt-2"><%= total_count %></p>
+    <% if total_count.positive? %>
+      <div class="rooms-breakdown mt-5"
+           role="img"
+           aria-label="<%= active_count %> active, <%= archived_count %> archived, <%= hidden_count %> hidden">
+        <div class="rooms-breakdown__bar" aria-hidden="true">
+          <% if active_count.positive? %>
+            <span class="rooms-breakdown__seg rooms-breakdown__seg--active"
+                  style="flex-grow: <%= active_count %>"></span>
+          <% end %>
+          <% if archived_count.positive? %>
+            <span class="rooms-breakdown__seg rooms-breakdown__seg--archived"
+                  style="flex-grow: <%= archived_count %>"></span>
+          <% end %>
+          <% if hidden_count.positive? %>
+            <span class="rooms-breakdown__seg rooms-breakdown__seg--hidden"
+                  style="flex-grow: <%= hidden_count %>"></span>
+          <% end %>
+        </div>
+        <dl class="rooms-breakdown__legend">
+          <div class="rooms-breakdown__row">
+            <dt>
+              <span class="rooms-breakdown__dot rooms-breakdown__dot--active" aria-hidden="true"></span>
+              Active
+            </dt>
+            <dd class="font-mono tabular-nums"><%= active_count %></dd>
+          </div>
+          <div class="rooms-breakdown__row">
+            <dt>
+              <span class="rooms-breakdown__dot rooms-breakdown__dot--archived" aria-hidden="true"></span>
+              Archived
+            </dt>
+            <dd class="font-mono tabular-nums"><%= archived_count %></dd>
+          </div>
+          <div class="rooms-breakdown__row">
+            <dt>
+              <span class="rooms-breakdown__dot rooms-breakdown__dot--hidden" aria-hidden="true"></span>
+              Hidden
+            </dt>
+            <dd class="font-mono tabular-nums"><%= hidden_count %></dd>
+          </div>
+        </dl>
       </div>
+    <% end %>
+    <div class="mt-5 space-y-3">
       <div class="flex items-center justify-between text-sm">
         <span class="metric__label">Events posted</span>
         <span class="font-mono tabular-nums"><%= PostedEvent.count %></span>
