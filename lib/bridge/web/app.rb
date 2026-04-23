@@ -496,7 +496,7 @@ module Bridge
         {
           key: "discord_public_key",
           label: "Discord application public key",
-          hint: "Only needed if you're exposing /discord/interactions publicly. Tailnet-only deployments can leave this blank — the bot delivers slash commands over its gateway websocket instead.",
+          hint: "Only needed if you're exposing /discord/interactions publicly. Tailnet-only deployments can leave this blank - the bot delivers slash commands over its gateway websocket instead.",
           default: "",
           secret: false,
         },
@@ -559,7 +559,7 @@ module Bridge
         @auth_paused = AuthState.paused? || AuthState.access_token.to_s.strip.empty?
 
         if @auth_paused
-          @transcript_error = "Matrix auth is paused or missing — paste a token on /auth to load this transcript."
+          @transcript_error = "Matrix auth is paused or missing - paste a token on /auth to load this transcript."
         else
           begin
             homeserver = Matrix::Client::DEFAULT_HOMESERVER
@@ -580,7 +580,7 @@ module Bridge
             @older_token = raw["end"] if chunk.any?
           rescue Matrix::TokenError => e
             @auth_paused = true
-            @transcript_error = "Matrix token rejected (#{e.message}) — refresh on /auth."
+            @transcript_error = "Matrix token rejected (#{e.message}) - refresh on /auth."
           rescue Matrix::Error => e
             @transcript_error = "Matrix /messages call failed: #{e.class}: #{e.message}"
           end
@@ -646,7 +646,7 @@ module Bridge
           begin
             result = admin_actions.archive_room!(matrix_room_id: room.matrix_room_id)
             flash_notice!(
-              result == :already_archived ? "Room was already archived." : "Archived #{room_display_name(room)} — Discord channel deleted.",
+              result == :already_archived ? "Room was already archived." : "Archived #{room_display_name(room)} - Discord channel deleted.",
             )
           rescue Admin::Actions::NotConfiguredError => e
             flash_error!(e.message)
@@ -704,7 +704,7 @@ module Bridge
         else
           begin
             result = admin_actions.unarchive_room!(matrix_room_id: room.matrix_room_id, backfill: backfill)
-            label = backfill ? "restored with #{result[:posted_attempted]} event(s) replayed" : "unarchived — channel will recreate on next message"
+            label = backfill ? "restored with #{result[:posted_attempted]} event(s) replayed" : "unarchived - channel will recreate on next message"
             flash_notice!("#{room_display_name(room)} #{label}.")
           rescue Admin::Actions::NotConfiguredError => e
             flash_error!(e.message)
@@ -728,7 +728,7 @@ module Bridge
 
       post "/actions/pause" do
         admin_actions.pause!
-        flash_notice!("Sync paused. The supervisor is idling — click Resume to start again.")
+        flash_notice!("Sync paused. The supervisor is idling - click Resume to start again.")
         redirect("/actions")
       end
 
@@ -815,7 +815,7 @@ module Bridge
           flash_error!("Can't start yet. Finish /settings and paste a token on /auth first.")
         else
           Bridge::Application.start_if_configured!
-          flash_notice!(Bridge::Application.running? ? "Sync started." : "Failed to start sync — check the logs.")
+          flash_notice!(Bridge::Application.running? ? "Sync started." : "Failed to start sync - check the logs.")
         end
         redirect("/actions")
       end
@@ -913,7 +913,7 @@ module Bridge
         @server_error = env["sinatra.error"]
         @attempted_path = request.path_info
         Bridge::Application.instance&.journal&.error(
-          "web error on #{request.request_method} #{request.path_info} — " \
+          "web error on #{request.request_method} #{request.path_info} - " \
           "#{@server_error&.class}: #{@server_error&.message}",
           source: "web",
         )

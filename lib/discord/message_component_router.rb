@@ -52,7 +52,7 @@ module Discord
     end
 
     def unknown_interaction
-      ephemeral_error("Unknown interaction — this button may be from an older deploy.")
+      ephemeral_error("Unknown interaction - this button may be from an older deploy.")
     end
 
     def ephemeral_error(message)

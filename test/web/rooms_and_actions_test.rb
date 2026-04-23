@@ -433,7 +433,7 @@ module Bridge
       test "POST /actions/reconcile shows the error when config isn't complete" do
         Admin::Actions.any_instance
           .expects(:reconcile_channels!)
-          .raises(Admin::Actions::NotConfiguredError, "Reconciler not configured — complete /settings first")
+          .raises(Admin::Actions::NotConfiguredError, "Reconciler not configured - complete /settings first")
 
         post "/actions/reconcile"
         follow_redirect!

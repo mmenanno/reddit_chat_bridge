@@ -76,12 +76,12 @@ module Discord
       assert_match(/paused by operator/i, response[:data][:content])
     end
 
-    test "/status reports 'paused — token rejected' when AuthState was auto-paused" do
+    test "/status reports 'paused - token rejected' when AuthState was auto-paused" do
       AuthState.mark_failure!("M_UNKNOWN_TOKEN")
 
       response = @router.dispatch(interaction(name: "status"))
 
-      assert_match(/paused — token rejected/i, response[:data][:content])
+      assert_match(/paused - token rejected/i, response[:data][:content])
     end
 
     test "runs /reconcile and surfaces the stats" do

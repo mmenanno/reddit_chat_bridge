@@ -123,7 +123,7 @@ module Discord
         if result == :already_archived
           "ℹ️ **#{display}** was already archived."
         else
-          "✅ Archived **#{display}** — Discord channel deleted; a new message will auto-unarchive."
+          "✅ Archived **#{display}** - Discord channel deleted; a new message will auto-unarchive."
         end
       end
     end
@@ -136,7 +136,7 @@ module Discord
         display = room.counterparty_username || room.matrix_room_id
         result = @admin_actions.refresh_room!(matrix_room_id: room.matrix_room_id)
         rename_note = result[:renamed] ? "renamed" : "unchanged"
-        "✅ Refreshed **#{display}** — channel #{rename_note}, #{result[:posted_attempted]} event(s) re-examined."
+        "✅ Refreshed **#{display}** - channel #{rename_note}, #{result[:posted_attempted]} event(s) re-examined."
       end
     end
 
@@ -215,7 +215,7 @@ module Discord
 
     def matrix_auth_label
       return "paused by operator" if AuthState.paused_by_operator?
-      return "paused — token rejected" if AuthState.paused?
+      return "paused - token rejected" if AuthState.paused?
 
       "ok"
     end
@@ -225,7 +225,7 @@ module Discord
     # error string when the channel isn't bridged.
     def per_channel_room(payload)
       room = Room.find_by(discord_channel_id: payload["channel_id"].to_s)
-      return "🚫 Run this inside a `#dm-*` channel — no bridged room matches this channel." unless room
+      return "🚫 Run this inside a `#dm-*` channel - no bridged room matches this channel." unless room
 
       yield(room)
     end

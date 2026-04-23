@@ -127,14 +127,14 @@
       <% unless room.terminated? %>
         <form method="post"
               action="/rooms/<%= room.id %>/end"
-              data-confirm="Deletes the Discord channel and hides this conversation — every future event in this Matrix room is silently dropped until you click Restore. Reddit's own UI only offers a Hide action too; their server refuses a real Matrix /leave on DM rooms, so this is the closest we can get. Reversible: Restore re-bridges the chat and the next message creates a fresh Discord channel."
+              data-confirm="Deletes the Discord channel and hides this conversation - every future event in this Matrix room is silently dropped until you click Restore. Reddit's own UI only offers a Hide action too; their server refuses a real Matrix /leave on DM rooms, so this is the closest we can get. Reversible: Restore re-bridges the chat and the next message creates a fresh Discord channel."
               data-confirm-title="End chat with <%= room.counterparty_username || "this room" %>?"
               data-confirm-kicker="End chat · reversible"
               data-confirm-label="✕ End chat"
               data-confirm-icon="reversible">
           <button type="submit"
                   class="btn-chip btn-chip--danger"
-                  title="Hide this chat locally — same as Reddit's Hide chat action. Click Restore later to re-bridge.">
+                  title="Hide this chat locally - same as Reddit's Hide chat action. Click Restore later to re-bridge.">
             <span class="btn-chip__glyph" aria-hidden="true">✕</span>
             End
           </button>

@@ -91,7 +91,7 @@ module Admin
 
     def refresh_matrix_token!
       cookie_jar = AuthState.reddit_cookie_jar
-      raise(Auth::RefreshFlow::RefreshError, "no stored Reddit cookies — visit /auth first") if cookie_jar.nil?
+      raise(Auth::RefreshFlow::RefreshError, "no stored Reddit cookies - visit /auth first") if cookie_jar.nil?
 
       result = @refresh_flow.refresh_now(cookie_jar: cookie_jar)
       AuthState.update_token!(access_token: result.access_token, user_id: AuthState.user_id)
@@ -144,10 +144,10 @@ module Admin
     # isn't populated yet, and Discord::Error for any other API failure.
     def test_discord!
       token = AppConfig.fetch("discord_bot_token", "").to_s
-      raise(NotConfiguredError, "discord_bot_token is blank — set it on /settings first.") if token.empty?
+      raise(NotConfiguredError, "discord_bot_token is blank - set it on /settings first.") if token.empty?
 
       channel_id = AppConfig.fetch("discord_admin_status_channel_id", "").to_s
-      raise(NotConfiguredError, "discord_admin_status_channel_id is blank — set it on /settings first.") if channel_id.empty?
+      raise(NotConfiguredError, "discord_admin_status_channel_id is blank - set it on /settings first.") if channel_id.empty?
 
       client = Discord::Client.new(bot_token: token)
       message_id = client.send_message(
@@ -248,7 +248,7 @@ module Admin
     end
 
     def require_reconciler!
-      raise(NotConfiguredError, "Reconciler not configured — complete /settings first") unless @reconciler
+      raise(NotConfiguredError, "Reconciler not configured - complete /settings first") unless @reconciler
     end
   end
 end

@@ -125,7 +125,7 @@ module Bridge
       return if AppConfig.fetch(COOKIE_EXPIRY_WARN_KEY, "") == expires_at.iso8601
 
       journal_or_notifier_warn(
-        "Reddit session cookie expires #{expires_at.utc.iso8601} — paste a fresh Cookie header on /auth.",
+        "Reddit session cookie expires #{expires_at.utc.iso8601} - paste a fresh Cookie header on /auth.",
         source: "supervisor",
       )
       AppConfig.set(COOKIE_EXPIRY_WARN_KEY, expires_at.iso8601)

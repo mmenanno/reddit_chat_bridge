@@ -355,7 +355,7 @@ module Discord
       return unless room.archived?
 
       room.unarchive!
-      @logger&.info("Room #{room.matrix_room_id} unarchived — new activity from counterparty.")
+      @logger&.info("Room #{room.matrix_room_id} unarchived - new activity from counterparty.")
     end
 
     def mark_permissions_blocked!(error)

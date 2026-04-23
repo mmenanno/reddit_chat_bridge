@@ -10,7 +10,7 @@
   </h1>
   <p class="mt-5 max-w-2xl text-bone-dim text-base leading-relaxed">
     An unhandled exception short-circuited this request. The console's still
-    up — the background sync loop runs in its own supervised thread and is
+    up - the background sync loop runs in its own supervised thread and is
     unaffected by a single page blowing up.
   </p>
   <p class="mt-4 font-mono text-xs text-bone-mute break-all">
@@ -43,7 +43,7 @@
   <% [
     ["/",       "Dashboard", "check sync status + recent activity"],
     ["/events", "Events",    "what the journal recorded right before this"],
-    ["/",       "Reload",    "hit the dashboard fresh — the error may be transient"],
+    ["/",       "Reload",    "hit the dashboard fresh - the error may be transient"],
   ].each do |(href, title, hint)| %>
     <a href="<%= href %>" class="chapter-link">
       <span class="chapter-link__number">→</span>

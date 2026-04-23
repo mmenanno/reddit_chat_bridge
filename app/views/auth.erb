@@ -14,7 +14,7 @@
       <p class="kicker">Current state</p>
       <h2 class="section-title mt-1">
         <% if AuthState.paused? %>
-          Paused — token rejected
+          Paused - token rejected
         <% elsif AuthState.access_token && !AuthState.access_token.empty? %>
           Authenticated
         <% else %>
@@ -102,7 +102,7 @@
           </div>
         </dl>
       </li>
-      <li>Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT — no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
+      <li>Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT - no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
       <li>Paste below. The bridge probes Reddit + Matrix before saving.</li>
     </ol>
   </details>
@@ -338,7 +338,7 @@
   <div class="mt-5">
     <p class="kicker kicker-ember">One-click grab · no DevTools</p>
     <p class="mt-2 text-sm text-bone-dim max-w-3xl leading-relaxed">
-      Drag the slip below onto your bookmarks bar — typed
+      Drag the slip below onto your bookmarks bar - typed
       <code class="font-mono text-xs px-1 rounded bg-base-300/60">javascript:</code>
       URLs get stripped by Chrome, so dragging is the only way in. Then on any logged-in
       <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit.com</code>
@@ -347,7 +347,7 @@
 
     <div class="mt-4">
       <a id="jwt-bookmarklet" class="slip" draggable="true" role="button"
-         aria-label="Reddit to Bridge JWT — drag to bookmarks bar">
+         aria-label="Reddit to Bridge JWT - drag to bookmarks bar">
         <span class="slip__perf" aria-hidden="true"></span>
         <span class="slip__body"><span class="slip__title">Reddit → Bridge JWT</span></span>
       </a>
