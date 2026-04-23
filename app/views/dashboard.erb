@@ -43,19 +43,6 @@
         ["Stopped", "rooms-breakdown__dot--bad"]
       end
     failures = auth.consecutive_failures.to_i
-    reddit_counters = [
-      ["Global", "reddit_counter_global_navigation"],
-      ["Main timeline", "reddit_counter_main_timeline"],
-      ["Invites", "reddit_counter_invites"],
-      ["Spam invites", "reddit_counter_spam_invites"],
-    ]
-    reddit_counters_seen_at =
-      begin
-        raw = AppConfig.fetch("reddit_counters_updated_at", "").to_s.presence
-        raw && Time.iso8601(raw)
-      rescue ArgumentError
-        nil
-      end
   %>
   <div class="metric rise rise-delay-1">
     <div class="metric__trail">Bridge thread</div>
@@ -106,29 +93,6 @@
         </div>
       <% end %>
     </dl>
-    <div class="mt-5">
-      <p class="metric__label">Reddit unread</p>
-      <dl class="rooms-breakdown__legend mt-2">
-        <% reddit_counters.each do |label, key| %>
-          <% raw_value = AppConfig.fetch(key, "").to_s %>
-          <% has_value = !raw_value.empty? %>
-          <% is_zero = raw_value == "0" %>
-          <% dot_tone = has_value && !is_zero ? "rooms-breakdown__dot--warn" : "rooms-breakdown__dot--ok" %>
-          <div class="rooms-breakdown__row">
-            <dt>
-              <span class="rooms-breakdown__dot <%= dot_tone %>" aria-hidden="true"></span>
-              <%= label %>
-            </dt>
-            <dd class="font-mono tabular-nums"><%= has_value ? raw_value : "—" %></dd>
-          </div>
-        <% end %>
-      </dl>
-      <% if reddit_counters_seen_at %>
-        <p class="mt-2 font-mono text-[0.7rem] text-bone-mute tabular-nums">
-          seen <%= time_ago(reddit_counters_seen_at) %>
-        </p>
-      <% end %>
-    </div>
     <a href="/events" class="inline-flex items-center gap-1 mt-5 text-sm text-ember hover:underline">
       View events
       <span aria-hidden="true">→</span>
