@@ -79,7 +79,9 @@ ARG BUILD_REF=""
 ARG BUILD_VERSION=""
 ENV BUILD_SHA=$BUILD_SHA \
     BUILD_REF=$BUILD_REF \
-    BUILD_VERSION=$BUILD_VERSION
+    BUILD_VERSION=$BUILD_VERSION \
+    LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2 \
+    MALLOC_CONF=background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000
 
 RUN set -eux; \
     groupadd --gid 1000 app; \
