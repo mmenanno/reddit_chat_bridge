@@ -204,7 +204,8 @@ module Bridge
         # { label:, tone: } where tone feeds the `.status-pill--<tone>` class.
         def dashboard_sync_status
           if AuthState.paused?
-            { label: "Paused", tone: "danger" }
+            tone = AuthState.paused_by_operator? ? "warning" : "danger"
+            { label: "Paused", tone: tone }
           elsif Bridge::Application.running?
             { label: "Live", tone: "healthy" }
           elsif Bridge::Application.configured?
@@ -722,6 +723,18 @@ module Bridge
       post "/actions/resync" do
         admin_actions.resync
         flash_notice!("Sync checkpoint cleared. The next iteration will pull recent history.")
+        redirect("/actions")
+      end
+
+      post "/actions/pause" do
+        admin_actions.pause!
+        flash_notice!("Sync paused. The supervisor is idling — click Resume to start again.")
+        redirect("/actions")
+      end
+
+      post "/actions/resume" do
+        admin_actions.resume!
+        flash_notice!("Sync resumed. The next iteration runs within 5 seconds.")
         redirect("/actions")
       end
 

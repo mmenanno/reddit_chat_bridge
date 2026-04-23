@@ -39,6 +39,7 @@ class AuthState < ApplicationRecord
     def mark_ok!
       current.update!(
         paused: false,
+        paused_reason: nil,
         last_ok_at: Time.current,
         consecutive_failures: 0,
         last_error: nil,
@@ -49,13 +50,34 @@ class AuthState < ApplicationRecord
       row = current
       row.update!(
         paused: true,
+        paused_reason: "token_rejected",
         consecutive_failures: row.consecutive_failures + 1,
         last_error: reason.to_s,
       )
     end
 
+    # Operator-initiated pause. Flips the same `paused` flag the supervisor
+    # gates on (`lib/bridge/supervisor.rb`), but tags the reason so the UI
+    # can distinguish a deliberate pause from an auth failure. last_ok_at
+    # and consecutive_failures are sync-health telemetry, not auth state,
+    # so they're left alone.
+    def pause_by_operator!
+      current.update!(paused: true, paused_reason: "operator", last_error: nil)
+    end
+
+    # Mirror of pause_by_operator!. Doesn't stamp last_ok_at — the next
+    # real /sync iteration will do that authentically via mark_ok!.
+    def resume_by_operator!
+      current.update!(paused: false, paused_reason: nil, last_error: nil)
+    end
+
     def paused?
       current.paused?
+    end
+
+    def paused_by_operator?
+      row = current
+      row.paused? && row.paused_reason == "operator"
     end
 
     def access_token

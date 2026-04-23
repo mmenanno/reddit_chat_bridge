@@ -56,6 +56,13 @@ class AuthStateTest < ActiveSupport::TestCase
     assert_equal(1, AuthState.current.consecutive_failures)
   end
 
+  test "mark_failure! tags paused_reason as token_rejected" do
+    AuthState.mark_failure!("M_UNKNOWN_TOKEN")
+
+    assert_equal("token_rejected", AuthState.current.paused_reason)
+    refute_predicate(AuthState, :paused_by_operator?)
+  end
+
   test "mark_failure! increments consecutive_failures across repeated calls" do
     3.times { |i| AuthState.mark_failure!("failure #{i}") }
 
@@ -80,6 +87,14 @@ class AuthStateTest < ActiveSupport::TestCase
     assert_nil(AuthState.current.last_error)
   end
 
+  test "mark_ok! clears paused_reason" do
+    AuthState.mark_failure!("boom")
+
+    AuthState.mark_ok!
+
+    assert_nil(AuthState.current.paused_reason)
+  end
+
   test "mark_ok! stamps last_ok_at" do
     AuthState.mark_ok!
 
@@ -91,5 +106,64 @@ class AuthStateTest < ActiveSupport::TestCase
 
     assert_equal("live", AuthState.access_token)
     assert_equal("@t2_x:reddit.com", AuthState.user_id)
+  end
+
+  test "pause_by_operator! pauses and tags the reason" do
+    AuthState.pause_by_operator!
+
+    assert_predicate(AuthState, :paused?)
+    assert_predicate(AuthState, :paused_by_operator?)
+    assert_equal("operator", AuthState.current.paused_reason)
+  end
+
+  test "pause_by_operator! clears any stale last_error from a previous auto-pause" do
+    AuthState.mark_failure!("M_UNKNOWN_TOKEN")
+
+    AuthState.pause_by_operator!
+
+    assert_nil(AuthState.current.last_error)
+  end
+
+  test "pause_by_operator! does not touch last_ok_at or consecutive_failures" do
+    AuthState.update_token!(access_token: "live", user_id: "@t2_x:reddit.com")
+    prior_ok = AuthState.current.last_ok_at
+    AuthState.mark_failure!("transient")
+    prior_failures = AuthState.current.consecutive_failures
+
+    AuthState.pause_by_operator!
+
+    assert_equal(prior_ok, AuthState.current.last_ok_at)
+    assert_equal(prior_failures, AuthState.current.consecutive_failures)
+  end
+
+  test "resume_by_operator! unpauses and clears paused_reason" do
+    AuthState.pause_by_operator!
+
+    AuthState.resume_by_operator!
+
+    refute_predicate(AuthState, :paused?)
+    assert_nil(AuthState.current.paused_reason)
+  end
+
+  test "resume_by_operator! leaves last_ok_at alone so telemetry reflects reality" do
+    AuthState.update_token!(access_token: "live", user_id: "@t2_x:reddit.com")
+    prior_ok = AuthState.current.last_ok_at
+    AuthState.pause_by_operator!
+
+    AuthState.resume_by_operator!
+
+    assert_equal(prior_ok, AuthState.current.last_ok_at)
+  end
+
+  test "paused_by_operator? is false when paused by token rejection" do
+    AuthState.mark_failure!("M_UNKNOWN_TOKEN")
+
+    assert_predicate(AuthState, :paused?)
+    refute_predicate(AuthState, :paused_by_operator?)
+  end
+
+  test "paused_by_operator? is false when not paused at all" do
+    refute_predicate(AuthState, :paused?)
+    refute_predicate(AuthState, :paused_by_operator?)
   end
 end

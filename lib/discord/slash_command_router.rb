@@ -42,7 +42,7 @@ module Discord
 
     def status_handler(_payload)
       sync = Bridge::Application.running? ? "running" : "stopped"
-      matrix = AuthState.paused? ? "paused" : "ok"
+      matrix = matrix_auth_label
       last = SyncCheckpoint.current.last_batch_at
       cookie = AuthState.reddit_session_expires_at
 
@@ -58,6 +58,16 @@ module Discord
     def resync_handler(_payload)
       @admin_actions.resync
       "✅ Cleared the /sync checkpoint. Next iteration will pull recent history."
+    end
+
+    def pause_handler(_payload)
+      @admin_actions.pause!
+      "⏸ Sync paused. Run `/resume` to start again."
+    end
+
+    def resume_handler(_payload)
+      @admin_actions.resume!
+      "▶ Sync resumed. Next iteration runs within 5 seconds."
     end
 
     def reconcile_handler(_payload)
@@ -166,6 +176,8 @@ module Discord
     # tripping "Invalid Form Body".
     COMMAND_DEFINITIONS = [
       { name: "status",        description: "Show the bridge's sync and auth state" },
+      { name: "pause",         description: "Pause the /sync loop without dropping the Matrix token" },
+      { name: "resume",        description: "Resume the /sync loop after a manual pause" },
       { name: "resync",        description: "Clear the /sync checkpoint and re-pull recent history" },
       { name: "reconcile",     description: "Sweep every room and rename channels to current usernames" },
       { name: "refresh_token", description: "Mint a fresh Matrix JWT from the stored Reddit cookies" },
@@ -180,6 +192,8 @@ module Discord
 
     COMMANDS = {
       "status" => ->(r, p) { r.status_handler(p) },
+      "pause" => ->(r, p) { r.pause_handler(p) },
+      "resume" => ->(r, p) { r.resume_handler(p) },
       "resync" => ->(r, p) { r.resync_handler(p) },
       "reconcile" => ->(r, p) { r.reconcile_handler(p) },
       "refresh_token" => ->(r, p) { r.refresh_token_handler(p) },
@@ -198,6 +212,13 @@ module Discord
     UNRESTRICTED_CHANNEL_COMMANDS = ["endchat", "archive", "refresh", "room"].freeze
 
     private
+
+    def matrix_auth_label
+      return "paused by operator" if AuthState.paused_by_operator?
+      return "paused — token rejected" if AuthState.paused?
+
+      "ok"
+    end
 
     # Shared lookup for per-room slash commands: resolves the channel
     # the interaction fired in to a Room and yields. Returns a polite

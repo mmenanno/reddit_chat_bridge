@@ -88,6 +88,36 @@ module Admin
       assert_equal(:ok, @actions.resync)
     end
 
+    # ---- pause! / resume! ----
+
+    test "pause! flips AuthState to operator-paused" do
+      refute_predicate(AuthState, :paused?)
+
+      @actions.pause!
+
+      assert_predicate(AuthState, :paused?)
+      assert_predicate(AuthState, :paused_by_operator?)
+    end
+
+    test "pause! returns :ok" do
+      assert_equal(:ok, @actions.pause!)
+    end
+
+    test "resume! clears the operator-paused state" do
+      @actions.pause!
+
+      @actions.resume!
+
+      refute_predicate(AuthState, :paused?)
+      refute_predicate(AuthState, :paused_by_operator?)
+    end
+
+    test "resume! returns :ok" do
+      @actions.pause!
+
+      assert_equal(:ok, @actions.resume!)
+    end
+
     # ---- full_resync! ----
 
     test "full_resync! clears discord_channel_id and last_event_id on every room" do

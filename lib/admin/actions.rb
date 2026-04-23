@@ -38,6 +38,20 @@ module Admin
       :ok
     end
 
+    # Operator-initiated pause of the sync loop. The supervisor already
+    # gates on AuthState.paused? (lib/bridge/supervisor.rb), so flipping
+    # the flag is enough — no thread signalling required. Leaves the
+    # Matrix token intact; resume! picks up from the same checkpoint.
+    def pause!
+      AuthState.pause_by_operator!
+      :ok
+    end
+
+    def resume!
+      AuthState.resume_by_operator!
+      :ok
+    end
+
     # Destructive, three-stage rebuild:
     #   1. Delete the actual Discord channels we're tracking so no stale
     #      channels are left on the server (NotFound tolerated).

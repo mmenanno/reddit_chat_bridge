@@ -66,6 +66,27 @@
                 <span class="pulse-dot" aria-hidden="true"></span>
                 <%= sync_status[:label] %>
               </span>
+              <% if AuthState.paused_by_operator? %>
+                <form method="post" action="/actions/resume" class="inline">
+                  <button type="submit" class="btn btn-outline btn-sm" title="Resume syncing (Shift+P)">
+                    <span class="hidden sm:inline">Resume</span>
+                    <span class="sm:hidden" aria-label="Resume">▶</span>
+                  </button>
+                </form>
+              <% elsif !AuthState.paused? %>
+                <form method="post" action="/actions/pause" class="inline"
+                      data-confirm="Stops the supervisor from calling /sync until you resume. The Matrix token stays valid; no history is lost."
+                      data-confirm-title="Pause the sync loop?"
+                      data-confirm-kicker="Pause · reversible"
+                      data-confirm-label="Pause sync"
+                      data-confirm-icon="reversible"
+                      data-confirm-tone="neutral">
+                  <button type="submit" class="btn btn-outline btn-sm" title="Pause syncing (Shift+P)">
+                    <span class="hidden sm:inline">Pause</span>
+                    <span class="sm:hidden" aria-label="Pause">⏸</span>
+                  </button>
+                </form>
+              <% end %>
               <button type="button"
                       class="btn btn-outline btn-sm hidden sm:inline-flex"
                       data-shortcut-toggle
@@ -161,6 +182,9 @@
                 <span class="shortcut-group__label">Reconcile channels</span>
                 <span class="shortcut-keys"><kbd class="key">⇧</kbd><kbd class="key">C</kbd></span>
 
+                <span class="shortcut-group__label">Pause / resume sync</span>
+                <span class="shortcut-keys"><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span>
+
                 <span class="shortcut-group__label">Toggle this help</span>
                 <span class="shortcut-keys"><kbd class="key">?</kbd></span>
 
@@ -198,6 +222,23 @@
               data-confirm-label="Reconcile now"
               data-confirm-icon="reversible"
               data-confirm-tone="neutral"></form>
+        <% if AuthState.paused_by_operator? %>
+          <form id="kbd-shortcut-pause" method="post" action="/actions/resume"
+                data-confirm="Resumes the supervisor. The next /sync iteration runs within 5 seconds."
+                data-confirm-title="Resume syncing?"
+                data-confirm-kicker="Resume · reversible"
+                data-confirm-label="Resume now"
+                data-confirm-icon="reversible"
+                data-confirm-tone="neutral"></form>
+        <% elsif !AuthState.paused? %>
+          <form id="kbd-shortcut-pause" method="post" action="/actions/pause"
+                data-confirm="Pauses the supervisor. The Matrix token stays valid; no history is lost. Click Resume to start again."
+                data-confirm-title="Pause syncing?"
+                data-confirm-kicker="Pause · reversible"
+                data-confirm-label="Pause now"
+                data-confirm-icon="reversible"
+                data-confirm-tone="neutral"></form>
+        <% end %>
       </div>
     <% end %>
 
@@ -280,8 +321,8 @@
       })();
 
       // Keyboard shortcuts. Two-chord "g <letter>" for navigation, Shift+R /
-      // Shift+C for routine actions (with confirm), `?` toggles help, `Esc`
-      // closes. Disabled inside form inputs so the operator can still type.
+      // Shift+C / Shift+P for routine actions (with confirm), `?` toggles help,
+      // `Esc` closes. Disabled inside form inputs so the operator can still type.
       (function () {
         const overlay = document.querySelector("[data-shortcut-overlay]");
         const toast   = document.querySelector("[data-shortcut-toast]");
@@ -361,7 +402,7 @@
             return;
           }
 
-          // Shift+R / Shift+C — trigger routine actions via the themed dialog.
+          // Shift+R / Shift+C / Shift+P — trigger routine actions via the themed dialog.
           if (e.shiftKey && !gArmed) {
             if (e.key === "R") {
               e.preventDefault();
@@ -371,6 +412,11 @@
             if (e.key === "C") {
               e.preventDefault();
               triggerShortcutForm("kbd-shortcut-reconcile");
+              return;
+            }
+            if (e.key === "P") {
+              e.preventDefault();
+              triggerShortcutForm("kbd-shortcut-pause");
               return;
             }
           }

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "bridge/application"
 require "discord/slash_command_router"
 
 module Discord
@@ -48,6 +49,39 @@ module Discord
       response = @router.dispatch(interaction(name: "resync"))
 
       assert_match(/Cleared.*checkpoint/, response[:data][:content])
+    end
+
+    test "runs /pause by delegating to Admin::Actions" do
+      @actions.expects(:pause!).returns(:ok)
+
+      response = @router.dispatch(interaction(name: "pause"))
+
+      assert_match(/paused/i, response[:data][:content])
+      assert_match(%r{/resume}, response[:data][:content])
+    end
+
+    test "runs /resume by delegating to Admin::Actions" do
+      @actions.expects(:resume!).returns(:ok)
+
+      response = @router.dispatch(interaction(name: "resume"))
+
+      assert_match(/resumed/i, response[:data][:content])
+    end
+
+    test "/status reports 'paused by operator' when AuthState is operator-paused" do
+      AuthState.pause_by_operator!
+
+      response = @router.dispatch(interaction(name: "status"))
+
+      assert_match(/paused by operator/i, response[:data][:content])
+    end
+
+    test "/status reports 'paused — token rejected' when AuthState was auto-paused" do
+      AuthState.mark_failure!("M_UNKNOWN_TOKEN")
+
+      response = @router.dispatch(interaction(name: "status"))
+
+      assert_match(/paused — token rejected/i, response[:data][:content])
     end
 
     test "runs /reconcile and surfaces the stats" do

@@ -355,6 +355,64 @@ module Bridge
         assert_equal("kept", SyncCheckpoint.next_batch_token)
       end
 
+      # ---- /actions/pause + /actions/resume ----
+
+      test "POST /actions/pause flips AuthState to operator-paused" do
+        post "/actions/pause"
+
+        assert_predicate(AuthState, :paused?)
+        assert_predicate(AuthState, :paused_by_operator?)
+      end
+
+      test "POST /actions/pause redirects to /actions with a success notice" do
+        post "/actions/pause"
+
+        assert_equal(302, last_response.status)
+        assert_equal("/actions", URI(last_response.location).path)
+        follow_redirect!
+
+        assert_match(/paused/i, last_response.body)
+      end
+
+      test "POST /actions/pause requires auth" do
+        post "/logout"
+
+        post "/actions/pause"
+
+        assert_equal(302, last_response.status)
+        refute_predicate(AuthState, :paused?)
+      end
+
+      test "POST /actions/resume clears the operator pause" do
+        AuthState.pause_by_operator!
+
+        post "/actions/resume"
+
+        refute_predicate(AuthState, :paused?)
+      end
+
+      test "POST /actions/resume redirects to /actions with a success notice" do
+        AuthState.pause_by_operator!
+
+        post "/actions/resume"
+
+        assert_equal(302, last_response.status)
+        assert_equal("/actions", URI(last_response.location).path)
+        follow_redirect!
+
+        assert_match(/resumed/i, last_response.body)
+      end
+
+      test "POST /actions/resume requires auth" do
+        AuthState.pause_by_operator!
+        post "/logout"
+
+        post "/actions/resume"
+
+        assert_equal(302, last_response.status)
+        assert_predicate(AuthState, :paused?)
+      end
+
       # ---- /actions/reconcile ----
 
       test "GET /actions renders the reconcile button" do

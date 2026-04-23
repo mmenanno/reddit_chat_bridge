@@ -59,8 +59,10 @@
 
   <div class="metric rise rise-delay-2">
     <div class="metric__trail">Matrix auth</div>
-    <div class="flex items-center gap-3">
-      <% if AuthState.paused? %>
+    <div class="flex items-center gap-3 flex-wrap">
+      <% if AuthState.paused_by_operator? %>
+        <span class="status-pill status-pill--warning"><span class="pulse-dot"></span> Paused</span>
+      <% elsif AuthState.paused? %>
         <span class="status-pill status-pill--danger"><span class="pulse-dot"></span> Paused</span>
       <% elsif AuthState.access_token %>
         <span class="status-pill status-pill--healthy"><span class="pulse-dot"></span> Authed</span>
@@ -68,6 +70,14 @@
         <span class="status-pill status-pill--idle">No token</span>
       <% end %>
     </div>
+    <% if AuthState.paused_by_operator? %>
+      <p class="mt-3 text-sm text-bone-dim">
+        You paused the sync from the console.
+      </p>
+      <form method="post" action="/actions/resume" class="mt-3">
+        <button type="submit" class="btn btn-outline btn-sm">▶ Resume sync</button>
+      </form>
+    <% end %>
     <div class="mt-6 space-y-2">
       <% if AuthState.user_id %>
         <div>
