@@ -93,18 +93,24 @@
 
   <details class="mt-4 text-sm text-bone-dim">
     <summary class="cursor-pointer select-none font-medium text-bone hover:text-ember">How to grab the value →</summary>
-    <ol class="list-decimal list-inside mt-3 space-y-2 ml-2">
-      <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code> tab.</li>
-      <li>
+    <ol class="list-decimal list-outside mt-3 space-y-2.5 pl-6">
+      <li class="pl-1">Open a logged-in <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code> tab.</li>
+      <li class="pl-1">
         Open the cookie inspector:
-        <ul class="mt-1.5 ml-5 space-y-1 list-disc list-outside">
-          <li><strong>Chrome / Edge / Arc</strong> (Chromium): DevTools → <strong>Application</strong> → Storage → Cookies → <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code>.</li>
-          <li><strong>Firefox</strong>: DevTools → <strong>Storage</strong> → Cookies → <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code>.</li>
-          <li><strong>Safari</strong>: Web Inspector → <strong>Storage</strong> → Cookies → <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code>. <em class="text-bone-mute">(Enable Settings → Advanced → "Show features for web developers" first.)</em></li>
-        </ul>
+        <dl class="cookie-paths">
+          <dt>Chrome / Edge / Arc</dt>
+          <dd>DevTools <span class="sep">·</span> <strong>Application</strong> <span class="sep">·</span> Storage <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code></dd>
+          <dt>Firefox</dt>
+          <dd>DevTools <span class="sep">·</span> <strong>Storage</strong> <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code></dd>
+          <dt>Safari</dt>
+          <dd>
+            Web Inspector <span class="sep">·</span> <strong>Storage</strong> <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code>
+            <span class="cookie-paths__note">Enable Settings → Advanced → "Show features for web developers" first.</span>
+          </dd>
+        </dl>
       </li>
-      <li>Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT — no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
-      <li>Paste below. The bridge probes Reddit + Matrix before saving.</li>
+      <li class="pl-1">Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT — no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
+      <li class="pl-1">Paste below. The bridge probes Reddit + Matrix before saving.</li>
     </ol>
   </details>
 
@@ -136,6 +142,51 @@
 </section>
 
 <style>
+  /* Cookie-inspector paths — a compact aligned grid that reads as a
+   * reference table, not a bullet list. Browser name left, DevTools
+   * path right, separator dots between path segments (· is lighter
+   * than → and doesn't fight the content). Renders flat on narrow
+   * viewports. */
+  .cookie-paths {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 1rem;
+    row-gap: 0.4rem;
+    margin: 0.6rem 0 0;
+    padding-left: 0.75rem;
+    border-left: 1px solid color-mix(in oklab, var(--color-ember) 35%, var(--color-line));
+  }
+  .cookie-paths dt {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: color-mix(in oklab, var(--color-ember) 70%, var(--color-bone));
+    white-space: nowrap;
+    padding-top: 0.15rem;
+  }
+  .cookie-paths dd {
+    margin: 0;
+    color: var(--color-bone-dim);
+    line-height: 1.45;
+  }
+  .cookie-paths .sep {
+    color: color-mix(in oklab, var(--color-ember) 55%, var(--color-bone-mute));
+    margin: 0 0.1rem;
+  }
+  .cookie-paths__note {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
+    color: var(--color-bone-mute);
+    font-style: italic;
+  }
+  @media (max-width: 640px) {
+    .cookie-paths { grid-template-columns: 1fr; row-gap: 0.15rem; }
+    .cookie-paths dt { padding-top: 0.6rem; }
+    .cookie-paths dt:first-child { padding-top: 0; }
+  }
+
   /* Bookmarklet slip — a tactile artifact the operator pulls off the page
    * and drops on their bookmarks bar. The design language: a library filing
    * tag with a perforated tear-off edge, an ember tint, and a clipped
