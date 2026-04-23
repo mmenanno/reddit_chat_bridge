@@ -16,21 +16,45 @@
   <body>
     <div class="page-shell flex flex-col min-h-dvh">
       <header class="px-4 sm:px-6 lg:px-10 py-5">
-        <div class="max-w-6xl mx-auto flex items-center gap-4 flex-wrap">
-          <a href="/" class="logomark no-underline">
-            <svg class="logomark__glyph" viewBox="0 0 28 28" aria-hidden="true">
-              <circle cx="6" cy="14" r="2" fill="currentColor" opacity="0.5"/>
-              <line x1="8" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.4" opacity="0.3" stroke-linecap="round"/>
-              <circle cx="22" cy="14" r="2" fill="currentColor" opacity="0.5"/>
-              <circle class="logomark__pulse" cx="14" cy="14" r="3.6"/>
-            </svg>
-            <span class="logomark__mark">Reddit Chat Bridge</span>
-            <span class="logomark__rule" aria-hidden="true"></span>
-            <span class="logomark__meta">
-              <span class="logomark__meta-label">Console</span>
-              <span class="logomark__meta-version">v<%= Bridge::BuildInfo.version %></span>
-            </span>
-          </a>
+        <div class="max-w-6xl mx-auto">
+          <div class="flex items-center gap-4 flex-wrap">
+            <a href="/" class="logomark no-underline">
+              <svg class="logomark__glyph" viewBox="0 0 28 28" aria-hidden="true">
+                <circle cx="6" cy="14" r="2" fill="currentColor" opacity="0.5"/>
+                <line x1="8" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.4" opacity="0.3" stroke-linecap="round"/>
+                <circle cx="22" cy="14" r="2" fill="currentColor" opacity="0.5"/>
+                <circle class="logomark__pulse" cx="14" cy="14" r="3.6"/>
+              </svg>
+              <span class="logomark__mark">Reddit Chat Bridge</span>
+              <span class="logomark__rule" aria-hidden="true"></span>
+              <span class="logomark__meta">
+                <span class="logomark__meta-label">Console</span>
+                <span class="logomark__meta-version">v<%= Bridge::BuildInfo.version %></span>
+              </span>
+            </a>
+
+            <% if logged_in? %>
+              <div class="flex items-center gap-2 ml-auto">
+                <% sync_status = dashboard_sync_status %>
+                <span class="status-pill status-pill--<%= sync_status[:tone] %>">
+                  <span class="pulse-dot" aria-hidden="true"></span>
+                  <%= sync_status[:label] %>
+                </span>
+                <button type="button"
+                        class="btn btn-outline btn-sm hidden sm:inline-flex"
+                        data-shortcut-toggle
+                        title="Keyboard shortcuts (press ?)">
+                  <kbd class="font-mono text-xs">?</kbd>
+                </button>
+                <form method="post" action="/logout">
+                  <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
+                    <span class="hidden sm:inline">Log out</span>
+                    <span class="sm:hidden">↪</span>
+                  </button>
+                </form>
+              </div>
+            <% end %>
+          </div>
 
           <% if logged_in? %>
             <nav class="nav-primary" aria-label="Primary">
@@ -43,26 +67,6 @@
                 </a>
               <% end %>
             </nav>
-
-            <div class="flex items-center gap-2 ml-auto">
-              <% sync_status = dashboard_sync_status %>
-              <span class="status-pill status-pill--<%= sync_status[:tone] %>">
-                <span class="pulse-dot" aria-hidden="true"></span>
-                <%= sync_status[:label] %>
-              </span>
-              <button type="button"
-                      class="btn btn-outline btn-sm hidden sm:inline-flex"
-                      data-shortcut-toggle
-                      title="Keyboard shortcuts (press ?)">
-                <kbd class="font-mono text-xs">?</kbd>
-              </button>
-              <form method="post" action="/logout">
-                <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
-                  <span class="hidden sm:inline">Log out</span>
-                  <span class="sm:hidden">↪</span>
-                </button>
-              </form>
-            </div>
           <% end %>
         </div>
       </header>

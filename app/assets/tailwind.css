@@ -388,27 +388,22 @@
     .logomark__glyph { width: 1.5rem; height: 1.5rem; }
   }
 
-  /* Nav — a dedicated tab strip that always occupies its own row under
-   * the logomark + controls, and scrolls horizontally when the label
-   * set is wider than the viewport.
+  /* Nav — a dedicated tab strip that lives on its own row under the
+   * logomark + controls header, and scrolls horizontally when the
+   * label set is wider than the viewport.
    *
-   * Earlier iteration kept the nav inline with the logomark on wide
-   * screens and only collapsed under 720px. The math never worked —
-   * 7 labelled tabs need ~630px, but after the logomark and the
-   * status/logout cluster there's never that much room inside the
-   * max-w-6xl (1152px) container. The nav ended up wrapping its own
-   * children onto two or three rows at every width between 720px and
-   * infinity, which looked like a broken layout.
-   *
-   * Own-row scroll-strip is the cleaner editorial pattern, and keeps
-   * the header composition stable across desktop, tablet, and phone. */
+   * Structurally the nav is a block-level sibling of the logomark/
+   * controls flex row (see layout.erb) rather than a third flex child
+   * — an earlier version tried to coerce wrap via `flex: 0 0 100%`
+   * inside the same flex container, and at wide viewports the wrap
+   * didn't always engage, leaving the nav inline-and-overflowing to
+   * the right of the logout button. Keeping the nav outside that
+   * flex context entirely makes the "own row" guarantee structural
+   * instead of behavioural. */
   .nav-primary {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    flex: 0 0 100%;
-    order: 3;
-    width: 100%;
     flex-wrap: nowrap;
     justify-content: flex-start;
     overflow-x: auto;
