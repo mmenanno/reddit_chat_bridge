@@ -93,9 +93,16 @@
 
   <details class="mt-4 text-sm text-bone-dim">
     <summary class="cursor-pointer select-none font-medium text-bone hover:text-ember">How to grab the value →</summary>
-    <ol class="list-decimal list-inside mt-3 space-y-1.5 ml-2">
+    <ol class="list-decimal list-inside mt-3 space-y-2 ml-2">
       <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code> tab.</li>
-      <li>DevTools → <strong>Application</strong> tab → <strong>Storage</strong> → <strong>Cookies</strong> → <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code>.</li>
+      <li>
+        Open the cookie inspector:
+        <ul class="mt-1.5 ml-5 space-y-1 list-disc list-outside">
+          <li><strong>Chrome / Edge / Arc</strong> (Chromium): DevTools → <strong>Application</strong> → Storage → Cookies → <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code>.</li>
+          <li><strong>Firefox</strong>: DevTools → <strong>Storage</strong> → Cookies → <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code>.</li>
+          <li><strong>Safari</strong>: Web Inspector → <strong>Storage</strong> → Cookies → <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code>. <em class="text-bone-mute">(Enable Settings → Advanced → "Show features for web developers" first.)</em></li>
+        </ul>
+      </li>
       <li>Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT — no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
       <li>Paste below. The bridge probes Reddit + Matrix before saving.</li>
     </ol>
