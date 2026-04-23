@@ -38,6 +38,10 @@ class EventLogEntry < ApplicationRecord
       order(created_at: :desc).limit(limit)
     end
 
+    def page_of(page:, per_page:)
+      order(created_at: :desc).limit(per_page).offset((page - 1) * per_page)
+    end
+
     def trim!
       return if count <= MAX_ROWS
 

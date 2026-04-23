@@ -8,18 +8,31 @@
     </p>
   </div>
   <% if EventLogEntry.any? %>
-    <form method="post"
-          action="/events/clear"
-          data-confirm="Deletes every row from the event log. Past warnings and errors won't be recoverable, but the journal will keep writing new entries as soon as the supervisor ticks."
-          data-confirm-title="Clear the event log?"
-          data-confirm-kicker="Event log · destructive"
-          data-confirm-label="⌫ Clear log"
-          data-confirm-icon="irreversible"
-          class="mt-2">
-      <button type="submit" class="btn btn-outline btn-sm" title="Delete every event-log row">
-        ⌫ Clear log
-      </button>
-    </form>
+    <div class="mt-2 flex items-center gap-3 flex-wrap">
+      <form method="get" action="/events" class="flex items-center gap-2">
+        <label for="per_page" class="kicker text-bone-mute">Per page</label>
+        <select id="per_page"
+                name="per_page"
+                onchange="this.form.submit()"
+                class="select select-bordered select-sm">
+          <% @per_page_options.each do |option| %>
+            <option value="<%= option %>" <%= "selected" if option == @per_page %>><%= option %></option>
+          <% end %>
+        </select>
+        <input type="hidden" name="page" value="1">
+      </form>
+      <form method="post"
+            action="/events/clear"
+            data-confirm="Deletes every row from the event log. Past warnings and errors won't be recoverable, but the journal will keep writing new entries as soon as the supervisor ticks."
+            data-confirm-title="Clear the event log?"
+            data-confirm-kicker="Event log · destructive"
+            data-confirm-label="⌫ Clear log"
+            data-confirm-icon="irreversible">
+        <button type="submit" class="btn btn-outline btn-sm" title="Delete every event-log row">
+          ⌫ Clear log
+        </button>
+      </form>
+    </div>
   <% end %>
 </section>
 
@@ -72,7 +85,26 @@
     </table>
   </section>
 
-  <p class="text-xs text-bone-mute font-mono rise rise-delay-3">
-    Showing <%= @entries.size %> of <%= EventLogEntry.count %> total. Ring buffer caps at <%= EventLogEntry::MAX_ROWS %>.
-  </p>
+  <%
+    window_start = ((@page - 1) * @per_page) + 1
+    window_end = [@page * @per_page, @total].min
+  %>
+  <div class="text-xs text-bone-mute font-mono rise rise-delay-3 flex items-center justify-between gap-4 flex-wrap">
+    <p>
+      Showing <%= window_start %>-<%= window_end %> of <%= @total %>. Ring buffer caps at <%= EventLogEntry::MAX_ROWS %>.
+    </p>
+    <nav class="flex items-center gap-2" aria-label="Pagination">
+      <% if @page > 1 %>
+        <a href="/events?page=<%= @page - 1 %>&per_page=<%= @per_page %>" class="btn btn-outline btn-sm">← Previous</a>
+      <% else %>
+        <span class="btn btn-outline btn-sm opacity-50 pointer-events-none" aria-disabled="true">← Previous</span>
+      <% end %>
+      <span class="px-2">Page <%= @page %> of <%= @total_pages %></span>
+      <% if @page < @total_pages %>
+        <a href="/events?page=<%= @page + 1 %>&per_page=<%= @per_page %>" class="btn btn-outline btn-sm">Next →</a>
+      <% else %>
+        <span class="btn btn-outline btn-sm opacity-50 pointer-events-none" aria-disabled="true">Next →</span>
+      <% end %>
+    </nav>
+  </div>
 <% end %>

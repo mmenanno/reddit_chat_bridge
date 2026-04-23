@@ -33,6 +33,10 @@ module Bridge
       VIEWS_ROOT  = File.expand_path("../../../app/views", __dir__)
       PUBLIC_ROOT = File.expand_path("../../../app/assets/built", __dir__)
 
+      EVENTS_PER_PAGE_OPTIONS = [10, 25, 50, 100].freeze
+      EVENTS_PER_PAGE_DEFAULT = 50
+      EVENTS_PER_PAGE_COOKIE = "events_per_page"
+
       # This block runs at class-load time and reads AppConfig for the
       # persisted session_secret. Callers must have run `Bridge::Boot.call`
       # before requiring this file — otherwise the model constants aren't
@@ -103,6 +107,33 @@ module Bridge
 
         def flash_error!(message)
           flash[:error] = message
+        end
+
+        # Pick the per-page size for /events: query param wins when it's one
+        # of the allowlisted values (and is persisted for next time), then
+        # the cookie, then the default. Anything unknown is silently ignored
+        # so a stray URL can't poison the stored preference.
+        def resolve_events_per_page
+          param = params[:per_page].to_s
+          unless param.empty?
+            value = param.to_i
+            if EVENTS_PER_PAGE_OPTIONS.include?(value)
+              response.set_cookie(
+                EVENTS_PER_PAGE_COOKIE,
+                value: value.to_s,
+                path: "/",
+                max_age: 60 * 60 * 24 * 365,
+                same_site: :lax,
+                httponly: true,
+              )
+              return value
+            end
+          end
+
+          cookie_value = request.cookies[EVENTS_PER_PAGE_COOKIE].to_s.to_i
+          return cookie_value if EVENTS_PER_PAGE_OPTIONS.include?(cookie_value)
+
+          EVENTS_PER_PAGE_DEFAULT
         end
 
         def admin_actions
@@ -604,7 +635,19 @@ module Bridge
       end
 
       get "/events" do
-        @entries = EventLogEntry.recent(limit: 500).to_a
+        per_page = resolve_events_per_page
+        total = EventLogEntry.count
+        total_pages = [(total.to_f / per_page).ceil, 1].max
+        page = params[:page].to_i
+        page = 1 if page < 1
+        page = total_pages if page > total_pages
+
+        @entries = EventLogEntry.page_of(page: page, per_page: per_page).to_a
+        @page = page
+        @per_page = per_page
+        @total = total
+        @total_pages = total_pages
+        @per_page_options = EVENTS_PER_PAGE_OPTIONS
         erb(:events)
       end
 
