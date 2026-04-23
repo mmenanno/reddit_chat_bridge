@@ -55,14 +55,15 @@ COPY package.json package-lock.json ./
 RUN npm ci --silent
 
 # App source + asset compile invalidates whenever app/ changes.
+# Only application.css and grain.png are served at runtime. The loose
+# icon.svg and icons/icon-*.png files in app/assets/ are dev-only
+# branding source — not referenced by any view or by application.css.
 COPY app ./app
-RUN mkdir -p app/assets/built/icons && \
+RUN mkdir -p app/assets/built && \
     npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
       -o app/assets/built/application.css \
       --minify && \
-    cp app/assets/icons/*.png app/assets/built/icons/ && \
-    cp app/assets/icon.svg app/assets/built/icon.svg && \
     cp app/assets/grain.png app/assets/built/grain.png
 
 # ---- final runtime ----
