@@ -13,7 +13,7 @@
   </p>
 </section>
 
-<form method="post" action="/settings" class="space-y-8">
+<form id="settings-form" method="post" action="/settings" class="space-y-8" data-dirty-form>
   <section class="console-card p-6 rise rise-delay-1">
     <header class="mb-5">
       <p class="kicker">Discord · bot</p>
@@ -103,6 +103,85 @@
       Saves are immediate. If the sync thread wasn't running and config is now complete,
       it'll auto-start.
     </p>
-    <button type="submit" class="btn btn-primary">Save configuration</button>
+    <button type="submit" class="btn btn-primary" data-static-save>Save configuration</button>
   </div>
 </form>
+
+<div class="save-dock" data-save-dock hidden aria-live="polite">
+  <div class="save-dock__panel" role="status">
+    <div class="save-dock__meta">
+      <span class="save-dock__pulse" aria-hidden="true"></span>
+      <span class="save-dock__label">
+        Unsaved<span class="save-dock__label-tail"> changes</span>
+        <span class="save-dock__count" data-save-dock-count>0</span>
+      </span>
+    </div>
+    <div class="save-dock__actions">
+      <button type="button" class="btn btn-outline btn-sm" data-save-dock-discard>Discard</button>
+      <button type="submit" form="settings-form" class="btn btn-primary btn-sm" data-save-dock-save>
+        Save<span class="save-dock__save-tail"> configuration</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Settings dirty-state tracker. Snapshots every field's value on load,
+  // flips the floating save dock visible whenever any field diverges, and
+  // hides the static inline Save button once the dock is wired (progressive
+  // enhancement: JS-off browsers keep the original button).
+  (function () {
+    const form = document.getElementById("settings-form");
+    const dock = document.querySelector("[data-save-dock]");
+    if (!form || !dock) return;
+
+    const fields  = Array.from(form.querySelectorAll("input[name], select[name], textarea[name]"));
+    const initial = new Map(fields.map((el) => [el, el.value]));
+    const countEl = dock.querySelector("[data-save-dock-count]");
+    const discard = dock.querySelector("[data-save-dock-discard]");
+    const statics = form.querySelectorAll("[data-static-save]");
+
+    // JS is up — the static button is redundant now.
+    for (const btn of statics) btn.hidden = true;
+    dock.hidden = false;
+
+    const recompute = () => {
+      let dirty = 0;
+      for (const el of fields) {
+        if (el.value !== initial.get(el)) dirty += 1;
+      }
+      if (dirty > 0) {
+        dock.setAttribute("data-dirty", "true");
+        countEl.textContent = String(dirty);
+      } else {
+        dock.removeAttribute("data-dirty");
+        countEl.textContent = "0";
+      }
+    };
+
+    form.addEventListener("input", recompute);
+    form.addEventListener("change", recompute);
+
+    discard.addEventListener("click", () => {
+      for (const el of fields) {
+        const original = initial.get(el);
+        if (el.value !== original) {
+          el.value = original;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+      recompute();
+    });
+
+    // Warn on navigation while dirty; cleared on submit so the real save
+    // doesn't fire the prompt.
+    window.addEventListener("beforeunload", (e) => {
+      if (dock.getAttribute("data-dirty") !== "true") return;
+      e.preventDefault();
+      e.returnValue = "";
+    });
+    form.addEventListener("submit", () => {
+      dock.removeAttribute("data-dirty");
+    });
+  })();
+</script>

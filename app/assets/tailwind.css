@@ -1867,6 +1867,149 @@
     to   { opacity: 1; transform: translate(-50%, 0); }
   }
 
+  /* Floating save dock — appears on /settings only while the form is dirty.
+   * Same surface vocabulary as .confirm-panel (dark gradient, ember hairline,
+   * inset bevel) so it reads as a sibling of the confirm dialog rather than
+   * a generic toast. z-index sits between .shortcut-toast (90) and
+   * .shortcut-overlay (100) so the shortcuts-help overlay still covers it. */
+  .save-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 1.25rem;
+    z-index: 95;
+    transform: translate(-50%, 1rem);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .save-dock[data-dirty="true"] {
+    transform: translate(-50%, 0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .save-dock {
+      transition:
+        opacity 240ms cubic-bezier(0.2, 0.65, 0.2, 1),
+        transform 240ms cubic-bezier(0.2, 0.65, 0.2, 1);
+    }
+  }
+
+  .save-dock__panel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    min-width: min(36rem, calc(100vw - 2rem));
+    padding: 0.65rem 0.75rem 0.65rem 1rem;
+    background: linear-gradient(180deg, oklch(18% 0.014 55), oklch(13% 0.011 55));
+    border: 1px solid oklch(32% 0.018 55);
+    border-radius: 0.85rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:
+      0 24px 60px -18px oklch(0% 0 0 / 0.65),
+      0 0 0 1px oklch(22% 0.018 55) inset;
+    overflow: hidden;
+  }
+
+  /* Ember hairline across the top edge — mirrors .confirm-panel::before. */
+  .save-dock__panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent,
+      color-mix(in oklab, var(--color-ember) 85%, transparent) 20%,
+      color-mix(in oklab, var(--color-ember-bright, var(--color-ember)) 100%, transparent) 50%,
+      color-mix(in oklab, var(--color-ember) 85%, transparent) 80%,
+      transparent);
+    opacity: 0.85;
+  }
+
+  .save-dock__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .save-dock__pulse {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--color-ember);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-ember) 60%, transparent);
+    animation: rcb-save-pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes rcb-save-pulse {
+    0%, 100% { opacity: 0.55; transform: scale(0.9); box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-ember) 60%, transparent); }
+    50%      { opacity: 1;    transform: scale(1);   box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-ember) 0%, transparent); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .save-dock__pulse { animation: none; opacity: 0.85; }
+  }
+
+  .save-dock__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-bone-dim);
+  }
+
+  .save-dock__count {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1;
+    color: var(--color-bone);
+    background: oklch(24% 0.015 55);
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    padding: 0.2rem 0.45rem;
+    letter-spacing: 0.05em;
+  }
+
+  .save-dock__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 540px) {
+    .save-dock {
+      left: 1rem;
+      right: 1rem;
+      transform: translateY(1rem);
+    }
+    .save-dock[data-dirty="true"] {
+      transform: translateY(0);
+    }
+    .save-dock__panel {
+      min-width: 0;
+      width: 100%;
+    }
+    .save-dock__count {
+      display: none;
+    }
+    .save-dock__label-tail,
+    .save-dock__save-tail {
+      display: none;
+    }
+    .save-dock__panel {
+      gap: 0.75rem;
+    }
+  }
+
   /* Custom confirm dialog — replaces window.confirm() for destructive actions */
   .confirm-overlay {
     position: fixed;
