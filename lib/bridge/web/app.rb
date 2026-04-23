@@ -267,9 +267,9 @@ module Bridge
 
         def row_description(spec, stored_id)
           badge = if stored_id.empty?
-            { kind: "create", text: "Will create" }
+            { kind: "create", text: "Unlinked" }
           else
-            { kind: "adopt", text: "Will adopt · id …#{stored_id[-4..] || stored_id}" }
+            { kind: "adopt", text: "Linked · id …#{stored_id[-4..] || stored_id}" }
           end
           {
             slug: spec[:slug],
@@ -289,21 +289,46 @@ module Bridge
 
         public
 
-        # Called from POST /settings after fields are persisted. Returns a
-        # user-facing error string when provisioning fails, or nil on success
-        # / when the provisioner should not run (manual mode, blank category).
+        # Called from POST /settings after fields are persisted. Returns:
+        #   - nil when the provisioner shouldn't run (manual mode / no category)
+        #   - { status: :ok, outcomes: [...] } on success
+        #   - { status: :error, message: "..." } when a Discord perm/config
+        #     error trips the provisioner so the POST handler can flash it
         def maybe_provision_system_channels!
           return unless AppConfig.get("discord_system_channels_mode") == "auto"
 
           category_id = AppConfig.get("discord_system_channels_category_id").to_s
           return if category_id.empty?
 
-          admin_actions.provision_system_channels!
-          nil
+          outcomes = admin_actions.provision_system_channels!
+          { status: :ok, outcomes: outcomes }
         rescue Admin::Actions::NotConfiguredError => e
-          e.message
+          { status: :error, message: e.message }
         rescue Discord::Error => e
-          "Auto-provisioning failed: #{e.message}"
+          { status: :error, message: "Auto-provisioning failed: #{e.message}" }
+        end
+
+        # Friendly one-liner describing what the provisioner just did. Fed
+        # to flash_notice! so the operator sees concrete confirmation of
+        # adoption / creation, not just a generic "Settings saved."
+        def format_provision_summary(outcomes)
+          counts = outcomes.group_by { |o| o[:outcome] }.transform_values(&:count)
+          created = counts[:created] || 0
+          moved   = counts[:moved] || 0
+          kept    = counts[:kept] || 0
+
+          return "System channels already aligned under the chosen category." if created.zero? && moved.zero?
+
+          parts = []
+          parts << pluralize_channels(created, "created") if created.positive?
+          parts << pluralize_channels(moved, "moved into the new category") if moved.positive?
+          parts << "#{kept} already in place" if kept.positive?
+          "System channels: #{parts.join(" · ")}."
+        end
+
+        def pluralize_channels(count, verb)
+          suffix = count == 1 ? "channel" : "channels"
+          "#{count} #{suffix} #{verb}"
         end
 
         # Marks a nav link as the current page. Dashboard is special-cased
@@ -630,12 +655,17 @@ module Bridge
           AppConfig.set(field[:key], submitted)
         end
 
-        provision_error = maybe_provision_system_channels!
+        provision_result = maybe_provision_system_channels!
 
         was_running = Bridge::Application.running?
         Bridge::Application.start_if_configured!
-        if provision_error
-          flash_error!(provision_error)
+
+        if provision_result && provision_result[:status] == :error
+          flash_error!(provision_result[:message])
+        elsif provision_result && provision_result[:status] == :ok
+          flash_notice!(
+            "Settings saved. #{format_provision_summary(provision_result[:outcomes])}",
+          )
         else
           flash_notice!(
             if !was_running && Bridge::Application.running?

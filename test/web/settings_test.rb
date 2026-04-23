@@ -75,12 +75,30 @@ module Bridge
       end
 
       test "POST /settings triggers the provisioner when mode=auto and category is set" do
-        Admin::Actions.any_instance.expects(:provision_system_channels!)
+        Admin::Actions.any_instance.expects(:provision_system_channels!).returns([])
 
         post "/settings",
           discord_system_channels_mode: "auto",
           discord_system_channels_category_id: "cat_42",
           discord_system_channels_order: "status,logs,commands,message_requests"
+      end
+
+      test "POST /settings flashes a summary of what the provisioner did" do
+        outcomes = [
+          { slug: "status",           outcome: :moved,   id: "aaa", position: 0 },
+          { slug: "logs",             outcome: :moved,   id: "bbb", position: 1 },
+          { slug: "commands",         outcome: :created, id: "ccc", position: 2 },
+          { slug: "message_requests", outcome: :created, id: "ddd", position: 3 },
+        ]
+        Admin::Actions.any_instance.expects(:provision_system_channels!).returns(outcomes)
+
+        post "/settings",
+          discord_system_channels_mode: "auto",
+          discord_system_channels_category_id: "cat_42"
+        follow_redirect!
+
+        assert_match(/2 channels created/, last_response.body)
+        assert_match(/2 channels moved into the new category/, last_response.body)
       end
 
       test "POST /settings does not trigger the provisioner when mode=manual" do
