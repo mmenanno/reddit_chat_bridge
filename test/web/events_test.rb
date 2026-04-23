@@ -26,16 +26,16 @@ module Bridge
         refute_match(/Page \d+ of/, last_response.body)
       end
 
-      test "GET /events defaults to 50 per page on page 1" do
-        seed_entries(75)
+      test "GET /events defaults to 10 per page on page 1" do
+        seed_entries(15)
 
         get("/events")
 
-        # 75 entries at 50/page → Page 1 of 2. Newest (m74) renders;
-        # anything from the second page (m24 and below) does not.
+        # 15 entries at 10/page → Page 1 of 2. Newest (m14) renders;
+        # anything from the second page (m4 and below) does not.
         assert_match(/Page 1 of 2/, last_response.body)
-        assert_match(/\bm74\b/, last_response.body)
-        refute_match(/\bm24\b/, last_response.body)
+        assert_match(/\bm14\b/, last_response.body)
+        refute_match(/\bm4\b/, last_response.body)
       end
 
       test "GET /events?per_page=25 uses 25, sets the cookie, and clamps to an allowed value" do
@@ -61,26 +61,26 @@ module Bridge
       end
 
       test "GET /events ignores invalid per_page values and falls back to the default" do
-        seed_entries(60)
+        seed_entries(25)
 
         get("/events?per_page=999")
 
-        # 60 / 50 default = 2 pages; a bogus value must not poison the cookie.
-        assert_match(/Page 1 of 2/, last_response.body)
+        # 25 / 10 default = 3 pages; a bogus value must not poison the cookie.
+        assert_match(/Page 1 of 3/, last_response.body)
         cookie_header = Array(last_response.headers["Set-Cookie"]).join("\n")
 
         refute_match(/events_per_page=999/, cookie_header)
       end
 
       test "GET /events?page=2 shows the next window of entries" do
-        seed_entries(75)
+        seed_entries(15)
 
         get("/events?page=2")
 
-        # Page 2 at 50/page surfaces m24..m0 and hides m74..m25.
+        # Page 2 at 10/page surfaces m4..m0 and hides m14..m5.
         assert_match(/Page 2 of 2/, last_response.body)
-        assert_match(/\bm24\b/, last_response.body)
-        refute_match(/\bm74\b/, last_response.body)
+        assert_match(/\bm4\b/, last_response.body)
+        refute_match(/\bm14\b/, last_response.body)
       end
 
       test "GET /events?page=999 clamps to the last available page" do
