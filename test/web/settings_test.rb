@@ -33,7 +33,7 @@ module Bridge
         assert_match(/value="999000"/, last_response.body)
       end
 
-      test "POST /settings persists every known field to AppConfig" do
+      test "POST /settings persists every known field to AppConfig and redirects" do
         post "/settings",
           discord_bot_token: "tok_789",
           discord_guild_id: "111",
@@ -42,13 +42,14 @@ module Bridge
           discord_admin_logs_channel_id: "444",
           discord_admin_commands_channel_id: "555"
 
-        assert_equal(200, last_response.status)
+        assert_equal("/settings", URI(last_response.location).path)
         assert_equal("tok_789", AppConfig.get("discord_bot_token"))
         assert_equal("222", AppConfig.get("discord_dms_category_id"))
       end
 
       test "POST /settings shows a success notice after saving" do
         post "/settings"
+        follow_redirect!
 
         assert_match(/Settings saved/, last_response.body)
       end

@@ -8,19 +8,6 @@
   </p>
 </section>
 
-<% if @notice %>
-  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
-    <span class="banner__icon">OK</span>
-    <span><%= @notice %></span>
-  </div>
-<% end %>
-<% if @error %>
-  <div role="alert" class="banner banner--error rise rise-delay-1">
-    <span class="banner__icon">ERR</span>
-    <span><%= @error %></span>
-  </div>
-<% end %>
-
 <section class="console-card p-6 rise rise-delay-1">
   <div class="flex items-center justify-between flex-wrap gap-3">
     <div>

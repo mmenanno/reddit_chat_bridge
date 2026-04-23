@@ -7,19 +7,6 @@
   </p>
 </section>
 
-<% if @notice %>
-  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
-    <span class="banner__icon">OK</span>
-    <span><%= @notice %></span>
-  </div>
-<% end %>
-<% if @error %>
-  <div role="alert" class="banner banner--error rise rise-delay-1">
-    <span class="banner__icon">ERR</span>
-    <span><%= @error %></span>
-  </div>
-<% end %>
-
 <section class="console-card p-6 rise rise-delay-2">
   <div class="flex items-center gap-3 flex-wrap">
     <p class="kicker">Sync loop</p>

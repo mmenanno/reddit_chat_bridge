@@ -66,7 +66,10 @@ module Bridge
 
         post("/auth", access_token: "new_tok")
 
-        assert_equal(200, last_response.status)
+        assert_equal(302, last_response.status)
+        assert_equal("/auth", URI(last_response.location).path)
+        follow_redirect!
+
         assert_match(/Token probed and saved/, last_response.body)
       end
 
@@ -93,13 +96,17 @@ module Bridge
           )
 
         post("/auth", access_token: "bad_tok")
+        follow_redirect!
 
         assert_match(/Reddit rejected that token/, last_response.body)
         assert_equal("old_but_good", AuthState.access_token)
       end
 
-      test "POST /auth with a blank token re-renders with an error" do
+      test "POST /auth with a blank token redirects back to /auth with a flash error" do
         post("/auth", access_token: "   ")
+
+        assert_equal("/auth", URI(last_response.location).path)
+        follow_redirect!
 
         assert_match(/Paste an access token/, last_response.body)
         assert_nil(AuthState.access_token)
@@ -131,8 +138,12 @@ module Bridge
         post("/auth/cookies", reddit_cookie: full_jar)
       end
 
-      test "POST /auth/cookies with a blank value re-renders with an error" do
+      test "POST /auth/cookies with a blank value redirects back to /auth with a flash error" do
         post("/auth/cookies", reddit_cookie: "   ")
+
+        assert_equal(302, last_response.status)
+        assert_equal("/auth", URI(last_response.location).path)
+        follow_redirect!
 
         assert_match(/Paste your Reddit/i, last_response.body)
       end

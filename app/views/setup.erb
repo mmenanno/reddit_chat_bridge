@@ -24,13 +24,6 @@
     <p class="kicker kicker-ember">Step 01</p>
     <h2 class="section-title mt-2">Create admin account</h2>
 
-    <% if @error %>
-      <div role="alert" class="banner banner--error mt-5">
-        <span class="banner__icon">ERR</span>
-        <span><%= @error %></span>
-      </div>
-    <% end %>
-
     <form method="post" action="/setup" class="mt-6 space-y-4">
       <div class="field">
         <label for="username" class="field-label">Username</label>

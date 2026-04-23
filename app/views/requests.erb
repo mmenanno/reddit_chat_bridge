@@ -9,19 +9,6 @@
   </p>
 </section>
 
-<% if @notice %>
-  <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
-    <span class="banner__icon">OK</span>
-    <span><%= @notice %></span>
-  </div>
-<% end %>
-<% if @error %>
-  <div role="alert" class="banner banner--error rise rise-delay-1">
-    <span class="banner__icon">ERR</span>
-    <span><%= @error %></span>
-  </div>
-<% end %>
-
 <% if @pending.empty? %>
   <section class="console-card rise rise-delay-2 p-10 text-center">
     <p class="kicker">Inbox zero</p>

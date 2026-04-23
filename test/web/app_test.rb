@@ -82,10 +82,12 @@ module Bridge
         assert_equal(1, AdminUser.count)
       end
 
-      test "POST /setup with a too-short password re-renders the form with an error" do
+      test "POST /setup with a too-short password redirects back to /setup with a flash error" do
         post "/setup", username: "michael", password: "short"
 
-        assert_equal(200, last_response.status)
+        assert_equal("/setup", URI(last_response.location).path)
+        follow_redirect!
+
         assert_match(/Password too short/, last_response.body)
         assert_equal(0, AdminUser.count)
       end
@@ -101,12 +103,14 @@ module Bridge
         assert_equal("/", URI(last_response.location).path)
       end
 
-      test "POST /login with wrong credentials re-renders the form with an error" do
+      test "POST /login with wrong credentials redirects back to /login with a flash error" do
         AdminUser.create_with_password!(username: "michael", password: "hunter2hunter2")
 
         post "/login", username: "michael", password: "wrong-password"
 
-        assert_equal(200, last_response.status)
+        assert_equal("/login", URI(last_response.location).path)
+        follow_redirect!
+
         assert_match(/Invalid username or password/, last_response.body)
       end
 

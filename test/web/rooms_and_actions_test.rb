@@ -335,8 +335,12 @@ module Bridge
         assert_nil(SyncCheckpoint.next_batch_token)
       end
 
-      test "POST /actions/resync shows a success notice" do
+      test "POST /actions/resync redirects to /actions with a success notice" do
         post "/actions/resync"
+
+        assert_equal(302, last_response.status)
+        assert_equal("/actions", URI(last_response.location).path)
+        follow_redirect!
 
         assert_match(/checkpoint cleared/i, last_response.body)
       end
@@ -363,6 +367,7 @@ module Bridge
         Admin::Actions.any_instance.expects(:reconcile_channels!).returns(renamed: 2, skipped: 1, errors: 0)
 
         post "/actions/reconcile"
+        follow_redirect!
 
         assert_match(/2 renamed, 1 skipped, 0 errors/, last_response.body)
       end
@@ -373,6 +378,7 @@ module Bridge
           .raises(Admin::Actions::NotConfiguredError, "Reconciler not configured — complete /settings first")
 
         post "/actions/reconcile"
+        follow_redirect!
 
         assert_match(/Reconciler not configured/, last_response.body)
       end
@@ -408,6 +414,7 @@ module Bridge
         PostedEvent.record!(event_id: "$x", room_id: "!a:reddit.com")
 
         post "/actions/full_resync"
+        follow_redirect!
 
         assert_match(/cleared refs on 1 room/, last_response.body)
         assert_match(/wiped 1 posted-event record/, last_response.body)
@@ -459,12 +466,15 @@ module Bridge
 
         post "/rooms/#{room.id}/refresh"
 
-        assert_match(/channel renamed/, last_response.body)
-        assert_match(/5 event\(s\) re-examined/, last_response.body)
+        assert_equal("/rooms", URI(last_response.location).path)
+        follow_redirect!
+
+        assert_match(/channel renamed.*5 event\(s\) re-examined/, last_response.body)
       end
 
       test "POST /rooms/:id/refresh shows an error when the room is unknown" do
         post "/rooms/9999/refresh"
+        follow_redirect!
 
         assert_match(/Room not found/, last_response.body)
       end

@@ -84,6 +84,27 @@ module Bridge
           @current_user = nil
         end
 
+        # One-shot session-backed flash. Writers (`flash_notice!` /
+        # `flash_error!`) stash a string into `session[:flash]`; the layout
+        # reads it through `consume_flash`, which deletes the key so a
+        # plain reload doesn't re-show the banner. Keeps PRG working
+        # without pulling in rack-flash / sinatra-flash.
+        def flash
+          session[:flash] ||= {}
+        end
+
+        def consume_flash
+          session.delete(:flash) || {}
+        end
+
+        def flash_notice!(message)
+          flash[:notice] = message
+        end
+
+        def flash_error!(message)
+          flash[:error] = message
+        end
+
         def admin_actions
           factory = lambda { |token|
             Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER)
@@ -293,19 +314,17 @@ module Bridge
           verb = method_name == :approve_message_request! ? "Approve" : "Decline"
 
           if request.nil?
-            @error = "Message request not found."
+            flash_error!("Message request not found.")
           else
             begin
               admin_actions.public_send(method_name, id: request.id)
-              @notice = "#{verb}d message request from #{request.display_name}."
+              flash_notice!("#{verb}d message request from #{request.display_name}.")
             rescue Matrix::Error, Discord::Error => e
-              @error = "#{verb} failed: #{e.class}: #{e.message}"
+              flash_error!("#{verb} failed: #{e.class}: #{e.message}")
             end
           end
 
-          @pending = MessageRequest.pending.to_a
-          @resolved = MessageRequest.recent_resolved.limit(20).to_a
-          erb(:requests)
+          redirect("/requests")
         end
       end
 
@@ -379,8 +398,8 @@ module Bridge
           login!(user)
           redirect("/")
         rescue ActiveRecord::RecordInvalid => e
-          @error = e.message
-          erb(:setup)
+          flash_error!(e.message)
+          redirect("/setup")
         end
       end
 
@@ -398,8 +417,8 @@ module Bridge
           login!(user)
           redirect("/")
         else
-          @error = "Invalid username or password."
-          erb(:login)
+          flash_error!("Invalid username or password.")
+          redirect("/login")
         end
       end
 
@@ -502,13 +521,14 @@ module Bridge
 
         was_running = Bridge::Application.running?
         Bridge::Application.start_if_configured!
-        @notice = if !was_running && Bridge::Application.running?
-          "Settings saved. Sync is now running."
-        else
-          "Settings saved."
-        end
-        @fields = settings_fields_with_values
-        erb(:settings)
+        flash_notice!(
+          if !was_running && Bridge::Application.running?
+            "Settings saved. Sync is now running."
+          else
+            "Settings saved."
+          end,
+        )
+        redirect("/settings")
       end
 
       get "/rooms" do
@@ -589,90 +609,89 @@ module Bridge
 
       post "/events/clear" do
         deleted = EventLogEntry.clear_all!
-        @entries = []
-        @notice = "Cleared #{deleted} log entr#{deleted == 1 ? "y" : "ies"}."
-        erb(:events)
+        flash_notice!("Cleared #{deleted} log entr#{deleted == 1 ? "y" : "ies"}.")
+        redirect("/events")
       end
 
       post "/rooms/:id/refresh" do
         room = Room.find_by(id: params[:id])
 
         if room.nil?
-          @error = "Room not found."
+          flash_error!("Room not found.")
         else
           begin
             result = admin_actions.refresh_room!(matrix_room_id: room.matrix_room_id)
-            @notice = "Refreshed #{room_display_name(room)}: " \
-                      "channel #{result[:renamed] ? "renamed" : "unchanged"}, " \
-                      "#{result[:posted_attempted]} event(s) re-examined."
+            flash_notice!(
+              "Refreshed #{room_display_name(room)}: " \
+              "channel #{result[:renamed] ? "renamed" : "unchanged"}, " \
+              "#{result[:posted_attempted]} event(s) re-examined.",
+            )
           rescue Admin::Actions::NotConfiguredError => e
-            @error = e.message
+            flash_error!(e.message)
           rescue Matrix::Error, Discord::Error => e
-            @error = "Refresh failed: #{e.class}: #{e.message}"
+            flash_error!("Refresh failed: #{e.class}: #{e.message}")
           end
         end
 
-        load_rooms_for_index!
-        erb(:rooms)
+        redirect("/rooms")
       end
 
       post "/rooms/:id/archive" do
         room = Room.find_by(id: params[:id])
 
         if room.nil?
-          @error = "Room not found."
+          flash_error!("Room not found.")
         else
           begin
             result = admin_actions.archive_room!(matrix_room_id: room.matrix_room_id)
-            @notice = result == :already_archived ? "Room was already archived." : "Archived #{room_display_name(room)} — Discord channel deleted."
+            flash_notice!(
+              result == :already_archived ? "Room was already archived." : "Archived #{room_display_name(room)} — Discord channel deleted.",
+            )
           rescue Admin::Actions::NotConfiguredError => e
-            @error = e.message
+            flash_error!(e.message)
           rescue Matrix::Error, Discord::Error => e
-            @error = "Archive failed: #{e.class}: #{e.message}"
+            flash_error!("Archive failed: #{e.class}: #{e.message}")
           end
         end
 
-        load_rooms_for_index!
-        erb(:rooms)
+        redirect("/rooms")
       end
 
       post "/rooms/:id/end" do
         room = Room.find_by(id: params[:id])
 
         if room.nil?
-          @error = "Room not found."
+          flash_error!("Room not found.")
         else
           display = room_display_name(room)
           begin
             admin_actions.end_chat!(matrix_room_id: room.matrix_room_id)
-            @notice = "Hid chat with #{display}. Future events in this room are filtered; click Restore on /rooms to re-bridge."
+            flash_notice!("Hid chat with #{display}. Future events in this room are filtered; click Restore on /rooms to re-bridge.")
           rescue Admin::Actions::NotConfiguredError => e
-            @error = e.message
+            flash_error!(e.message)
           rescue Discord::Error => e
-            @error = "End chat failed: #{e.class}: #{e.message}"
+            flash_error!("End chat failed: #{e.class}: #{e.message}")
           end
         end
 
-        load_rooms_for_index!
-        erb(:rooms)
+        redirect("/rooms")
       end
 
       post "/rooms/:id/restore" do
         room = Room.find_by(id: params[:id])
 
         if room.nil?
-          @error = "Room not found."
+          flash_error!("Room not found.")
         else
           begin
             admin_actions.restore_chat!(matrix_room_id: room.matrix_room_id)
-            @notice = "Restored #{room_display_name(room)}. Next Reddit message in this room will create a fresh Discord channel."
+            flash_notice!("Restored #{room_display_name(room)}. Next Reddit message in this room will create a fresh Discord channel.")
           rescue Admin::Actions::NotConfiguredError => e
-            @error = e.message
+            flash_error!(e.message)
           end
         end
 
-        load_rooms_for_index!
-        erb(:rooms)
+        redirect("/rooms")
       end
 
       post "/rooms/:id/unarchive" do
@@ -680,21 +699,20 @@ module Bridge
         backfill = params["backfill"] == "1"
 
         if room.nil?
-          @error = "Room not found."
+          flash_error!("Room not found.")
         else
           begin
             result = admin_actions.unarchive_room!(matrix_room_id: room.matrix_room_id, backfill: backfill)
             label = backfill ? "restored with #{result[:posted_attempted]} event(s) replayed" : "unarchived — channel will recreate on next message"
-            @notice = "#{room_display_name(room)} #{label}."
+            flash_notice!("#{room_display_name(room)} #{label}.")
           rescue Admin::Actions::NotConfiguredError => e
-            @error = e.message
+            flash_error!(e.message)
           rescue Matrix::Error, Discord::Error => e
-            @error = "Unarchive failed: #{e.class}: #{e.message}"
+            flash_error!("Unarchive failed: #{e.class}: #{e.message}")
           end
         end
 
-        load_rooms_for_index!
-        erb(:rooms)
+        redirect("/rooms")
       end
 
       get "/actions" do
@@ -703,51 +721,57 @@ module Bridge
 
       post "/actions/resync" do
         admin_actions.resync
-        @notice = "Sync checkpoint cleared. The next iteration will pull recent history."
-        erb(:actions)
+        flash_notice!("Sync checkpoint cleared. The next iteration will pull recent history.")
+        redirect("/actions")
       end
 
       post "/actions/reconcile" do
         begin
           stats = admin_actions.reconcile_channels!
-          @notice = "Reconcile complete: #{stats[:renamed]} renamed, " \
-                    "#{stats[:skipped]} skipped, #{stats[:errors]} errors."
+          flash_notice!(
+            "Reconcile complete: #{stats[:renamed]} renamed, " \
+            "#{stats[:skipped]} skipped, #{stats[:errors]} errors.",
+          )
         rescue Admin::Actions::NotConfiguredError => e
-          @error = e.message
+          flash_error!(e.message)
         end
-        erb(:actions)
+        redirect("/actions")
       end
 
       post "/actions/test_discord" do
         begin
           admin_actions.test_discord!
-          @notice = "Posted a probe message to #app-status. If you see it, Discord config is good."
+          flash_notice!("Posted a probe message to #app-status. If you see it, Discord config is good.")
         rescue Admin::Actions::NotConfiguredError => e
-          @error = e.message
+          flash_error!(e.message)
         rescue Discord::Error => e
-          @error = "Discord probe failed: #{e.class}: #{e.message}"
+          flash_error!("Discord probe failed: #{e.class}: #{e.message}")
         end
-        erb(:actions)
+        redirect("/actions")
       end
 
       post "/actions/rebuild_all" do
         begin
           stats = admin_actions.rebuild_all!
-          @notice = "Rebuild: refreshed #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors). " \
-                    "Channels are current; recent history replayed where needed."
+          flash_notice!(
+            "Rebuild: refreshed #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors). " \
+            "Channels are current; recent history replayed where needed.",
+          )
         rescue Admin::Actions::NotConfiguredError => e
-          @error = e.message
+          flash_error!(e.message)
         end
-        erb(:actions)
+        redirect("/actions")
       end
 
       post "/actions/full_resync" do
         stats = admin_actions.full_resync!
-        @notice = "Full resync: deleted #{stats[:channels_deleted]} Discord channel(s) " \
-                  "(#{stats[:channel_delete_errors]} errors), cleared refs on #{stats[:rooms_reset]} room(s), " \
-                  "wiped #{stats[:events_cleared]} posted-event record(s), reset the sync checkpoint, " \
-                  "rebuilt #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors)."
-        erb(:actions)
+        flash_notice!(
+          "Full resync: deleted #{stats[:channels_deleted]} Discord channel(s) " \
+          "(#{stats[:channel_delete_errors]} errors), cleared refs on #{stats[:rooms_reset]} room(s), " \
+          "wiped #{stats[:events_cleared]} posted-event record(s), reset the sync checkpoint, " \
+          "rebuilt #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors).",
+        )
+        redirect("/actions")
       end
 
       post "/actions/register_slash_commands" do
@@ -755,7 +779,7 @@ module Bridge
           app_id = AppConfig.fetch("discord_application_id", "")
           guild_id = AppConfig.fetch("discord_guild_id", "")
           if app_id.empty? || guild_id.empty?
-            @error = "Set discord_application_id + discord_guild_id on /settings first."
+            flash_error!("Set discord_application_id + discord_guild_id on /settings first.")
           else
             client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
             client.bulk_set_guild_commands(
@@ -763,24 +787,24 @@ module Bridge
               guild_id: guild_id,
               commands: Discord::SlashCommandRouter::COMMAND_DEFINITIONS,
             )
-            @notice = "Registered #{Discord::SlashCommandRouter::COMMAND_DEFINITIONS.size} slash commands with Discord."
+            flash_notice!("Registered #{Discord::SlashCommandRouter::COMMAND_DEFINITIONS.size} slash commands with Discord.")
           end
         rescue Discord::Error => e
-          @error = "Discord rejected the registration: #{e.class}: #{e.message}"
+          flash_error!("Discord rejected the registration: #{e.class}: #{e.message}")
         end
-        erb(:actions)
+        redirect("/actions")
       end
 
       post "/actions/start_sync" do
         if Bridge::Application.running?
-          @notice = "Sync is already running."
+          flash_notice!("Sync is already running.")
         elsif !Bridge::Application.configured?
-          @error = "Can't start yet. Finish /settings and paste a token on /auth first."
+          flash_error!("Can't start yet. Finish /settings and paste a token on /auth first.")
         else
           Bridge::Application.start_if_configured!
-          @notice = Bridge::Application.running? ? "Sync started." : "Failed to start sync — check the logs."
+          flash_notice!(Bridge::Application.running? ? "Sync started." : "Failed to start sync — check the logs.")
         end
-        erb(:actions)
+        redirect("/actions")
       end
 
       get "/auth" do
@@ -791,34 +815,36 @@ module Bridge
         token = params[:access_token].to_s.strip.sub(/\ABearer\s+/i, "")
 
         if token.empty?
-          @error = "Paste an access token before submitting."
-          return erb(:auth)
+          flash_error!("Paste an access token before submitting.")
+          redirect("/auth")
         end
 
         begin
           admin_actions.reauth(access_token: token)
           was_running = Bridge::Application.running?
           Bridge::Application.start_if_configured!
-          @notice = if !was_running && Bridge::Application.running?
-            "Token probed and saved. Sync is now running."
-          else
-            "Token probed and saved. Matrix sync resumes on the next iteration."
-          end
+          flash_notice!(
+            if !was_running && Bridge::Application.running?
+              "Token probed and saved. Sync is now running."
+            else
+              "Token probed and saved. Matrix sync resumes on the next iteration."
+            end,
+          )
         rescue Matrix::TokenError => e
-          @error = "Reddit rejected that token: #{e.message}"
+          flash_error!("Reddit rejected that token: #{e.message}")
         rescue Matrix::Error => e
-          @error = "Couldn't reach Reddit: #{e.message}"
+          flash_error!("Couldn't reach Reddit: #{e.message}")
         end
 
-        erb(:auth)
+        redirect("/auth")
       end
 
       post "/auth/cookies" do
         raw = params[:reddit_cookie].to_s.strip
 
         if raw.empty?
-          @error = "Paste your Reddit session token before submitting."
-          return erb(:auth)
+          flash_error!("Paste your Reddit session token before submitting.")
+          redirect("/auth")
         end
 
         # Operators paste one of two shapes: a bare JWT value (from
@@ -833,20 +859,22 @@ module Bridge
           admin_actions.set_reddit_cookies!(cookie_jar)
           was_running = Bridge::Application.running?
           Bridge::Application.start_if_configured!
-          @notice = if !was_running && Bridge::Application.running?
-            "Reddit cookies saved and fresh token minted. Sync is now running."
-          else
-            "Reddit cookies saved and fresh token minted. Future expirations refresh automatically."
-          end
+          flash_notice!(
+            if !was_running && Bridge::Application.running?
+              "Reddit cookies saved and fresh token minted. Sync is now running."
+            else
+              "Reddit cookies saved and fresh token minted. Future expirations refresh automatically."
+            end,
+          )
         rescue Auth::RefreshFlow::RefreshError => e
-          @error = "Reddit rejected those cookies: #{e.message}"
+          flash_error!("Reddit rejected those cookies: #{e.message}")
         rescue Matrix::TokenError => e
-          @error = "Reddit minted a JWT but Matrix rejected it: #{e.message}"
+          flash_error!("Reddit minted a JWT but Matrix rejected it: #{e.message}")
         rescue ArgumentError => e
-          @error = e.message
+          flash_error!(e.message)
         end
 
-        erb(:auth)
+        redirect("/auth")
       end
 
       BOOT_AT = Process.clock_gettime(Process::CLOCK_MONOTONIC)

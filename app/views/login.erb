@@ -33,13 +33,6 @@
     <p class="kicker">Log in</p>
     <h2 class="section-title mt-2">Welcome back</h2>
 
-    <% if @error %>
-      <div role="alert" class="banner banner--error mt-5">
-        <span class="banner__icon">ERR</span>
-        <span><%= @error %></span>
-      </div>
-    <% end %>
-
     <form method="post" action="/login" class="mt-6 space-y-4">
       <div class="field">
         <label for="username" class="field-label">Username</label>

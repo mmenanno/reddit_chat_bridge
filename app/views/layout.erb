@@ -85,6 +85,19 @@
 
       <main class="px-4 sm:px-6 lg:px-10 pb-16 w-full">
         <div class="max-w-6xl mx-auto space-y-8">
+          <% _flash = consume_flash %>
+          <% if _flash[:notice] %>
+            <div role="status" data-auto-dismiss class="banner banner--success rise rise-delay-1">
+              <span class="banner__icon">OK</span>
+              <span><%= _flash[:notice] %></span>
+            </div>
+          <% end %>
+          <% if _flash[:error] %>
+            <div role="alert" class="banner banner--error rise rise-delay-1">
+              <span class="banner__icon">ERR</span>
+              <span><%= _flash[:error] %></span>
+            </div>
+          <% end %>
           <%= yield %>
         </div>
       </main>
