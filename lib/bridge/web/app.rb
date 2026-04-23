@@ -9,7 +9,6 @@ require "matrix/media_resolver"
 require "discord/client"
 require "discord/channel_index"
 require "discord/channel_reorderer"
-require "discord/interaction_verifier"
 require "discord/poster"
 require "discord/message_request_notifier"
 require "discord/slash_command_router"
@@ -380,43 +379,10 @@ module Bridge
         pass if request.path_info.start_with?("/setup")
         pass if request.path_info == "/login"
         pass if request.path_info == "/logout"
-        pass if request.path_info == "/discord/interactions"
         pass if request.path_info.end_with?(".css", ".js", ".ico", ".png", ".svg")
 
         return redirect("/setup") if AdminUser.first_run?
         return redirect("/login") unless logged_in?
-      end
-
-      # Discord calls this when someone invokes a registered slash command
-      # in #commands. Must verify the Ed25519 signature on every request
-      # — Discord routinely tests an endpoint by sending invalid payloads
-      # and will deregister the URL if we ever return 2xx for a bad one.
-      post "/discord/interactions" do
-        raw = request.body.read || ""
-        request.body.rewind
-
-        verifier = Discord::InteractionVerifier.new(
-          public_key_hex: AppConfig.fetch("discord_public_key", ""),
-        )
-
-        unless verifier.valid?(
-          signature_hex: request.env["HTTP_X_SIGNATURE_ED25519"],
-          timestamp: request.env["HTTP_X_SIGNATURE_TIMESTAMP"],
-          body: raw,
-        )
-          halt 401, "invalid signature"
-        end
-
-        payload = JSON.parse(raw)
-        router = Discord::SlashCommandRouter.new(
-          admin_actions: admin_actions,
-          guild_id: AppConfig.fetch("discord_guild_id", ""),
-          commands_channel_id: AppConfig.fetch("discord_admin_commands_channel_id", ""),
-        )
-
-        response = router.dispatch(payload)
-        content_type :json
-        JSON.generate(response)
       end
 
       get "/health" do
@@ -536,13 +502,6 @@ module Bridge
           key: "discord_application_id",
           label: "Discord application ID",
           hint: "Developer Portal → your app → General Information → Application ID.",
-          default: "",
-          secret: false,
-        },
-        {
-          key: "discord_public_key",
-          label: "Discord application public key",
-          hint: "Only needed if you're exposing /discord/interactions publicly. Tailnet-only deployments can leave this blank - the bot delivers slash commands over its gateway websocket instead.",
           default: "",
           secret: false,
         },

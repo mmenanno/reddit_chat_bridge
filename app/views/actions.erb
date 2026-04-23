@@ -166,9 +166,8 @@
     Paste the app's <strong>Application ID</strong> on <a href="/settings" class="text-ember hover:underline">Settings</a> first.
   </p>
   <p class="mt-3 text-sm text-bone-mute max-w-3xl leading-relaxed">
-    <strong class="text-bone">Tailnet-only deployments:</strong> leave the Developer Portal's
-    <em>Interactions Endpoint URL</em> blank. Commands flow in over the bot's websocket gateway (the same
-    connection used for relaying Discord messages back to Reddit), so no public HTTP endpoint is required.
+    Leave the Developer Portal's <em>Interactions Endpoint URL</em> blank - commands flow in over
+    the bot's gateway websocket (the same connection used for relaying Discord messages back to Reddit).
   </p>
   <form method="post" action="/actions/register_slash_commands" class="mt-4">
     <button type="submit" class="btn btn-outline">Register now</button>

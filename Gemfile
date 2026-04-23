@@ -19,7 +19,6 @@ gem "sinatra-contrib"
 
 # Networking
 gem "concurrent-ruby"
-gem "ed25519"
 gem "faraday"
 gem "faraday-retry"
 
