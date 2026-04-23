@@ -1,15 +1,59 @@
+# Git + VCS
 .git
 .github
+.githooks
+
+# Editor / LSP caches
+.vscode
+.ruby-lsp
+.DS_Store
+
+# Ruby tooling / bundler
 .bundle
 /vendor/bundle
+.rubocop.yml
+
+# Node: only needed in the assets build stage, which runs its own
+# `npm ci`. package.json + package-lock.json are also only needed
+# there, not in the runtime image.
+/node_modules
+/package.json
+/package-lock.json
+
+# Runtime artifacts that belong on the host volume, not in the image
 /log/*
 /tmp/*
 *.sqlite3
 *.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Env files
 .env
 .env.*
 !.env.example
+
+# Dev-only docs and notes
 /coverage
 /docs
+/CLAUDE.md
+
+# Tests never run in the runtime image
 /test
+
+# bin/ scripts that are dev-only. bin/start is the entrypoint and
+# stays; everything else is for the operator's workstation.
 /bin/spike_*
+/bin/build-icons
+/bin/setup-hooks
+
+# Source assets. The assets stage compiles these into app/assets/built,
+# and only the compiled output is COPYied into the runtime image.
+/app/assets/tailwind.css
+/app/assets/grain.png
+/app/assets/icon.svg
+/app/assets/icons
+
+# Dockerfile and Rakefile themselves are not needed at runtime
+/Dockerfile
+/Rakefile

@@ -6,13 +6,15 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 WORKDIR /app
 
-RUN apt-get update -qq && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       curl \
       libjemalloc2 \
       sqlite3 \
-      tini && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+      tini
 
 ENV BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/usr/local/bundle \
@@ -22,17 +24,19 @@ ENV BUNDLE_DEPLOYMENT=1 \
 
 # ---- gems stage ----
 FROM base AS gems
-RUN apt-get update -qq && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       build-essential \
       git \
       libyaml-dev \
       pkg-config \
-      libsqlite3-dev && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+      libsqlite3-dev
 
-COPY Gemfile Gemfile.lock ./
-RUN bundle install && \
+COPY --link Gemfile Gemfile.lock ./
+RUN --mount=type=cache,target=/root/.bundle/cache,sharing=locked \
+    bundle install && \
     rm -rf \
       ~/.bundle/ \
       "${BUNDLE_PATH}"/ruby/*/cache \
@@ -43,26 +47,29 @@ RUN bundle install && \
 # directive to resolve. Node lives only in this stage — the runtime image
 # never sees it. Only the compiled CSS is copied into the final stage.
 FROM base AS assets
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y nodejs npm && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update -qq && \
+    apt-get install --no-install-recommends -y nodejs npm
 
 # Node deps: isolated in their own layer so it only invalidates when
 # package.json / package-lock.json change. `npm ci` is both faster and
 # deterministic vs. `npm install` (it respects the lockfile exactly
 # and skips dependency resolution against the registry).
-COPY package.json package-lock.json ./
-RUN npm ci --silent
+COPY --link package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --silent
 
 # App source + asset compile invalidates whenever app/ changes.
-COPY app ./app
-RUN mkdir -p app/assets/built/icons && \
+# Only application.css and grain.png are served at runtime. The loose
+# icon.svg and icons/icon-*.png files in app/assets/ are dev-only
+# branding source — not referenced by any view or by application.css.
+COPY --link app ./app
+RUN mkdir -p app/assets/built && \
     npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
       -o app/assets/built/application.css \
       --minify && \
-    cp app/assets/icons/*.png app/assets/built/icons/ && \
-    cp app/assets/icon.svg app/assets/built/icon.svg && \
     cp app/assets/grain.png app/assets/built/grain.png
 
 # ---- final runtime ----
@@ -72,17 +79,19 @@ ARG BUILD_REF=""
 ARG BUILD_VERSION=""
 ENV BUILD_SHA=$BUILD_SHA \
     BUILD_REF=$BUILD_REF \
-    BUILD_VERSION=$BUILD_VERSION
-
-COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY . .
-COPY --from=assets /app/app/assets/built ./app/assets/built
+    BUILD_VERSION=$BUILD_VERSION \
+    LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2 \
+    MALLOC_CONF=background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000
 
 RUN set -eux; \
     groupadd --gid 1000 app; \
     useradd --uid 1000 --gid app --create-home --shell /bin/bash app; \
     mkdir -p /app/state /app/log; \
     chown -R 1000:1000 /app/state /app/log
+
+COPY --link --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY --link --from=assets /app/app/assets/built ./app/assets/built
+COPY --link . .
 
 USER 1000:1000
 
