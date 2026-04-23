@@ -6,13 +6,15 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 WORKDIR /app
 
-RUN apt-get update -qq && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       curl \
       libjemalloc2 \
       sqlite3 \
-      tini && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+      tini
 
 ENV BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/usr/local/bundle \
@@ -22,17 +24,19 @@ ENV BUNDLE_DEPLOYMENT=1 \
 
 # ---- gems stage ----
 FROM base AS gems
-RUN apt-get update -qq && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       build-essential \
       git \
       libyaml-dev \
       pkg-config \
-      libsqlite3-dev && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+      libsqlite3-dev
 
 COPY --link Gemfile Gemfile.lock ./
-RUN bundle install && \
+RUN --mount=type=cache,target=/root/.bundle/cache,sharing=locked \
+    bundle install && \
     rm -rf \
       ~/.bundle/ \
       "${BUNDLE_PATH}"/ruby/*/cache \
@@ -43,16 +47,18 @@ RUN bundle install && \
 # directive to resolve. Node lives only in this stage — the runtime image
 # never sees it. Only the compiled CSS is copied into the final stage.
 FROM base AS assets
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y nodejs npm && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update -qq && \
+    apt-get install --no-install-recommends -y nodejs npm
 
 # Node deps: isolated in their own layer so it only invalidates when
 # package.json / package-lock.json change. `npm ci` is both faster and
 # deterministic vs. `npm install` (it respects the lockfile exactly
 # and skips dependency resolution against the registry).
 COPY --link package.json package-lock.json ./
-RUN npm ci --silent
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --silent
 
 # App source + asset compile invalidates whenever app/ changes.
 # Only application.css and grain.png are served at runtime. The loose
