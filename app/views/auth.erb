@@ -98,15 +98,21 @@
       <li>
         Open the cookie inspector:
         <dl class="cookie-paths">
-          <dt>Chrome / Edge / Arc</dt>
-          <dd>DevTools <span class="sep">·</span> <strong>Application</strong> <span class="sep">·</span> Storage <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code></dd>
-          <dt>Firefox</dt>
-          <dd>DevTools <span class="sep">·</span> <strong>Storage</strong> <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code></dd>
-          <dt>Safari</dt>
-          <dd>
-            Web Inspector <span class="sep">·</span> <strong>Storage</strong> <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code>
-            <span class="cookie-paths__note">Enable Settings → Advanced → "Show features for web developers" first.</span>
-          </dd>
+          <div>
+            <dt>Chrome / Edge / Arc</dt>
+            <dd>DevTools <span class="sep">·</span> <strong>Application</strong> <span class="sep">·</span> Storage <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code></dd>
+          </div>
+          <div>
+            <dt>Firefox</dt>
+            <dd>DevTools <span class="sep">·</span> <strong>Storage</strong> <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code></dd>
+          </div>
+          <div>
+            <dt>Safari</dt>
+            <dd>
+              Web Inspector <span class="sep">·</span> <strong>Storage</strong> <span class="sep">·</span> Cookies <span class="sep">·</span> <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code>
+              <span class="cookie-paths__note">Enable Settings → Advanced → "Show features for web developers" first.</span>
+            </dd>
+          </div>
         </dl>
       </li>
       <li>Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT — no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
@@ -142,79 +148,81 @@
 </section>
 
 <style>
-  /* "How to grab the value" ordered list — replaces the browser-default
-   * list marker with an explicit 2-column CSS grid (counter · content).
-   * Browser markers drift with digit count + font metrics and never line
-   * up with nested content blocks; an explicit grid guarantees every
-   * row's content column starts at the same x-coordinate, including the
-   * nested .cookie-paths dl underneath step 2. */
+  /* "How to grab the value" ordered list.
+   *
+   * We cannot use `display: grid` on the <li> — each inline child
+   * (text node, <code>, text node, nested <dl>) would become its own
+   * grid item and collide in the same cell. Instead: normal inline flow
+   * inside the <li>, and an absolute-positioned pseudo-element for the
+   * counter. That keeps counter-to-content alignment reliable without
+   * disturbing the step's inline layout. */
   .grab-steps {
     counter-reset: grab-step;
     list-style: none;
-    margin: 0.75rem 0 0;
+    margin: 0.9rem 0 0;
     padding: 0;
-    display: grid;
-    row-gap: 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
   }
   .grab-steps > li {
     counter-increment: grab-step;
-    display: grid;
-    grid-template-columns: 1.75rem 1fr;
-    column-gap: 0.25rem;
-    align-items: baseline;
+    position: relative;
+    padding-left: 2.1rem;
+    line-height: 1.55;
   }
   .grab-steps > li::before {
-    content: counter(grab-step) ".";
+    content: counter(grab-step, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0.05em;
+    width: 1.5rem;
+    text-align: right;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    color: color-mix(in oklab, var(--color-ember) 60%, var(--color-bone-mute));
-    text-align: right;
-    padding-right: 0.55rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: color-mix(in oklab, var(--color-ember) 70%, var(--color-bone-mute));
   }
 
-  /* Cookie-inspector paths — a compact aligned grid that reads as a
-   * reference table, not a bullet list. Browser name left, DevTools
-   * path right, separator dots between path segments (· is lighter
-   * than → and doesn't fight the content). Renders flat on narrow
-   * viewports. */
+  /* Cookie-inspector paths — three stacked entries, each with a mono
+   * kicker label above the DevTools path. Stacked beats side-by-side
+   * here: the paths are the same length as the container, so a 2-column
+   * "name | path" layout starves the path column and forces awkward
+   * wraps. The left ember hairline marks the whole block as an inset
+   * reference, not a continuation of the step. */
   .cookie-paths {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    column-gap: 1rem;
-    row-gap: 0.4rem;
-    margin: 0.55rem 0 0.15rem;
-    padding-left: 0.75rem;
-    border-left: 1px solid color-mix(in oklab, var(--color-ember) 35%, var(--color-line));
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.75rem 0 0.25rem;
+    padding: 0.1rem 0 0.1rem 0.85rem;
+    border-left: 1px solid color-mix(in oklab, var(--color-ember) 38%, var(--color-line));
   }
+  .cookie-paths > div { display: flex; flex-direction: column; gap: 0.25rem; }
   .cookie-paths dt {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: color-mix(in oklab, var(--color-ember) 70%, var(--color-bone));
-    white-space: nowrap;
-    padding-top: 0.15rem;
+    color: color-mix(in oklab, var(--color-ember) 72%, var(--color-bone));
+    margin: 0;
   }
   .cookie-paths dd {
     margin: 0;
     color: var(--color-bone-dim);
-    line-height: 1.45;
+    line-height: 1.55;
   }
   .cookie-paths .sep {
-    color: color-mix(in oklab, var(--color-ember) 55%, var(--color-bone-mute));
-    margin: 0 0.1rem;
+    color: color-mix(in oklab, var(--color-ember) 60%, var(--color-bone-mute));
+    margin: 0 0.2rem;
   }
   .cookie-paths__note {
     display: block;
-    margin-top: 0.2rem;
+    margin-top: 0.35rem;
     font-size: 0.78rem;
     color: var(--color-bone-mute);
     font-style: italic;
-  }
-  @media (max-width: 640px) {
-    .cookie-paths { grid-template-columns: 1fr; row-gap: 0.15rem; }
-    .cookie-paths dt { padding-top: 0.6rem; }
-    .cookie-paths dt:first-child { padding-top: 0; }
   }
 
   /* Bookmarklet slip — a tactile artifact the operator pulls off the page
