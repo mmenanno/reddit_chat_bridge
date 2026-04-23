@@ -15,7 +15,34 @@
       <span class="pulse-dot" aria-hidden="true"></span>
       <%= sync_status[:label] %>
     </span>
+
+    <% if Bridge::Application.running? && AuthState.paused_by_operator? %>
+      <form method="post" action="/actions/resume" class="ml-auto">
+        <button type="submit" class="btn btn-primary btn-sm">▶ Resume sync</button>
+      </form>
+    <% elsif Bridge::Application.running? && !AuthState.paused? %>
+      <form method="post" action="/actions/pause" class="ml-auto"
+            data-confirm="Stops the supervisor from calling /sync until you resume. The Matrix token stays valid; no history is lost."
+            data-confirm-title="Pause the sync loop?"
+            data-confirm-kicker="Pause · reversible"
+            data-confirm-label="Pause sync"
+            data-confirm-icon="reversible"
+            data-confirm-tone="neutral">
+        <button type="submit" class="btn btn-outline btn-sm">⏸ Pause sync</button>
+      </form>
+    <% end %>
   </div>
+
+  <% if Bridge::Application.running? && AuthState.paused_by_operator? %>
+    <p class="mt-4 text-sm text-bone-dim max-w-2xl">
+      You paused the sync from the console. Resume to process the next /sync batch within 5 seconds.
+    </p>
+  <% elsif Bridge::Application.running? && AuthState.paused? %>
+    <p class="mt-4 text-sm text-bone-dim max-w-2xl">
+      Reddit rejected the Matrix token. Rotate it on
+      <a href="/auth" class="text-ember hover:underline">auth</a> to resume.
+    </p>
+  <% end %>
 
   <% unless Bridge::Application.running? %>
     <p class="mt-4 text-sm text-bone-dim max-w-2xl">
@@ -42,38 +69,6 @@
 </div>
 
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 rise rise-delay-3">
-  <div class="console-card p-6 flex flex-col gap-4">
-    <div>
-      <p class="kicker">Sync control</p>
-      <h2 class="section-title mt-2">
-        <%= AuthState.paused_by_operator? ? "Resume syncing" : "Pause syncing" %>
-      </h2>
-    </div>
-    <p class="text-sm text-bone-dim">
-      <% if AuthState.paused_by_operator? %>
-        The supervisor is idle. Resume to process the next /sync batch within 5 seconds.
-      <% else %>
-        Stops the supervisor from calling /sync without dropping the Matrix token. Use during
-        an incident or debugging session; resume picks up from the same checkpoint.
-      <% end %>
-    </p>
-    <% if AuthState.paused_by_operator? %>
-      <form method="post" action="/actions/resume" class="mt-auto">
-        <button type="submit" class="btn btn-primary">▶ Resume sync</button>
-      </form>
-    <% else %>
-      <form method="post" action="/actions/pause" class="mt-auto"
-            data-confirm="Stops the supervisor from calling /sync until you resume. The Matrix token stays valid; no history is lost."
-            data-confirm-title="Pause the sync loop?"
-            data-confirm-kicker="Pause · reversible"
-            data-confirm-label="Pause sync"
-            data-confirm-icon="reversible"
-            data-confirm-tone="neutral">
-        <button type="submit" class="btn btn-outline">⏸ Pause sync</button>
-      </form>
-    <% end %>
-  </div>
-
   <div class="console-card p-6 flex flex-col gap-4">
     <div>
       <p class="kicker">Resync checkpoint</p>
