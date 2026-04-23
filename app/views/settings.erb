@@ -232,8 +232,12 @@
     const discard = dock.querySelector("[data-save-dock-discard]");
     const statics = form.querySelectorAll("[data-static-save]");
 
-    // JS is up — the static button is redundant now.
-    for (const btn of statics) btn.hidden = true;
+    // When the last submit landed an error banner, the server already
+    // persisted the form but a side-effect (auto-provisioning) failed —
+    // the form is "clean" relative to its snapshot yet the operator needs
+    // to retry. Keep the static Save visible so they have an affordance.
+    const retryOnLoad = !!document.querySelector(".banner--error");
+    for (const btn of statics) btn.hidden = !retryOnLoad;
     dock.hidden = false;
 
     const recompute = () => {
