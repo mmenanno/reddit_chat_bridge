@@ -32,10 +32,33 @@
   </div>
 
   <% if AuthState.access_token && !AuthState.access_token.empty? %>
+    <%
+      own_handle = AppConfig.fetch("own_display_name", "").to_s.presence
+      own_avatar = AppConfig.fetch("own_avatar_url", "").to_s.presence
+      user_localpart = AuthState.user_id ? Matrix::Id.localpart(AuthState.user_id) : nil
+      display_name = own_handle || user_localpart
+      avatar_initial = display_name ? display_name[0].to_s.upcase : "?"
+    %>
     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 mt-5">
       <div>
         <dt class="metric__label">User</dt>
-        <dd class="mt-1 font-mono text-sm break-all"><%= AuthState.user_id %></dd>
+        <dd class="mt-1 flex items-center gap-3" title="<%= AuthState.user_id %>">
+          <% if own_avatar %>
+            <img src="<%= own_avatar %>"
+                 alt="<%= display_name %>"
+                 loading="lazy"
+                 width="36"
+                 height="36"
+                 class="w-9 h-9 rounded-full ring-1 ring-[var(--color-line)] object-cover flex-shrink-0">
+          <% else %>
+            <div class="w-9 h-9 rounded-full ring-1 ring-[var(--color-line)] bg-[oklch(26%_0.014_55)] flex items-center justify-center font-mono text-sm text-bone-dim flex-shrink-0"
+                 aria-hidden="true"><%= avatar_initial %></div>
+          <% end %>
+          <div class="min-w-0">
+            <p class="font-mono text-sm text-bone truncate"><%= display_name %></p>
+            <p class="font-mono text-[0.7rem] text-bone-mute truncate"><%= AuthState.user_id %></p>
+          </div>
+        </dd>
       </div>
       <% if AuthState.access_token_expires_at %>
         <div>
