@@ -32,14 +32,13 @@ bundle exec rake test            # full suite (parallel minitest)
 bundle exec rubocop              # must be green for CI
 ```
 
-First run: visit the web UI, create an admin account, fill `/settings` with Discord + Matrix config, paste a Reddit Matrix access token at `/auth`. See `guides/` for step-by-step setup.
+First run: visit the web UI, create an admin account, fill `/settings` with the Discord IDs, then paste your `reddit_session` cookie (or a short-lived JWT via the `/auth` bookmarklet) on `/auth`. See `guides/` for step-by-step setup.
 
 ## Guides
 
 User-facing documentation lives in [`guides/`](./guides/):
 
 - `bot_setup.md` — creating the Discord bot, server layout, roles, intents
-- `extracting_matrix_token.md` — pulling the Reddit Matrix access token from DevTools
 - `unraid_deployment.md` — filling out the Unraid container template (paths, ports, TSDProxy labels)
 - `runbook.md` — operating the bridge when it misbehaves
 

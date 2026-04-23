@@ -23,10 +23,15 @@ Discord.
 
 Fix:
 
-1. Follow `guides/extracting_matrix_token.md` to grab a fresh bearer.
-2. Paste it on the `/auth` page → **Probe & save**.
-3. Dashboard flips back to green within a few seconds; sync resumes.
-4. No container restart needed — the Matrix client reads the current
+1. On `/auth`, either:
+   - (Preferred, if configured) do nothing — the supervisor auto-refreshes
+     from the stored `reddit_session` cookie on its next tick.
+   - Drag the **Reddit → Bridge JWT** bookmarklet from `/auth` onto your
+     bookmarks bar if you haven't already. Click it on any logged-in
+     reddit.com tab — the fresh JWT lands on your clipboard. Paste into
+     the "Matrix access token" field → **Probe & save**.
+2. Dashboard flips back to green within a few seconds; sync resumes.
+3. No container restart needed — the Matrix client reads the current
    token from `AuthState` on each request.
 
 ## Discord channel manually deleted

@@ -25,9 +25,9 @@ class AppConfigTest < ActiveSupport::TestCase
   end
 
   test "fetch returns the stored value when present, ignoring the default" do
-    AppConfig.set("matrix_user_id", "@t2_x:reddit.com")
+    AppConfig.set("discord_guild_id", "1234567890")
 
-    assert_equal("@t2_x:reddit.com", AppConfig.fetch("matrix_user_id", "ignored"))
+    assert_equal("1234567890", AppConfig.fetch("discord_guild_id", "ignored"))
   end
 
   test "set is idempotent for the same key and value" do

@@ -77,7 +77,7 @@
   <div class="flex items-start justify-between gap-4 flex-wrap">
     <div>
       <p class="kicker kicker-ember">Recommended · 6 months between rotations</p>
-      <h2 class="section-title mt-2">Auto-refresh via Reddit cookies</h2>
+      <h2 class="section-title mt-2">Auto-refresh via Reddit session token</h2>
     </div>
     <% if AuthState.reddit_cookie_jar %>
       <span class="status-pill status-pill--healthy">cookies saved</span>
@@ -85,19 +85,19 @@
   </div>
 
   <p class="mt-4 text-sm text-bone-dim max-w-3xl leading-relaxed">
-    Paste the full <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">Cookie:</code>
-    header from a logged-in <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">www.reddit.com</code>
-    session. The bridge stores the long-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">reddit_session</code>
-    JWT (~6-month lifespan), strips the short-lived <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">token_v2</code>,
-    and has Reddit re-mint Matrix tokens on demand.
+    Paste the value of your <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">reddit_session</code>
+    cookie from a logged-in <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">www.reddit.com</code>
+    session. It's a long JWT (~6-month lifespan) that the bridge uses to have Reddit
+    re-mint Matrix tokens on demand.
   </p>
 
   <details class="mt-4 text-sm text-bone-dim">
-    <summary class="cursor-pointer select-none font-medium text-bone hover:text-ember">How to grab the cookie →</summary>
+    <summary class="cursor-pointer select-none font-medium text-bone hover:text-ember">How to grab the value →</summary>
     <ol class="list-decimal list-inside mt-3 space-y-1.5 ml-2">
-      <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit.com</code> tab.</li>
-      <li>DevTools → Network tab → right-click any <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com/...</code> request → Copy → Copy as cURL.</li>
-      <li>Find <code class="font-mono text-xs px-1 rounded bg-base-300/60">-H 'cookie: …'</code> and paste just the value below.</li>
+      <li>Open a logged-in <code class="font-mono text-xs px-1 rounded bg-base-300/60">www.reddit.com</code> tab.</li>
+      <li>DevTools → <strong>Application</strong> tab → <strong>Storage</strong> → <strong>Cookies</strong> → <code class="font-mono text-xs px-1 rounded bg-base-300/60">https://www.reddit.com</code>.</li>
+      <li>Click the <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session</code> row. Copy the <strong>Value</strong> column (just the JWT — no <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit_session=</code> prefix, no semicolons).</li>
+      <li>Paste below. The bridge probes Reddit + Matrix before saving.</li>
     </ol>
   </details>
 
@@ -113,33 +113,166 @@
 
   <form method="post" action="/auth/cookies" class="mt-5 space-y-3">
     <div class="field">
-      <label for="reddit_cookie" class="field-label">Cookie header</label>
-      <textarea
+      <label for="reddit_cookie" class="field-label">Reddit session token</label>
+      <input
+        type="password"
         id="reddit_cookie"
         name="reddit_cookie"
-        rows="6"
         autocomplete="off"
         spellcheck="false"
         required
-        placeholder="reddit_session=…; loid=…; token_v2=…; …"
-        class="field-textarea"></textarea>
+        placeholder="eyJhbGciOi…"
+        class="field-input">
     </div>
-    <button type="submit" class="btn btn-primary">Probe &amp; save cookies</button>
+    <button type="submit" class="btn btn-primary">Probe &amp; save</button>
   </form>
 </section>
 
+<style>
+  /* Bookmarklet slip — a tactile artifact the operator pulls off the page
+   * and drops on their bookmarks bar. The design language: a library filing
+   * tag with a perforated tear-off edge, an ember tint, and a clipped
+   * corner (evoking a real paper slip with a folded dog-ear). Restrained
+   * motion: on hover it leans forward and the grain becomes less shy,
+   * signalling "I'm ready to be grabbed." Scoped to /auth because it's
+   * the only surface that ships a bookmarklet. */
+  .slip {
+    --slip-edge: color-mix(in oklab, var(--color-ember) 55%, var(--color-line));
+    --slip-body: color-mix(in oklab, var(--color-ember) 8%, oklch(19% 0.014 55));
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 0.95rem 1.3rem 1rem 0.9rem;
+    min-width: 18rem;
+    text-decoration: none;
+    color: var(--color-bone);
+    cursor: grab;
+    background:
+      radial-gradient(ellipse at 85% 0%, color-mix(in oklab, var(--color-ember) 18%, transparent) 0%, transparent 55%),
+      linear-gradient(180deg, var(--slip-body) 0%, oklch(17% 0.012 55) 100%);
+    border: 1px solid var(--slip-edge);
+    /* Top-right clipped corner evokes a filing-cabinet tab; the bottom-left
+     * corner stays right-angled to preserve the "index card" weight. */
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-ember) 30%, transparent),
+      0 1px 2px oklch(0% 0 0 / 0.35),
+      0 10px 28px -18px color-mix(in oklab, var(--color-ember) 45%, oklch(0% 0 0 / 0.5));
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .slip:hover {
+    transform: translateX(2px) translateY(-1px) rotate(-0.25deg);
+    border-color: var(--color-ember);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-ember) 45%, transparent),
+      0 2px 4px oklch(0% 0 0 / 0.4),
+      0 16px 34px -14px color-mix(in oklab, var(--color-ember) 55%, oklch(0% 0 0 / 0.5));
+  }
+
+  .slip:active { cursor: grabbing; transform: translateX(3px) translateY(0) rotate(-0.4deg); }
+  .slip:focus-visible { outline: 2px solid var(--color-ember); outline-offset: 3px; }
+
+  /* Left-edge perforation — three columns of ember dots, echoing a real
+   * tear-off slip. The dots are rendered with repeating-linear-gradient so
+   * they scale with the slip's height. */
+  .slip__perf {
+    align-self: stretch;
+    width: 11px;
+    background-image:
+      radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--color-ember) 75%, transparent) 1.4px, transparent 1.8px);
+    background-size: 5px 7px;
+    background-repeat: repeat-y;
+    background-position: center top;
+    opacity: 0.9;
+  }
+
+  .slip__body { display: flex; flex-direction: column; gap: 0.3rem; line-height: 1.1; }
+
+  /* The tag + glyph are pseudo-elements so they don't pollute the anchor's
+   * text content — browsers use that text as the default bookmark name when
+   * the slip is dragged onto the bookmarks bar, and we want it to come out
+   * clean as "Reddit → Bridge JWT". */
+  .slip__body::before {
+    content: "§B.01 · BOOKMARKLET · v1";
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.24em;
+    color: color-mix(in oklab, var(--color-ember) 75%, var(--color-bone));
+  }
+
+  .slip__title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-bone);
+  }
+
+  .slip::after {
+    content: "↗";
+    align-self: start;
+    margin-top: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    color: var(--color-ember);
+    transition: transform 220ms ease;
+  }
+  .slip:hover::after { transform: translate(2px, -2px); }
+
+  .slip__hint {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+  }
+  .slip__hint::before {
+    content: "";
+    width: 1.1rem;
+    height: 1px;
+    background: color-mix(in oklab, var(--color-ember) 55%, var(--color-line));
+  }
+</style>
+
 <section class="console-card p-6 rise rise-delay-3">
   <p class="kicker">Fallback · daily rotation</p>
-  <h2 class="section-title mt-1">Manual token paste</h2>
+  <h2 class="section-title mt-1">Manual Matrix JWT paste</h2>
 
   <p class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed">
-    Paste a Matrix bearer JWT from DevTools on <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">chat.reddit.com</code>.
-    Lasts ~24h; expect to repeat daily. The bridge probes
-    <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">/account/whoami</code>
+    A short-lived Matrix bearer JWT (~24h). Only needed if cookies aren't configured,
+    or as a one-shot after <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">M_UNKNOWN_TOKEN</code>.
+    The bridge probes <code class="font-mono text-xs px-1 py-0.5 rounded bg-base-300/60">/account/whoami</code>
     before saving, so a bad paste never clobbers a working token.
   </p>
 
-  <form method="post" action="/auth" class="mt-5 space-y-3">
+  <div class="mt-5">
+    <p class="kicker kicker-ember">One-click grab · no DevTools</p>
+    <p class="mt-2 text-sm text-bone-dim max-w-3xl leading-relaxed">
+      Drag the slip below onto your bookmarks bar — typed
+      <code class="font-mono text-xs px-1 rounded bg-base-300/60">javascript:</code>
+      URLs get stripped by Chrome, so dragging is the only way in. Then on any logged-in
+      <code class="font-mono text-xs px-1 rounded bg-base-300/60">reddit.com</code>
+      tab, click the bookmark and the bridge-ready JWT lands on your clipboard.
+    </p>
+
+    <div class="mt-4">
+      <a id="jwt-bookmarklet" class="slip" draggable="true" role="button"
+         aria-label="Reddit to Bridge JWT — drag to bookmarks bar">
+        <span class="slip__perf" aria-hidden="true"></span>
+        <span class="slip__body"><span class="slip__title">Reddit → Bridge JWT</span></span>
+      </a>
+      <p class="slip__hint">drag → bookmarks bar · then click on any reddit.com tab</p>
+    </div>
+  </div>
+
+  <form method="post" action="/auth" class="mt-6 space-y-3">
     <div class="field">
       <label for="access_token" class="field-label">Matrix access token</label>
       <textarea
@@ -154,3 +287,22 @@
     <button type="submit" class="btn btn-outline">Probe &amp; save token only</button>
   </form>
 </section>
+
+<script>
+  // Wire up the JWT bookmarklet href on page load so we don't have to
+  // hand-escape < > " & inside an href="javascript:…" attribute.
+  // Dragging the anchor into the bookmarks bar uses this attribute value,
+  // and the bookmark's default name is the anchor's text content.
+  (function() {
+    var src = "(function(){fetch('/chat/',{credentials:'include'})" +
+      ".then(function(r){return r.ok?r.text():Promise.reject('HTTP '+r.status);})" +
+      ".then(function(h){var m=h.match(/<rs-app[^>]*\\stoken=\"([^\"]*)\"/);" +
+      "if(!m){throw new Error('No rs-app token found. Open https://www.reddit.com/chat/ while logged in.');}" +
+      "var b=JSON.parse(m[1].replace(/&quot;/g,'\"').replace(/&amp;/g,'&'));" +
+      "return navigator.clipboard.writeText(b.token).then(function(){" +
+      "alert('Matrix JWT copied to clipboard ('+b.token.length+' chars). Paste it into /auth on the bridge.');});})" +
+      ".catch(function(e){alert('Bookmarklet failed: '+(e.message||e));});})();";
+    var anchor = document.getElementById('jwt-bookmarklet');
+    if (anchor) { anchor.setAttribute('href', 'javascript:' + src); }
+  })();
+</script>

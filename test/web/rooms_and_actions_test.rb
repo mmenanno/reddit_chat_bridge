@@ -472,8 +472,6 @@ module Bridge
       private
 
       def seed_matrix_auth
-        AppConfig.set("matrix_homeserver", "https://matrix.redditspace.com")
-        AppConfig.set("matrix_user_id", "@t2_self:reddit.com")
         AuthState.update_token!(access_token: "tok", user_id: "@t2_self:reddit.com")
       end
 

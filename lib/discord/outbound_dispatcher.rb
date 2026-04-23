@@ -152,11 +152,11 @@ module Discord
     end
 
     def localpart_fallback
-      @localpart_fallback ||= Matrix::Id.localpart(AppConfig.fetch("matrix_user_id", ""))
+      @localpart_fallback ||= Matrix::Id.localpart(AuthState.user_id.to_s)
     end
 
     def fill_from_matrix_profile(name, avatar)
-      user_id = AppConfig.fetch("matrix_user_id", "")
+      user_id = AuthState.user_id.to_s
       return [name, avatar] if user_id.empty?
 
       profile = fetch_profile_safely(user_id)

@@ -17,6 +17,12 @@ module Discord
     WEBHOOK_TOKEN = "tok_1"
 
     setup do
+      # Baseline: the bridge is authenticated as OWN. Poster's own-vs-peer
+      # branching reads AuthState.user_id; setting it here mirrors the
+      # only production shape (auth lands token + user_id together via
+      # Admin::Actions#reauth).
+      AuthState.update_token!(access_token: "tok", user_id: OWN)
+
       @client = Discord::Client.new(bot_token: "tok")
       @index = Discord::ChannelIndex.new(
         client: @client,
@@ -574,7 +580,6 @@ module Discord
     end
 
     test "own messages without sender_username render the operator's Reddit handle from AppConfig (not the t2_ localpart)" do
-      AppConfig.set("matrix_user_id", OWN)
       AppConfig.set("own_display_name", "RonanWolfe")
       AppConfig.set("own_avatar_url", "https://cdn/ronan.png")
       @client.expects(:execute_webhook).with do |kwargs|
@@ -585,7 +590,6 @@ module Discord
     end
 
     test "own messages never fall back to the counterparty's avatar" do
-      AppConfig.set("matrix_user_id", OWN)
       AppConfig.set("own_display_name", "RonanWolfe")
       AppConfig.set("own_avatar_url", "https://cdn/ronan.png")
       Room.create!(
@@ -603,7 +607,6 @@ module Discord
     end
 
     test "own messages render no avatar_url (rather than the counterparty's) when AppConfig has none cached" do
-      AppConfig.set("matrix_user_id", OWN)
       AppConfig.set("own_display_name", "")
       AppConfig.set("own_avatar_url", "")
       Room.create!(
@@ -621,7 +624,6 @@ module Discord
     end
 
     test "an AppConfig own_display_name equal to the Matrix localpart is ignored (defense against stale bad writes)" do
-      AppConfig.set("matrix_user_id", OWN)
       # Simulates a pre-fix deployment where the localpart leaked into AppConfig.
       AppConfig.set("own_display_name", "t2_me")
       @client.expects(:execute_webhook).with do |kwargs|

@@ -327,7 +327,7 @@ module Discord
     end
 
     def own_localpart
-      @own_localpart ||= Matrix::Id.localpart(AppConfig.fetch("matrix_user_id", ""))
+      @own_localpart ||= Matrix::Id.localpart(AuthState.user_id.to_s)
     end
 
     # Matrix's origin_server_ts is unix millis. Fall back to now when

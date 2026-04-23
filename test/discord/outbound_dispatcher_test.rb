@@ -10,6 +10,12 @@ module Discord
     OP_USER_ID = "998877"
 
     setup do
+      # Baseline: the bridge is authenticated as @t2_me:reddit.com. The
+      # dispatcher's persona-rewrite path reads AuthState.user_id; in
+      # production the token + user_id land together via
+      # Admin::Actions#reauth, so tests mirror that shape.
+      AuthState.update_token!(access_token: "tok", user_id: "@t2_me:reddit.com")
+
       @matrix = mock("MatrixClient")
       @dispatcher = OutboundDispatcher.new(
         matrix_client: @matrix,
@@ -98,7 +104,6 @@ module Discord
     # ---- Reddit-persona rewrite (post-then-delete) ----
 
     test "after a successful Matrix send, replaces the Discord message with a webhook repost under the Reddit identity" do
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "RonanWolfe")
       AppConfig.set("own_avatar_url", "https://cdn/snoo.png")
       discord_client = mock("DiscordClient")
@@ -132,7 +137,6 @@ module Discord
     end
 
     test "logs and swallows webhook execute failures instead of aborting the dispatch" do
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "RonanWolfe")
       AppConfig.set("own_avatar_url", "https://cdn/snoo.png")
       journal = mock("Journal")
@@ -157,7 +161,6 @@ module Discord
     end
 
     test "retries profile resolution on the next dispatch after an initial profile failure" do
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "")
       AppConfig.set("own_avatar_url", "")
       media_resolver = mock("MediaResolver")
@@ -199,7 +202,6 @@ module Discord
     end
 
     test "ignores a previously-persisted localpart fallback in AppConfig and retries resolution" do
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       # Prior buggy run persisted the localpart as if it were a real name.
       AppConfig.set("own_display_name", "t2_me")
       AppConfig.set("own_avatar_url", "")
@@ -230,7 +232,6 @@ module Discord
       # Reddit's Matrix server sometimes returns displayname = "t2_<id>" (the
       # localpart itself) rather than the real Reddit handle. Accepting that
       # blindly would pin "t2_me" as the operator's name forever.
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "")
       AppConfig.set("own_avatar_url", "")
       reddit_profile = mock("RedditProfileClient")
@@ -260,7 +261,6 @@ module Discord
     end
 
     test "never writes the localpart fallback to AppConfig even when it survives resolution" do
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "")
       AppConfig.set("own_avatar_url", "")
       discord_client = mock("DiscordClient")
@@ -287,7 +287,6 @@ module Discord
     end
 
     test "falls back to Matrix /profile when AppConfig has no cached own identity" do
-      AppConfig.set("matrix_user_id", "@t2_me:reddit.com")
       AppConfig.set("own_display_name", "")
       AppConfig.set("own_avatar_url", "")
       media_resolver = mock("MediaResolver")

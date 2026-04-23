@@ -254,6 +254,5 @@ lib/
 ## Pointers
 
 - `guides/bot_setup.md` — Discord app + server + roles + intents.
-- `guides/extracting_matrix_token.md` — manual token fallback path.
 - `guides/unraid_deployment.md` — Unraid template walkthrough.
 - `guides/runbook.md` — operating the bridge when it misbehaves.

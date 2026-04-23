@@ -36,8 +36,6 @@ module Bridge
   # yet, the web UI is still live but the sync loop stays dormant.
   class Application
     REQUIRED_CONFIG_KEYS = [
-      "matrix_homeserver",
-      "matrix_user_id",
       "discord_bot_token",
       "discord_guild_id",
       "discord_dms_category_id",
@@ -146,7 +144,7 @@ module Bridge
     def build_matrix_client
       Matrix::Client.new(
         access_token: -> { AuthState.access_token },
-        homeserver: AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER),
+        homeserver: Matrix::Client::DEFAULT_HOMESERVER,
       )
     end
 
@@ -182,7 +180,7 @@ module Bridge
 
     def build_outbound_dispatcher
       operator_ids = AppConfig.fetch("discord_operator_user_ids", "").to_s.split(/[,\s]+/)
-      homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+      homeserver = Matrix::Client::DEFAULT_HOMESERVER
       Discord::OutboundDispatcher.new(
         matrix_client: @matrix_client,
         discord_client: @discord_client,
@@ -290,17 +288,16 @@ module Bridge
     end
 
     def build_sync_loop
-      homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
-      media_resolver = Matrix::MediaResolver.new(homeserver: homeserver)
+      media_resolver = Matrix::MediaResolver.new(homeserver: Matrix::Client::DEFAULT_HOMESERVER)
       Matrix::SyncLoop.new(
         client: @matrix_client,
         normalizer: Matrix::EventNormalizer.new(
-          own_user_id: AppConfig.fetch("matrix_user_id"),
+          own_user_id: AuthState.user_id.to_s,
           media_resolver: media_resolver,
         ),
         dispatcher: @poster,
         invite_handler: Matrix::InviteHandler.new(
-          own_user_id: AppConfig.fetch("matrix_user_id"),
+          own_user_id: AuthState.user_id.to_s,
           notifier: message_request_notifier,
           media_resolver: media_resolver,
         ),
@@ -308,8 +305,7 @@ module Bridge
     end
 
     def build_admin_actions
-      matrix_homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
-      factory = ->(token) { Matrix::Client.new(access_token: token, homeserver: matrix_homeserver) }
+      factory = ->(token) { Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER) }
       Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
     end
 
@@ -317,16 +313,14 @@ module Bridge
     # button click through the Discord gateway raises NotConfiguredError —
     # Admin::Actions' reconciler-backed methods all go through require_reconciler!.
     def build_reconciler
-      media_resolver = Matrix::MediaResolver.new(
-        homeserver: AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER),
-      )
+      media_resolver = Matrix::MediaResolver.new(homeserver: Matrix::Client::DEFAULT_HOMESERVER)
       Admin::Reconciler.new(
         matrix_client: @matrix_client,
         discord_client: @discord_client,
         channel_index: build_channel_index,
         poster: @poster,
         normalizer: Matrix::EventNormalizer.new(
-          own_user_id: AppConfig.fetch("matrix_user_id", ""),
+          own_user_id: AuthState.user_id.to_s,
           media_resolver: media_resolver,
         ),
         logger: @logger,

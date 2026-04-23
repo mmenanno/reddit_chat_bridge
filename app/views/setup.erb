@@ -11,7 +11,7 @@
     </p>
 
     <ol class="mt-10 space-y-3 max-w-md">
-      <% [["01", "Create an admin account"], ["02", "Configure Discord IDs in settings"], ["03", "Paste Reddit session cookies"], ["04", "Bridge starts syncing"]].each_with_index do |(num, step), i| %>
+      <% [["01", "Create an admin account"], ["02", "Configure Discord IDs in settings"], ["03", "Paste the Reddit session token"], ["04", "Bridge starts syncing"]].each_with_index do |(num, step), i| %>
         <li class="flex gap-4 items-baseline">
           <span class="font-mono text-xs text-ember w-6"><%= num %></span>
           <span class="text-sm <%= i.zero? ? "text-bone" : "text-bone-dim" %>"><%= step %></span>

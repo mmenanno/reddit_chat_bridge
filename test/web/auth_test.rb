@@ -114,6 +114,28 @@ module Bridge
         assert_equal("/login", URI(last_response.location).path)
         assert_nil(AuthState.access_token)
       end
+
+      # ---- /auth/cookies ----
+
+      test "POST /auth/cookies wraps a bare reddit_session value as reddit_session=<value>" do
+        bare_jwt = "eyJabc.def.ghi"
+        Admin::Actions.any_instance.expects(:set_reddit_cookies!).with("reddit_session=#{bare_jwt}")
+
+        post("/auth/cookies", reddit_cookie: bare_jwt)
+      end
+
+      test "POST /auth/cookies passes a full cookie header through unchanged" do
+        full_jar = "reddit_session=eyJabc.def.ghi; loid=stale"
+        Admin::Actions.any_instance.expects(:set_reddit_cookies!).with(full_jar)
+
+        post("/auth/cookies", reddit_cookie: full_jar)
+      end
+
+      test "POST /auth/cookies with a blank value re-renders with an error" do
+        post("/auth/cookies", reddit_cookie: "   ")
+
+        assert_match(/Paste your Reddit/i, last_response.body)
+      end
     end
   end
 end

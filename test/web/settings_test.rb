@@ -23,7 +23,6 @@ module Bridge
 
         assert_equal(200, last_response.status)
         assert_match(/Discord bot token/, last_response.body)
-        assert_match(/Matrix homeserver/, last_response.body)
       end
 
       test "GET /settings pre-fills fields from AppConfig" do
@@ -36,8 +35,6 @@ module Bridge
 
       test "POST /settings persists every known field to AppConfig" do
         post "/settings",
-          matrix_homeserver: "https://matrix.redditspace.com",
-          matrix_user_id: "@t2_abc:reddit.com",
           discord_bot_token: "tok_789",
           discord_guild_id: "111",
           discord_dms_category_id: "222",

@@ -6,7 +6,6 @@ require "bridge/application"
 module Bridge
   class ApplicationTest < ActiveSupport::TestCase
     REQUIRED_KEYS = Application::REQUIRED_CONFIG_KEYS
-    HOMESERVER = "https://matrix.redditspace.com"
 
     setup do
       populate_complete_config
@@ -78,8 +77,6 @@ module Bridge
     private
 
     def populate_complete_config
-      AppConfig.set("matrix_homeserver", HOMESERVER)
-      AppConfig.set("matrix_user_id", "@t2_self:reddit.com")
       AppConfig.set("discord_bot_token", "bot_abc")
       AppConfig.set("discord_guild_id", "g1")
       AppConfig.set("discord_dms_category_id", "c1")

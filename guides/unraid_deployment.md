@@ -111,10 +111,13 @@ working config after you finish the web UI wizard.
 1. Open `https://reddit-chat-bridge.<your-tailnet>.ts.net/`. First load
    lands on `/setup`.
 2. Create the admin account (12+ char password).
-3. `/settings` — paste the Discord IDs from `guides/bot_setup.md` and the
-   Matrix homeserver / user-id. Save.
-4. `/auth` — paste a fresh Matrix access token (see
-   `guides/extracting_matrix_token.md`). Probe & save.
+3. `/settings` — paste the Discord IDs from `guides/bot_setup.md`. Save.
+   (Matrix homeserver is hardcoded; the Matrix user ID is auto-discovered
+   from `/account/whoami` after the first successful auth.)
+4. `/auth` — paste your `reddit_session` cookie value (the long-lived
+   path) or a fresh Matrix JWT (the short-lived fallback). The `/auth`
+   page has a drag-to-bookmark helper for the JWT that skips DevTools
+   entirely. Probe & save.
 5. **Restart the container** once after the first save so config.ru
    picks up the now-complete config and spins up the background sync
    thread. Subsequent settings/token changes take effect live — only the

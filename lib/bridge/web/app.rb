@@ -86,8 +86,7 @@ module Bridge
 
         def admin_actions
           factory = lambda { |token|
-            homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
-            Matrix::Client.new(access_token: token, homeserver: homeserver)
+            Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER)
           }
           actions = Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
           actions.message_request_web_notifier = build_message_request_notifier
@@ -112,10 +111,9 @@ module Bridge
         def build_reconciler
           return unless Bridge::Application.configured?
 
-          homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
           matrix_client = Matrix::Client.new(
             access_token: -> { AuthState.access_token },
-            homeserver: homeserver,
+            homeserver: Matrix::Client::DEFAULT_HOMESERVER,
           )
           discord_client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
           guild_id = AppConfig.fetch("discord_guild_id")
@@ -138,7 +136,7 @@ module Bridge
             reddit_profile_client: Reddit::ProfileClient.new,
             channel_reorderer: channel_reorderer,
           )
-          normalizer = Matrix::EventNormalizer.new(own_user_id: AppConfig.fetch("matrix_user_id"))
+          normalizer = Matrix::EventNormalizer.new(own_user_id: AuthState.user_id.to_s)
           Admin::Reconciler.new(
             matrix_client: matrix_client,
             discord_client: discord_client,
@@ -420,20 +418,6 @@ module Bridge
       # /auth because its persistence goes through AuthState + a probe.
       SETTINGS_FIELDS = [
         {
-          key: "matrix_homeserver",
-          label: "Matrix homeserver URL",
-          hint: "Reddit's chat homeserver. Should be https://matrix.redditspace.com unless Reddit migrates.",
-          default: "https://matrix.redditspace.com",
-          secret: false,
-        },
-        {
-          key: "matrix_user_id",
-          label: "Matrix user ID",
-          hint: "Looks like @t2_<opaque>:reddit.com. Find it in DevTools → any /_matrix/client/v3/account/whoami response.",
-          default: "",
-          secret: false,
-        },
-        {
           key: "discord_bot_token",
           label: "Discord bot token",
           hint: "From the Discord Developer Portal → your app → Bot → Reset Token.",
@@ -557,14 +541,14 @@ module Bridge
           @transcript_error = "Matrix auth is paused or missing — paste a token on /auth to load this transcript."
         else
           begin
-            homeserver = AppConfig.fetch("matrix_homeserver", Matrix::Client::DEFAULT_HOMESERVER)
+            homeserver = Matrix::Client::DEFAULT_HOMESERVER
             client = Matrix::Client.new(access_token: -> { AuthState.access_token }, homeserver: homeserver)
             raw = client.room_messages(room_id: @room.matrix_room_id, dir: "b", limit: 60, from: @from_token)
             # dir=b returns newest first; reverse for chronological display.
             chunk = (raw["chunk"] || []).reverse
             media_resolver = Matrix::MediaResolver.new(homeserver: homeserver)
             normalizer = Matrix::EventNormalizer.new(
-              own_user_id: AppConfig.fetch("matrix_user_id"),
+              own_user_id: AuthState.user_id.to_s,
               media_resolver: media_resolver,
             )
             @events = normalizer.normalize_chunk(
@@ -830,12 +814,20 @@ module Bridge
       end
 
       post "/auth/cookies" do
-        cookie_jar = params[:reddit_cookie].to_s.strip
+        raw = params[:reddit_cookie].to_s.strip
 
-        if cookie_jar.empty?
-          @error = "Paste your Reddit Cookie header before submitting."
+        if raw.empty?
+          @error = "Paste your Reddit session token before submitting."
           return erb(:auth)
         end
+
+        # Operators paste one of two shapes: a bare JWT value (from
+        # DevTools → Application → Cookies → reddit_session → Copy value),
+        # or a legacy full Cookie header (reddit_session=…; loid=…; …).
+        # Wrap the bare value so AuthState always stores a Cookie-header-
+        # shaped string and the refresh flow can keep treating any subset
+        # as valid.
+        cookie_jar = raw.include?("=") ? raw : "reddit_session=#{raw}"
 
         begin
           admin_actions.set_reddit_cookies!(cookie_jar)
