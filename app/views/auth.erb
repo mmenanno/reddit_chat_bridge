@@ -293,15 +293,29 @@
   // hand-escape < > " & inside an href="javascript:…" attribute.
   // Dragging the anchor into the bookmarks bar uses this attribute value,
   // and the bookmark's default name is the anchor's text content.
+  //
+  // Clipboard strategy: navigator.clipboard.writeText() refuses to fire
+  // from inside a .then() after an async fetch on iOS Safari — user
+  // activation has already been consumed by the time the promise chain
+  // resolves ("NotAllowedError: The request is not allowed by the user
+  // agent"). The documented fix is navigator.clipboard.write([
+  // new ClipboardItem({ 'text/plain': promise })]) — passing a Promise
+  // as a ClipboardItem value explicitly preserves activation across
+  // async work. Supported on Safari 13.4+, Chrome 76+, Firefox 127+.
   (function() {
-    var src = "(function(){fetch('/chat/',{credentials:'include'})" +
-      ".then(function(r){return r.ok?r.text():Promise.reject('HTTP '+r.status);})" +
+    var src = "(function(){" +
+      "if(!navigator.clipboard||!window.ClipboardItem){" +
+      "alert('Bookmarklet needs a browser with async Clipboard API (Safari 13.4+, Chrome 76+, Firefox 127+).');return;}" +
+      "var p=fetch('/chat/',{credentials:'include'})" +
+      ".then(function(r){if(!r.ok){throw new Error('HTTP '+r.status);}return r.text();})" +
       ".then(function(h){var m=h.match(/<rs-app[^>]*\\stoken=\"([^\"]*)\"/);" +
       "if(!m){throw new Error('No rs-app token found. Open https://www.reddit.com/chat/ while logged in.');}" +
       "var b=JSON.parse(m[1].replace(/&quot;/g,'\"').replace(/&amp;/g,'&'));" +
-      "return navigator.clipboard.writeText(b.token).then(function(){" +
-      "alert('Matrix JWT copied to clipboard ('+b.token.length+' chars). Paste it into /auth on the bridge.');});})" +
-      ".catch(function(e){alert('Bookmarklet failed: '+(e.message||e));});})();";
+      "return new Blob([b.token],{type:'text/plain'});});" +
+      "navigator.clipboard.write([new ClipboardItem({'text/plain':p})])" +
+      ".then(function(){alert('Matrix JWT copied to clipboard. Paste it into /auth on the bridge.');})" +
+      ".catch(function(e){alert('Bookmarklet failed: '+(e.message||e));});" +
+      "})();";
     var anchor = document.getElementById('jwt-bookmarklet');
     if (anchor) { anchor.setAttribute('href', 'javascript:' + src); }
   })();
