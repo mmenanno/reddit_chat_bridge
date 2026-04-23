@@ -33,7 +33,7 @@ module Bridge
       PUBLIC_ROOT = File.expand_path("../../../app/assets/built", __dir__)
 
       EVENTS_PER_PAGE_OPTIONS = [10, 25, 50, 100].freeze
-      EVENTS_PER_PAGE_DEFAULT = 50
+      EVENTS_PER_PAGE_DEFAULT = 10
       EVENTS_PER_PAGE_COOKIE = "events_per_page"
 
       # This block runs at class-load time and reads AppConfig for the
