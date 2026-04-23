@@ -32,6 +32,18 @@
 <% end %>
 
 <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+  <%
+    thread_alive = Bridge::Application.running?
+    thread_label, thread_dot =
+      if AuthState.paused?
+        ["Paused", "rooms-breakdown__dot--warn"]
+      elsif thread_alive
+        ["Alive", "rooms-breakdown__dot--ok"]
+      else
+        ["Stopped", "rooms-breakdown__dot--bad"]
+      end
+    failures = auth.consecutive_failures.to_i
+  %>
   <div class="metric rise rise-delay-1">
     <div class="metric__trail">Bridge thread</div>
     <div class="flex items-center gap-3">
@@ -40,14 +52,15 @@
         <%= status[:label] %>
       </span>
     </div>
-    <div class="mt-6">
+    <% if AuthState.paused_by_operator? %>
+      <form method="post" action="/actions/resume" class="mt-3">
+        <button type="submit" class="btn btn-outline btn-sm">▶ Resume sync</button>
+      </form>
+    <% end %>
+    <div class="mt-5">
       <p class="metric__label">Last /sync batch</p>
-      <p class="mt-2 font-mono text-lg text-bone">
-        <% if checkpoint.last_batch_at %>
-          <%= time_ago(checkpoint.last_batch_at) %>
-        <% else %>
-          —
-        <% end %>
+      <p class="metric__value mt-2">
+        <%= checkpoint.last_batch_at ? time_ago(checkpoint.last_batch_at) : "—" %>
       </p>
       <% if checkpoint.last_batch_at %>
         <p class="mt-1 font-mono text-[0.7rem] text-bone-mute tabular-nums">
@@ -55,8 +68,56 @@
         </p>
       <% end %>
     </div>
+    <dl class="rooms-breakdown__legend mt-5">
+      <div class="rooms-breakdown__row">
+        <dt>
+          <span class="rooms-breakdown__dot <%= thread_dot %>" aria-hidden="true"></span>
+          Thread
+        </dt>
+        <dd class="font-mono tabular-nums"><%= thread_label %></dd>
+      </div>
+      <div class="rooms-breakdown__row">
+        <dt>
+          <span class="rooms-breakdown__dot <%= failures.positive? ? 'rooms-breakdown__dot--bad' : 'rooms-breakdown__dot--ok' %>" aria-hidden="true"></span>
+          Failures
+        </dt>
+        <dd class="font-mono tabular-nums"><%= failures %></dd>
+      </div>
+      <% if auth.last_error.present? %>
+        <div class="rooms-breakdown__row items-start">
+          <dt>
+            <span class="rooms-breakdown__dot rooms-breakdown__dot--bad" aria-hidden="true"></span>
+            Last error
+          </dt>
+          <dd class="font-mono text-xs text-[oklch(82%_0.1_25)] wrap-break-word max-w-[60%] text-right"><%= auth.last_error %></dd>
+        </div>
+      <% end %>
+    </dl>
+    <a href="/events" class="inline-flex items-center gap-1 mt-5 text-sm text-ember hover:underline">
+      View events
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 
+  <%
+    token_expires_at = AuthState.access_token_expires_at
+    session_expires_at = AuthState.reddit_session_expires_at
+    session_dot =
+      if session_expires_at.nil?
+        "rooms-breakdown__dot--warn"
+      elsif session_expires_at <= Time.current
+        "rooms-breakdown__dot--bad"
+      elsif AuthState.reddit_session_expiring_soon?
+        "rooms-breakdown__dot--warn"
+      else
+        "rooms-breakdown__dot--ok"
+      end
+    own_handle = AppConfig.fetch("own_display_name", "").to_s.presence
+    own_avatar = AppConfig.fetch("own_avatar_url", "").to_s.presence
+    user_localpart = AuthState.user_id ? Matrix::Id.localpart(AuthState.user_id) : nil
+    display_name = own_handle || user_localpart
+    avatar_initial = display_name ? display_name[0].to_s.upcase : "?"
+  %>
   <div class="metric rise rise-delay-2">
     <div class="metric__trail">Matrix auth</div>
     <div class="flex items-center gap-3 flex-wrap">
@@ -74,30 +135,59 @@
       <p class="mt-3 text-sm text-bone-dim">
         You paused the sync from the console.
       </p>
-      <form method="post" action="/actions/resume" class="mt-3">
-        <button type="submit" class="btn btn-outline btn-sm">▶ Resume sync</button>
-      </form>
     <% end %>
-    <div class="mt-6 space-y-2">
-      <% if AuthState.user_id %>
-        <div>
-          <p class="metric__label">User</p>
-          <p class="mt-1 font-mono text-sm break-all"><%= AuthState.user_id %></p>
-        </div>
-      <% end %>
-      <% if auth.last_ok_at %>
-        <div>
-          <p class="metric__label">Last OK</p>
-          <p class="mt-1 font-mono text-sm"><%= time_ago(auth.last_ok_at) %></p>
-        </div>
-      <% end %>
-      <% if auth.last_error %>
-        <div>
-          <p class="metric__label" style="color: var(--color-rust)">Last error</p>
-          <p class="mt-1 font-mono text-xs text-[oklch(82%_0.1_25)] wrap-break-word"><%= auth.last_error %></p>
-        </div>
+    <div class="mt-5">
+      <p class="metric__label">Token refreshes in</p>
+      <p class="metric__value mt-2"><%= time_until(token_expires_at) %></p>
+      <% if token_expires_at %>
+        <p class="mt-1 font-mono text-[0.7rem] text-bone-mute tabular-nums">
+          expires <%= token_expires_at.utc.iso8601 %>
+        </p>
       <% end %>
     </div>
+    <% if display_name %>
+      <div class="mt-5 flex items-center gap-3" title="<%= AuthState.user_id %>">
+        <% if own_avatar %>
+          <img src="<%= own_avatar %>"
+               alt="<%= display_name %>"
+               loading="lazy"
+               width="32"
+               height="32"
+               class="w-8 h-8 rounded-full ring-1 ring-[var(--color-line)] object-cover flex-shrink-0">
+        <% else %>
+          <div class="w-8 h-8 rounded-full ring-1 ring-[var(--color-line)] bg-[oklch(26%_0.014_55)] flex items-center justify-center font-mono text-sm text-bone-dim flex-shrink-0"
+               aria-hidden="true"><%= avatar_initial %></div>
+        <% end %>
+        <div class="min-w-0">
+          <p class="font-mono text-sm text-bone truncate"><%= display_name %></p>
+          <% if own_handle && user_localpart %>
+            <p class="font-mono text-[0.7rem] text-bone-mute truncate"><%= user_localpart %></p>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+    <dl class="rooms-breakdown__legend mt-5">
+      <% if auth.last_ok_at %>
+        <div class="rooms-breakdown__row">
+          <dt>
+            <span class="rooms-breakdown__dot rooms-breakdown__dot--ok" aria-hidden="true"></span>
+            Last OK
+          </dt>
+          <dd class="font-mono tabular-nums"><%= time_ago(auth.last_ok_at) %></dd>
+        </div>
+      <% end %>
+      <div class="rooms-breakdown__row">
+        <dt>
+          <span class="rooms-breakdown__dot <%= session_dot %>" aria-hidden="true"></span>
+          Reddit session
+        </dt>
+        <dd class="font-mono tabular-nums"><%= time_until(session_expires_at) %></dd>
+      </div>
+    </dl>
+    <a href="/auth" class="inline-flex items-center gap-1 mt-5 text-sm text-ember hover:underline">
+      Rotate cookies
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 
   <%

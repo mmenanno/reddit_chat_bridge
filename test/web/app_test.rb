@@ -135,6 +135,58 @@ module Bridge
         assert_equal(200, last_response.status)
         assert_match(/Dashboard/, last_response.body)
       end
+
+      # ---- time_until helper ----
+      # freeze_time keeps `delta = (time - Time.current).to_i` from
+      # truncating a few ms off mid-test and sliding 45m down to 44m.
+
+      test "time_until returns em-dash for nil" do
+        assert_equal("—", helpers.time_until(nil))
+      end
+
+      test "time_until returns 'expired' for times in the past" do
+        freeze_time do
+          assert_equal("expired", helpers.time_until(1.minute.ago))
+        end
+      end
+
+      test "time_until returns 'expired' for the exact current moment" do
+        freeze_time do
+          assert_equal("expired", helpers.time_until(Time.current))
+        end
+      end
+
+      test "time_until returns '<1m' for sub-minute deltas" do
+        freeze_time do
+          assert_equal("<1m", helpers.time_until(30.seconds.from_now))
+        end
+      end
+
+      test "time_until returns minutes for sub-hour deltas" do
+        freeze_time do
+          assert_equal("45m", helpers.time_until(45.minutes.from_now))
+        end
+      end
+
+      test "time_until returns hours for sub-day deltas" do
+        freeze_time do
+          assert_equal("23h", helpers.time_until(23.hours.from_now))
+        end
+      end
+
+      test "time_until returns days for multi-day deltas" do
+        freeze_time do
+          assert_equal("7d", helpers.time_until(7.days.from_now + 1.hour))
+        end
+      end
+
+      private
+
+      # Sinatra mixes helpers into app instances; `new!` gives us one
+      # without the middleware stack so we can call the helper directly.
+      def helpers
+        @helpers ||= App.new!
+      end
     end
   end
 end

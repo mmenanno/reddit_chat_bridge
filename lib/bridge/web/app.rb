@@ -261,6 +261,21 @@ module Bridge
           time.utc.strftime("%Y-%m-%d")
         end
 
+        # Forward-looking counterpart to time_ago: "23h", "4d", "<1m",
+        # "expired". Used by the dashboard to surface JWT / Reddit-session
+        # countdowns without a full timestamp.
+        def time_until(time)
+          return "—" if time.nil?
+
+          delta = (time - Time.current).to_i
+          return "expired" if delta <= 0
+          return "<1m" if delta < 60
+          return "#{delta / 60}m" if delta < 3600
+          return "#{delta / 3600}h" if delta < 86_400
+
+          "#{delta / 86_400}d"
+        end
+
         # Friendly label for a Room in status banners — prefers the resolved
         # counterparty username, then the counterparty's matrix id localpart,
         # and falls back to the opaque matrix_room_id only when nothing

@@ -1217,6 +1217,24 @@
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust) 20%, transparent);
   }
 
+  /* Semantic aliases for reuse outside the rooms-lifecycle context
+   * (Bridge thread + Matrix auth tiles). Same palette, health-signal
+   * naming so room-lifecycle classes don't leak into unrelated tiles. */
+  .rooms-breakdown__dot--ok {
+    background: var(--color-moss);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-moss) 20%, transparent);
+  }
+
+  .rooms-breakdown__dot--warn {
+    background: oklch(78% 0.14 72);
+    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(78% 0.14 72) 20%, transparent);
+  }
+
+  .rooms-breakdown__dot--bad {
+    background: var(--color-rust);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust) 20%, transparent);
+  }
+
   /* Paired outbound-link chips in the transcript header. Each chip carries
    * a short label (Profile / Chat) over the domain name it's headed to, so
    * the destination is unambiguous before a click. Hover lifts the border
