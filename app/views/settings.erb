@@ -1,6 +1,11 @@
-<% bot_fields     = @fields.select { |f| ["discord_bot_token", "discord_guild_id"].include?(f[:key]) } %>
-<% channel_fields = @fields.select { |f| f[:key].end_with?("category_id", "channel_id") } %>
-<% slash_fields   = @fields.select { |f| ["discord_application_id", "discord_operator_user_ids"].include?(f[:key]) } %>
+<% bot_fields    = @fields.select { |f| ["discord_bot_token", "discord_guild_id"].include?(f[:key]) } %>
+<% dms_field     = where_to_post_channel_fields(@fields, scope: :dms).first %>
+<% manual_fields = where_to_post_channel_fields(@fields, scope: :manual) %>
+<% sys_category  = @fields.find { |f| f[:key] == "discord_system_channels_category_id" } %>
+<% slash_fields  = @fields.select { |f| ["discord_application_id", "discord_operator_user_ids"].include?(f[:key]) } %>
+<% mode          = system_channels_mode %>
+<% rows          = system_channel_rows %>
+<% order_csv     = rows.map { |r| r[:slug] }.join(",") %>
 
 <section class="rise">
   <p class="kicker">§05 / Settings</p>
@@ -42,7 +47,7 @@
     </div>
   </section>
 
-  <section class="console-card p-6 rise rise-delay-3">
+  <section class="console-card p-6 rise rise-delay-3" data-mode-scope data-mode="<%= mode %>">
     <header class="mb-5">
       <p class="kicker">Discord · channel targets</p>
       <h2 class="section-title mt-1">Where to post</h2>
@@ -50,21 +55,107 @@
         Right-click each in Discord (with Developer Mode on) → <em>Copy ID</em>.
       </p>
     </header>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <% channel_fields.each do |field| %>
+
+    <% if dms_field %>
+      <div class="field mb-6">
+        <label class="field-label" for="<%= dms_field[:key] %>"><%= dms_field[:label] %></label>
+        <input
+          id="<%= dms_field[:key] %>"
+          type="text"
+          name="<%= dms_field[:key] %>"
+          value="<%= dms_field[:value] %>"
+          autocomplete="off"
+          spellcheck="false"
+          class="field-input">
+        <span class="field-hint"><%= dms_field[:hint] %></span>
+      </div>
+    <% end %>
+
+    <div class="sys-channels">
+      <header class="sys-channels__header">
+        <p class="kicker">System channels</p>
+        <p class="sys-channels__lede">
+          <code class="sys-channels__code">#app-status</code>,
+          <code class="sys-channels__code">#app-logs</code>,
+          <code class="sys-channels__code">#commands</code>,
+          <code class="sys-channels__code">#message-requests</code>.
+          Auto mints and sorts them under a category you choose; Manual takes pasted IDs.
+        </p>
+      </header>
+
+      <fieldset class="seg-toggle" role="radiogroup" aria-label="System channels mode">
+        <label class="seg-toggle__option">
+          <input type="radio" name="discord_system_channels_mode" value="auto"
+            <%= mode == "auto" ? "checked" : "" %>>
+          <span class="seg-toggle__label">Auto-provision</span>
+        </label>
+        <label class="seg-toggle__option">
+          <input type="radio" name="discord_system_channels_mode" value="manual"
+            <%= mode == "manual" ? "checked" : "" %>>
+          <span class="seg-toggle__label">Manual IDs</span>
+        </label>
+      </fieldset>
+
+      <div class="sys-panel sys-panel--auto" data-sys-panel="auto">
         <div class="field">
-          <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
+          <label class="field-label" for="<%= sys_category[:key] %>">System channels category ID</label>
           <input
-            id="<%= field[:key] %>"
-            type="<%= field[:secret] ? "password" : "text" %>"
-            name="<%= field[:key] %>"
-            value="<%= field[:value] %>"
+            id="<%= sys_category[:key] %>"
+            type="text"
+            name="<%= sys_category[:key] %>"
+            value="<%= sys_category[:value] %>"
             autocomplete="off"
             spellcheck="false"
             class="field-input">
-          <span class="field-hint"><%= field[:hint] %></span>
+          <span class="field-hint"><%= sys_category[:hint] %></span>
         </div>
-      <% end %>
+
+        <div class="reorder-rail" data-reorder-rail>
+          <p class="reorder-rail__caption">Preferred order · numbers are Discord positions</p>
+          <ol class="reorder-rail__list">
+            <% rows.each_with_index do |row, index| %>
+              <li class="reorder-row" data-slug="<%= row[:slug] %>">
+                <span class="reorder-row__pos" data-reorder-pos><%= index + 1 %></span>
+                <div class="reorder-row__body">
+                  <code class="reorder-row__name">#<%= row[:name] %></code>
+                  <span class="reorder-row__desc"><%= row[:description] %></span>
+                  <span class="reorder-row__badge reorder-row__badge--<%= row[:badge_kind] %>">
+                    <%= row[:badge_text] %>
+                  </span>
+                </div>
+                <div class="reorder-row__buttons">
+                  <button type="button" class="reorder-row__button" data-move="up"
+                    <%= index.zero? ? "disabled" : "" %>
+                    aria-label="Move <%= row[:name] %> up">&uarr;</button>
+                  <button type="button" class="reorder-row__button" data-move="down"
+                    <%= index == rows.length - 1 ? "disabled" : "" %>
+                    aria-label="Move <%= row[:name] %> down">&darr;</button>
+                </div>
+              </li>
+            <% end %>
+          </ol>
+          <input type="hidden" name="discord_system_channels_order" value="<%= order_csv %>" data-reorder-order>
+        </div>
+      </div>
+
+      <div class="sys-panel sys-panel--manual" data-sys-panel="manual">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <% manual_fields.each do |field| %>
+            <div class="field">
+              <label class="field-label" for="<%= field[:key] %>"><%= field[:label] %></label>
+              <input
+                id="<%= field[:key] %>"
+                type="text"
+                name="<%= field[:key] %>"
+                value="<%= field[:value] %>"
+                autocomplete="off"
+                spellcheck="false"
+                class="field-input">
+              <span class="field-hint"><%= field[:hint] %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -182,6 +273,62 @@
     });
     form.addEventListener("submit", () => {
       dock.removeAttribute("data-dirty");
+    });
+  })();
+
+  // Mode toggle (Auto / Manual) for the system-channels section: flips the
+  // scope's data-mode attribute which CSS uses to show/hide the two panels.
+  (function () {
+    const scope = document.querySelector("[data-mode-scope]");
+    if (!scope) return;
+    scope.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!target || target.name !== "discord_system_channels_mode") return;
+      scope.dataset.mode = target.value;
+    });
+  })();
+
+  // Reorder rail: up/down buttons reshuffle the row order, rewrite the
+  // position chips + disabled state of the end buttons, and update the
+  // hidden CSV input that POSTs back. Dispatching "input" keeps the
+  // dirty-state dock in sync.
+  (function () {
+    const rail = document.querySelector("[data-reorder-rail]");
+    if (!rail) return;
+    const list  = rail.querySelector(".reorder-rail__list");
+    const input = rail.querySelector("[data-reorder-order]");
+    if (!list || !input) return;
+
+    const refresh = () => {
+      const rows = Array.from(list.querySelectorAll("[data-slug]"));
+      rows.forEach((row, index) => {
+        const pos = row.querySelector("[data-reorder-pos]");
+        if (pos) pos.textContent = String(index + 1);
+        const up   = row.querySelector("[data-move='up']");
+        const down = row.querySelector("[data-move='down']");
+        if (up)   up.disabled   = index === 0;
+        if (down) down.disabled = index === rows.length - 1;
+      });
+      const next = rows.map((row) => row.dataset.slug).join(",");
+      if (next !== input.value) {
+        input.value = next;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    };
+
+    rail.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-move]");
+      if (!button || button.disabled) return;
+      const row = button.closest("[data-slug]");
+      if (!row) return;
+      const sibling = button.dataset.move === "up" ? row.previousElementSibling : row.nextElementSibling;
+      if (!sibling || !sibling.dataset.slug) return;
+      if (button.dataset.move === "up") {
+        list.insertBefore(row, sibling);
+      } else {
+        list.insertBefore(sibling, row);
+      }
+      refresh();
     });
   })();
 </script>

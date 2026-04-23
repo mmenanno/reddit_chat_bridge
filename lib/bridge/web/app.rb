@@ -15,6 +15,7 @@ require "discord/slash_command_router"
 require "reddit/profile_client"
 require "admin/actions"
 require "admin/reconciler"
+require "admin/system_channel_provisioner"
 
 module Bridge
   module Web
@@ -220,6 +221,89 @@ module Bridge
             value = stored.nil? || stored.empty? ? field[:default] : stored
             field.merge(value: value)
           end
+        end
+
+        # Rows for the reorder rail in the Auto system-channels panel — in
+        # the operator's configured order, each tagged with whether the
+        # current AppConfig ID will be adopted or a fresh channel created.
+        def system_channel_rows
+          stored_order = AppConfig.fetch(
+            "discord_system_channels_order",
+            Admin::SystemChannelProvisioner::DEFAULT_ORDER.join(","),
+          )
+          ordered_slugs = normalize_system_channel_order(stored_order)
+          ordered_slugs.map do |slug|
+            spec = Admin::SystemChannelProvisioner::BY_SLUG.fetch(slug)
+            stored_id = AppConfig.get(spec[:config_key]).to_s
+            row_description(spec, stored_id)
+          end
+        end
+
+        def system_channels_order_csv
+          system_channel_rows.map { |row| row[:slug] }.join(",")
+        end
+
+        def system_channels_mode
+          stored = AppConfig.get("discord_system_channels_mode").to_s
+          stored.empty? ? "auto" : stored
+        end
+
+        # Filter for the "Where to post" generic channel fields: the Reddit
+        # DMs category + the four manual-mode channel IDs. Excludes the
+        # new system-channels config keys (they have bespoke UI).
+        def where_to_post_channel_fields(fields, scope:)
+          fields.select do |field|
+            next false unless field[:key].end_with?("category_id", "channel_id")
+            next false if field[:key].start_with?("discord_system_channels_")
+
+            case scope
+            when :dms     then field[:key] == "discord_dms_category_id"
+            when :manual  then field[:key] != "discord_dms_category_id"
+            end
+          end
+        end
+
+        private
+
+        def row_description(spec, stored_id)
+          badge = if stored_id.empty?
+            { kind: "create", text: "Will create" }
+          else
+            { kind: "adopt", text: "Will adopt · id …#{stored_id[-4..] || stored_id}" }
+          end
+          {
+            slug: spec[:slug],
+            name: spec[:name],
+            description: spec[:description],
+            badge_kind: badge[:kind],
+            badge_text: badge[:text],
+          }
+        end
+
+        def normalize_system_channel_order(csv)
+          requested = csv.to_s.split(",").map(&:strip).reject(&:empty?)
+          known = requested & Admin::SystemChannelProvisioner::DEFAULT_ORDER
+          missing = Admin::SystemChannelProvisioner::DEFAULT_ORDER - known
+          known + missing
+        end
+
+        public
+
+        # Called from POST /settings after fields are persisted. Returns a
+        # user-facing error string when provisioning fails, or nil on success
+        # / when the provisioner should not run (manual mode, blank category).
+        def maybe_provision_system_channels!
+          return unless AppConfig.get("discord_system_channels_mode") == "auto"
+
+          category_id = AppConfig.get("discord_system_channels_category_id").to_s
+          return if category_id.empty?
+
+          admin_actions.provision_system_channels!
+          nil
+        rescue Admin::Actions::NotConfiguredError => e
+          e.message
+        rescue Discord::Error => e
+          "Auto-provisioning failed: #{e.message}"
         end
 
         # Marks a nav link as the current page. Dashboard is special-cased
@@ -471,6 +555,27 @@ module Bridge
           secret: false,
         },
         {
+          key: "discord_system_channels_mode",
+          label: "System channels mode",
+          hint: "auto (recommended) or manual",
+          default: "auto",
+          secret: false,
+        },
+        {
+          key: "discord_system_channels_category_id",
+          label: "System channels category ID",
+          hint: "Auto mode: the category where the bridge mints #app-status, #app-logs, #commands, #message-requests.",
+          default: "",
+          secret: false,
+        },
+        {
+          key: "discord_system_channels_order",
+          label: "System channels order",
+          hint: "Reorder rail writes a CSV here: e.g. status,logs,commands,message_requests",
+          default: "status,logs,commands,message_requests",
+          secret: false,
+        },
+        {
           key: "discord_admin_status_channel_id",
           label: "#app-status channel ID",
           hint: "Where critical alerts land. @everyone pinged on fatal errors only.",
@@ -525,15 +630,21 @@ module Bridge
           AppConfig.set(field[:key], submitted)
         end
 
+        provision_error = maybe_provision_system_channels!
+
         was_running = Bridge::Application.running?
         Bridge::Application.start_if_configured!
-        flash_notice!(
-          if !was_running && Bridge::Application.running?
-            "Settings saved. Sync is now running."
-          else
-            "Settings saved."
-          end,
-        )
+        if provision_error
+          flash_error!(provision_error)
+        else
+          flash_notice!(
+            if !was_running && Bridge::Application.running?
+              "Settings saved. Sync is now running."
+            else
+              "Settings saved."
+            end,
+          )
+        end
         redirect("/settings")
       end
 

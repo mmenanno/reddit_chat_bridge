@@ -84,13 +84,15 @@ module Discord
       :ok
     end
 
-    # Single PATCH that can carry any combination of name / topic — Discord
-    # accepts them together in one request so callers that need to rename
-    # + retopicalize don't burn a second rate-limit slot.
-    def update_channel(channel_id:, name: nil, topic: nil)
+    # Single PATCH that can carry any combination of name / topic / parent_id.
+    # Discord accepts them together in one request so callers that need to
+    # rename + retopicalize + move between categories don't burn extra
+    # rate-limit slots.
+    def update_channel(channel_id:, name: nil, topic: nil, parent_id: nil)
       body = {}
       body[:name] = name unless name.nil?
       body[:topic] = topic unless topic.nil?
+      body[:parent_id] = parent_id unless parent_id.nil?
       return :ok if body.empty?
 
       response = @conn.patch("channels/#{channel_id}") do |req|

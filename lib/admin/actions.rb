@@ -2,6 +2,8 @@
 
 require "auth/refresh_flow"
 require "admin/reconciler"
+require "admin/system_channel_provisioner"
+require "bridge/journal"
 require "discord/client"
 
 module Admin
@@ -18,10 +20,16 @@ module Admin
   class Actions
     class NotConfiguredError < StandardError; end
 
-    def initialize(matrix_client_factory:, refresh_flow: Auth::RefreshFlow.new, reconciler: nil)
+    def initialize(
+      matrix_client_factory:,
+      refresh_flow: Auth::RefreshFlow.new,
+      reconciler: nil,
+      system_channel_provisioner: nil
+    )
       @matrix_client_factory = matrix_client_factory
       @refresh_flow = refresh_flow
       @reconciler = reconciler
+      @system_channel_provisioner = system_channel_provisioner
     end
 
     def reauth(access_token:)
@@ -137,6 +145,24 @@ module Admin
       @reconciler.restore_chat!(matrix_room_id: matrix_room_id)
     end
 
+    # Auto-provision the four system channels (#app-status, #app-logs,
+    # #commands, #message-requests) under the configured system-channels
+    # category. Adopts existing channels when the stored IDs still resolve
+    # (moves them between categories); creates fresh ones only when an ID
+    # is blank or stale. See SystemChannelProvisioner for the full outcome
+    # taxonomy. Raises NotConfiguredError when the category is blank so
+    # the caller surfaces a clear error instead of silently doing nothing.
+    def provision_system_channels!
+      category_id = AppConfig.fetch("discord_system_channels_category_id", "").to_s
+      raise(NotConfiguredError, "discord_system_channels_category_id is blank") if category_id.empty?
+
+      order = AppConfig.fetch(
+        "discord_system_channels_order",
+        SystemChannelProvisioner::DEFAULT_ORDER.join(","),
+      )
+      system_channel_provisioner.provision!(category_id: category_id, order: order)
+    end
+
     # Probes the Discord side end-to-end by posting a visible hello line
     # to #app-status. Useful after changing the bot token or channel
     # IDs on /settings — skips the "wait for the next sync tick to see
@@ -180,6 +206,24 @@ module Admin
 
     def matrix_client
       @matrix_client_factory.call(AuthState.access_token)
+    end
+
+    def system_channel_provisioner
+      @system_channel_provisioner ||= build_default_system_channel_provisioner
+    end
+
+    def build_default_system_channel_provisioner
+      token = AppConfig.fetch("discord_bot_token", "").to_s
+      raise(NotConfiguredError, "discord_bot_token is blank") if token.empty?
+
+      guild_id = AppConfig.fetch("discord_guild_id", "").to_s
+      raise(NotConfiguredError, "discord_guild_id is blank") if guild_id.empty?
+
+      SystemChannelProvisioner.new(
+        client: Discord::Client.new(bot_token: token),
+        guild_id: guild_id,
+        journal: Bridge::Journal.new,
+      )
     end
 
     def resolve_message_request!(id:, decision:)

@@ -140,6 +140,35 @@ module Discord
       end
     end
 
+    # ---- update_channel ----
+
+    test "update_channel PATCHes parent_id when moving a channel between categories" do
+      stub_request(:patch, "#{BASE}/channels/#{CHANNEL}")
+        .with(
+          headers: { "Authorization" => "Bot #{TOKEN}" },
+          body: { parent_id: CATEGORY }.to_json,
+        )
+        .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+      assert_equal(:ok, @client.update_channel(channel_id: CHANNEL, parent_id: CATEGORY))
+    end
+
+    test "update_channel can combine name, topic, and parent_id in a single PATCH" do
+      stub_request(:patch, "#{BASE}/channels/#{CHANNEL}")
+        .with(body: { name: "app-status", topic: "alerts", parent_id: CATEGORY }.to_json)
+        .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+      assert_equal(
+        :ok,
+        @client.update_channel(
+          channel_id: CHANNEL,
+          name: "app-status",
+          topic: "alerts",
+          parent_id: CATEGORY,
+        ),
+      )
+    end
+
     # ---- reorder_channels ----
 
     test "reorder_channels PATCHes guild channels with the [id, position] payload" do

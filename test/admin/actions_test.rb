@@ -183,6 +183,54 @@ module Admin
       )
     end
 
+    # ---- provision_system_channels! ----
+
+    test "provision_system_channels! delegates to the injected provisioner with config from AppConfig" do
+      AppConfig.set("discord_system_channels_category_id", "cat_abc")
+      AppConfig.set("discord_system_channels_order", "logs,status,commands,message_requests")
+      provisioner = mock("Provisioner")
+      provisioner.expects(:provision!).with(
+        category_id: "cat_abc",
+        order: "logs,status,commands,message_requests",
+      ).returns([])
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        system_channel_provisioner: provisioner,
+      )
+
+      actions.provision_system_channels!
+    end
+
+    test "provision_system_channels! falls back to the default order when none is stored" do
+      AppConfig.set("discord_system_channels_category_id", "cat_abc")
+      provisioner = mock("Provisioner")
+      provisioner.expects(:provision!).with(
+        category_id: "cat_abc",
+        order: "status,logs,commands,message_requests",
+      ).returns([])
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        system_channel_provisioner: provisioner,
+      )
+
+      actions.provision_system_channels!
+    end
+
+    test "provision_system_channels! raises NotConfiguredError when the category is blank" do
+      AppConfig.set("discord_system_channels_category_id", "")
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        system_channel_provisioner: mock("Provisioner"),
+      )
+
+      assert_raises(Admin::Actions::NotConfiguredError) do
+        actions.provision_system_channels!
+      end
+    end
+
     test "full_resync! rebuilds every room when a reconciler is wired" do
       Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
       Room.create!(matrix_room_id: "!b:reddit.com", discord_channel_id: "222")

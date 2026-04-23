@@ -2,7 +2,11 @@
 
 require "test_helper"
 require "rack/test"
+require "bridge/application"
+require "bridge/build_info"
 require "bridge/web/app"
+require "admin/actions"
+require "discord/client"
 
 module Bridge
   module Web
@@ -68,6 +72,64 @@ module Bridge
         post "/settings", discord_guild_id: "  pad  "
 
         assert_equal("pad", AppConfig.get("discord_guild_id"))
+      end
+
+      test "POST /settings triggers the provisioner when mode=auto and category is set" do
+        Admin::Actions.any_instance.expects(:provision_system_channels!)
+
+        post "/settings",
+          discord_system_channels_mode: "auto",
+          discord_system_channels_category_id: "cat_42",
+          discord_system_channels_order: "status,logs,commands,message_requests"
+      end
+
+      test "POST /settings does not trigger the provisioner when mode=manual" do
+        Admin::Actions.any_instance.expects(:provision_system_channels!).never
+
+        post "/settings",
+          discord_system_channels_mode: "manual",
+          discord_system_channels_category_id: "cat_42"
+      end
+
+      test "POST /settings does not trigger the provisioner when the category is blank" do
+        Admin::Actions.any_instance.expects(:provision_system_channels!).never
+
+        post "/settings",
+          discord_system_channels_mode: "auto",
+          discord_system_channels_category_id: ""
+      end
+
+      test "POST /settings surfaces Discord errors from the provisioner in a flash notice" do
+        Admin::Actions.any_instance.expects(:provision_system_channels!)
+          .raises(Discord::AuthError, "Missing Permissions")
+
+        post "/settings",
+          discord_system_channels_mode: "auto",
+          discord_system_channels_category_id: "cat_42"
+        follow_redirect!
+
+        assert_match(/Missing Permissions/, last_response.body)
+      end
+
+      test "POST /settings persists the system-channels order" do
+        post "/settings",
+          discord_system_channels_order: "message_requests,commands,logs,status"
+
+        assert_equal(
+          "message_requests,commands,logs,status",
+          AppConfig.get("discord_system_channels_order"),
+        )
+      end
+
+      test "GET /settings defaults the system-channels mode to auto on fresh installs" do
+        get "/settings"
+
+        # The segmented toggle renders a radio input for each mode; the default
+        # should mark Auto as checked.
+        assert_match(
+          /<input[^>]*name="discord_system_channels_mode"[^>]*value="auto"[^>]*checked/i,
+          last_response.body,
+        )
       end
     end
   end
