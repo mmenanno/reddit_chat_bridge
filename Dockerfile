@@ -31,7 +31,7 @@ RUN apt-get update -qq && \
       libsqlite3-dev && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-COPY Gemfile Gemfile.lock ./
+COPY --link Gemfile Gemfile.lock ./
 RUN bundle install && \
     rm -rf \
       ~/.bundle/ \
@@ -51,14 +51,14 @@ RUN apt-get update -qq && \
 # package.json / package-lock.json change. `npm ci` is both faster and
 # deterministic vs. `npm install` (it respects the lockfile exactly
 # and skips dependency resolution against the registry).
-COPY package.json package-lock.json ./
+COPY --link package.json package-lock.json ./
 RUN npm ci --silent
 
 # App source + asset compile invalidates whenever app/ changes.
 # Only application.css and grain.png are served at runtime. The loose
 # icon.svg and icons/icon-*.png files in app/assets/ are dev-only
 # branding source — not referenced by any view or by application.css.
-COPY app ./app
+COPY --link app ./app
 RUN mkdir -p app/assets/built && \
     npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
@@ -81,9 +81,9 @@ RUN set -eux; \
     mkdir -p /app/state /app/log; \
     chown -R 1000:1000 /app/state /app/log
 
-COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY --from=assets /app/app/assets/built ./app/assets/built
-COPY . .
+COPY --link --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY --link --from=assets /app/app/assets/built ./app/assets/built
+COPY --link . .
 
 USER 1000:1000
 
