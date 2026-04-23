@@ -82,8 +82,8 @@ RUN set -eux; \
     chown -R 1000:1000 /app/state /app/log
 
 COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY . .
 COPY --from=assets /app/app/assets/built ./app/assets/built
+COPY . .
 
 USER 1000:1000
 
