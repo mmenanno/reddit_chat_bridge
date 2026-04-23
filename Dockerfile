@@ -74,15 +74,15 @@ ENV BUILD_SHA=$BUILD_SHA \
     BUILD_REF=$BUILD_REF \
     BUILD_VERSION=$BUILD_VERSION
 
-COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY . .
-COPY --from=assets /app/app/assets/built ./app/assets/built
-
 RUN set -eux; \
     groupadd --gid 1000 app; \
     useradd --uid 1000 --gid app --create-home --shell /bin/bash app; \
     mkdir -p /app/state /app/log; \
     chown -R 1000:1000 /app/state /app/log
+
+COPY --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY . .
+COPY --from=assets /app/app/assets/built ./app/assets/built
 
 USER 1000:1000
 
