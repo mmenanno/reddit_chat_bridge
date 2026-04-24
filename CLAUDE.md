@@ -255,6 +255,6 @@ lib/
 
 ## Pointers
 
-- `guides/bot_setup.md` — Discord app + server + roles + intents.
+- `app/views/guide_bot_setup.erb` + `GET /guide/bot-setup` — in-app Discord bot + server setup walkthrough (single source of truth for Discord-side setup; no markdown mirror).
 - `guides/unraid_deployment.md` — Unraid template walkthrough.
 - `guides/runbook.md` — operating the bridge when it misbehaves.

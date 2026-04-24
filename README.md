@@ -32,15 +32,13 @@ bundle exec rake test            # full suite (parallel minitest)
 bundle exec rubocop              # must be green for CI
 ```
 
-First run: visit the web UI, create an admin account, fill `/settings` with the Discord IDs, then paste your `reddit_session` cookie (or a short-lived JWT via the `/auth` bookmarklet) on `/auth`. See `guides/` for step-by-step setup.
+First run: visit the web UI and create an admin account. You'll be routed straight into the in-app Discord setup walkthrough at `/guide/bot-setup`, which mints an invite URL, tracks which IDs are still missing, and links back into `/settings`. After that, paste your `reddit_session` cookie (or a short-lived JWT via the `/auth` bookmarklet) on `/auth`.
 
 ## Guides
 
-User-facing documentation lives in [`guides/`](./guides/):
-
-- `bot_setup.md` — creating the Discord bot, server layout, roles, intents
-- `unraid_deployment.md` — filling out the Unraid container template (paths, ports, TSDProxy labels)
-- `runbook.md` — operating the bridge when it misbehaves
+- In-app: `/guide/bot-setup` — Discord application, bot, invite, IDs, and first-probe walkthrough (live-tracks which fields are still missing).
+- `guides/unraid_deployment.md` — filling out the Unraid container template (paths, ports, TSDProxy labels).
+- `guides/runbook.md` — operating the bridge when it misbehaves.
 
 ## Deployment
 

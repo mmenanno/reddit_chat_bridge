@@ -325,50 +325,61 @@ module Bridge
           ]
         end
 
-        # Rows for the Step 04 checklist — one per channel ID the bridge
-        # reads. Each row carries enough to render its status chip + the
-        # "Paste" / "Review" jump link into /settings.
+        # Rows for the Step 04 checklist. `required` keys are the three every
+        # install needs (server + DMs category + system channels category in
+        # auto mode). The four individual channel IDs are only needed in
+        # manual mode; they render with an "advanced" badge and no "pending"
+        # pressure in the default flow.
         def guide_id_rows
           specs = [
             {
               key: "discord_guild_id",
               label: "Server (guild) ID",
-              how: "Right-click the server name → Copy Server ID.",
+              how: "Right-click the server name in your server list, then Copy Server ID.",
+              required: true,
             },
             {
               key: "discord_dms_category_id",
               label: "Reddit DMs category ID",
-              how: "Right-click the 📥 Reddit DMs category → Copy Channel ID.",
+              how: "Right-click the Reddit DMs category header, then Copy Channel ID.",
+              required: true,
+            },
+            {
+              key: "discord_system_channels_category_id",
+              label: "System channels category ID",
+              how: "Right-click the system-channels category header, then Copy Channel ID. The bridge mints #app-status, #app-logs, #commands, and #message-requests inside it.",
+              required: true,
             },
             {
               key: "discord_admin_status_channel_id",
               label: "#app-status channel ID",
-              how: "Right-click the channel → Copy Channel ID. Leave blank to auto-provision.",
+              how: "Manual mode only. Right-click the channel, then Copy Channel ID.",
+              required: false,
             },
             {
               key: "discord_admin_logs_channel_id",
               label: "#app-logs channel ID",
-              how: "Right-click the channel → Copy Channel ID. Leave blank to auto-provision.",
+              how: "Manual mode only. Right-click the channel, then Copy Channel ID.",
+              required: false,
             },
             {
               key: "discord_admin_commands_channel_id",
               label: "#commands channel ID",
-              how: "Right-click the channel → Copy Channel ID. Leave blank to auto-provision.",
+              how: "Manual mode only. Right-click the channel, then Copy Channel ID.",
+              required: false,
             },
             {
               key: "discord_message_requests_channel_id",
               label: "#message-requests channel ID",
-              how: "Optional — falls back to #app-status when blank.",
+              how: "Manual mode only. Falls back to #app-status when blank.",
+              required: false,
             },
           ]
 
           specs.map do |spec|
             stored = AppConfig.fetch(spec[:key], "").to_s
             status = stored.empty? ? :pending : :ok
-            spec.merge(
-              status: status,
-              tail: stored.empty? ? "" : stored[-4..] || stored,
-            )
+            spec.merge(status: status, value: stored)
           end
         end
 

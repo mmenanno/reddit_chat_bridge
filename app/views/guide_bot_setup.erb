@@ -64,7 +64,7 @@
   <header class="guide-chapter__header">
     <div>
       <p class="kicker kicker-ember">Step 01 · Discord server</p>
-      <h2 class="section-title mt-2">Stand up the dedicated server</h2>
+      <h2 class="section-title mt-2">Stand up a dedicated server</h2>
     </div>
     <span class="guide-chapter__badge guide-chapter__badge--<%= steps[0][:status] %>">
       <%= steps[0][:status] == :ok ? "Linked" : "Not yet" %>
@@ -72,23 +72,34 @@
   </header>
 
   <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
-    Create a new Discord server (or reuse a personal one) named
-    <strong class="text-bone">Reddit Chat Bridge</strong>. Enable Developer Mode so you can
-    right-click to copy IDs: <em>User Settings → Advanced → Developer Mode</em>.
+    Pick any server you own and control. A fresh one dedicated to the bridge keeps the
+    channel tree clean, but an existing personal server works just as well. The server
+    name, role names, and channel names below are the defaults this UI uses in examples;
+    nothing in the bridge requires them to match exactly.
   </p>
+
+  <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
+    Enable Developer Mode so you can right-click to copy IDs. The path depends on your
+    Discord client version:
+  </p>
+  <ul class="guide-tip__list mt-3 max-w-2xl">
+    <li>Recent desktop: <em>Settings → Developer Tools (or Developer) → Developer Mode</em>.</li>
+    <li>Older desktop / web: <em>User Settings → Advanced → Developer Mode</em>.</li>
+    <li>Mobile: <em>Settings → Behaviour → Developer Mode</em>.</li>
+  </ul>
 
   <div class="mt-6 grid gap-6 lg:grid-cols-[1.15fr_1fr] items-start">
     <div class="channel-tree" aria-label="Target channel layout">
-      <p class="channel-tree__caption">Target channel tree</p>
+      <p class="channel-tree__caption">Target channel tree · auto-provision default</p>
       <div class="channel-tree__server">
         <span class="channel-tree__server-glyph" aria-hidden="true">◆</span>
-        <span class="channel-tree__server-name">Reddit Chat Bridge</span>
+        <span class="channel-tree__server-name">Your Discord server</span>
       </div>
       <ul class="channel-tree__list">
         <li class="channel-tree__category">
           <span class="channel-tree__arrow" aria-hidden="true">▾</span>
           <span class="channel-tree__category-name">📥 &nbsp;Reddit DMs</span>
-          <span class="channel-tree__tag">auto-populated</span>
+          <span class="channel-tree__tag">you create</span>
         </li>
         <li class="channel-tree__leaf channel-tree__leaf--ghost">
           <code>#dm-&lt;username&gt;</code>
@@ -96,22 +107,30 @@
         </li>
         <li class="channel-tree__category channel-tree__category--spaced">
           <span class="channel-tree__arrow" aria-hidden="true">▾</span>
-          <span class="channel-tree__category-name">🔧 &nbsp;Admin</span>
-          <span class="channel-tree__tag">you pre-create</span>
+          <span class="channel-tree__category-name">🔧 &nbsp;Bridge system</span>
+          <span class="channel-tree__tag">bot mints on Save</span>
         </li>
-        <li class="channel-tree__leaf"><code>#app-status</code><span class="channel-tree__leaf-note">critical alerts · @everyone on fatals</span></li>
+        <li class="channel-tree__leaf"><code>#app-status</code><span class="channel-tree__leaf-note">critical alerts</span></li>
         <li class="channel-tree__leaf"><code>#app-logs</code><span class="channel-tree__leaf-note">rolling info / warn log</span></li>
-        <li class="channel-tree__leaf"><code>#commands</code><span class="channel-tree__leaf-note">slash-command surface · @BotAdmin only</span></li>
+        <li class="channel-tree__leaf"><code>#commands</code><span class="channel-tree__leaf-note">slash-command surface</span></li>
         <li class="channel-tree__leaf"><code>#message-requests</code><span class="channel-tree__leaf-note">approve / decline incoming DMs</span></li>
       </ul>
+      <p class="channel-tree__footnote">
+        You only create the two empty categories. The bridge mints every channel inside
+        the system category automatically on the first save. Prefer to pre-create and
+        paste IDs manually? Flip to <em>Manual IDs</em> mode on
+        <a href="/settings" class="guide-link">settings</a>.
+      </p>
     </div>
 
     <aside class="guide-tip">
-      <p class="kicker">Role</p>
-      <h3 class="guide-tip__title">Create <code>@BotAdmin</code></h3>
+      <p class="kicker">Optional · roles</p>
+      <h3 class="guide-tip__title">Restrict who sees the bot channels</h3>
       <p class="guide-tip__body">
-        Assign it to yourself. Deny <code>@everyone</code> access to <code>#commands</code>;
-        allow <code>@BotAdmin</code>. Slash commands will refuse to work anywhere else.
+        If you share this server with anyone, create a role for yourself (any name works,
+        the UI shows <code>@BotAdmin</code> in examples) and grant only that role
+        permission to view the system category. On a private server you can skip this
+        entirely.
       </p>
     </aside>
   </div>
@@ -122,7 +141,7 @@
   <header class="guide-chapter__header">
     <div>
       <p class="kicker kicker-ember">Step 02 · Application &amp; bot</p>
-      <h2 class="section-title mt-2">Mint the app, mint the bot</h2>
+      <h2 class="section-title mt-2">Create the Discord application</h2>
     </div>
     <span class="guide-chapter__badge guide-chapter__badge--<%= steps[1][:status] %>">
       <%= steps[1][:status] == :ok ? "Token set" : "Missing" %>
@@ -136,45 +155,72 @@
         <p class="guide-step__title">Open the Developer Portal</p>
         <p class="guide-step__hint">
           <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer"
-             class="guide-link">discord.com/developers/applications ↗</a>
-          — <strong>New Application</strong>, name it <em>Reddit Chat Bridge</em> to match the server.
+             class="guide-link">discord.com/developers/applications ↗</a>.
+          Click <strong>New Application</strong> and give it any name you like. The name
+          shows up as the bot's display name inside Discord, so pick something you'll
+          recognize.
         </p>
       </div>
     </li>
     <li class="guide-step">
       <span class="guide-step__num">B</span>
       <div class="guide-step__body">
-        <p class="guide-step__title">Sidebar → Bot → Add Bot</p>
+        <p class="guide-step__title">Open the Bot tab + set a username</p>
         <p class="guide-step__hint">
-          Under <em>Privileged Gateway Intents</em>, toggle on
-          <strong class="text-bone">Message Content Intent</strong>. Harmless to enable now.
+          Click <strong>Bot</strong> in the left sidebar. Fill in a
+          <strong class="text-bone">Username</strong> (the handle people see when the bot
+          posts) and optionally upload an icon. The <em>Add Bot</em> button older guides
+          reference is gone; the bot is created with the app.
         </p>
+        <div class="guide-step__callout">
+          <span class="guide-step__callout-icon" aria-hidden="true">⬇</span>
+          <span>
+            Want a matching icon? Download the bridge glyph:
+            <a href="/icons/icon-512.png" download="reddit-chat-bridge-icon.png" class="guide-link">512×512 PNG</a>
+            or
+            <a href="/icons/icon-1024.png" download="reddit-chat-bridge-icon.png" class="guide-link">1024×1024 PNG</a>,
+            then drag into the Icon slot.
+          </span>
+        </div>
       </div>
     </li>
     <li class="guide-step">
       <span class="guide-step__num">C</span>
       <div class="guide-step__body">
-        <p class="guide-step__title">Reset Token → copy it</p>
+        <p class="guide-step__title">Enable Message Content Intent</p>
         <p class="guide-step__hint">
-          Discord shows the value once. Paste it into
-          <a href="/settings#discord_bot_token" class="guide-link">settings · Discord bot token</a>
-          before navigating away.
+          Still on the Bot tab, scroll to <em>Privileged Gateway Intents</em> and toggle
+          on <strong class="text-bone">Message Content Intent</strong>. The bridge needs
+          this to see the messages you type in <code>#dm-*</code> channels before
+          relaying them to Reddit.
         </p>
-        <div class="guide-step__callout guide-step__callout--warn">
-          <span class="guide-step__callout-icon" aria-hidden="true">!</span>
-          <span>Resetting invalidates any older token. If the bridge is already running, the
-            next <code>/sync</code>-adjacent Discord call will fail until you save the new token.</span>
-        </div>
       </div>
     </li>
     <li class="guide-step">
       <span class="guide-step__num">D</span>
       <div class="guide-step__body">
+        <p class="guide-step__title">Reset Token and copy it</p>
+        <p class="guide-step__hint">
+          Further down the Bot tab, click <strong>Reset Token</strong>. Discord shows the
+          value once. Paste it into
+          <a href="/settings#discord_bot_token" class="guide-link">settings → Discord bot token</a>
+          before navigating away.
+        </p>
+        <div class="guide-step__callout guide-step__callout--warn">
+          <span class="guide-step__callout-icon" aria-hidden="true">!</span>
+          <span>Resetting invalidates any older token. If the bridge is already running,
+            the next Discord call will fail until you save the new token.</span>
+        </div>
+      </div>
+    </li>
+    <li class="guide-step">
+      <span class="guide-step__num">E</span>
+      <div class="guide-step__body">
         <p class="guide-step__title">Grab the Application ID</p>
         <p class="guide-step__hint">
-          <em>General Information → Application ID</em>. Needed for slash commands and for
-          the invite URL in the next step.
-          <a href="/settings#discord_application_id" class="guide-link">settings · Application ID →</a>
+          Back to <em>General Information → Application ID</em>. Needed for slash
+          commands and for the invite URL in the next step.
+          <a href="/settings#discord_application_id" class="guide-link">settings → Application ID →</a>
         </p>
       </div>
     </li>
@@ -272,7 +318,7 @@
   <header class="guide-chapter__header">
     <div>
       <p class="kicker kicker-ember">Step 04 · Identifiers</p>
-      <h2 class="section-title mt-2">Copy the IDs into the bridge</h2>
+      <h2 class="section-title mt-2">Copy the category IDs into the bridge</h2>
     </div>
     <span class="guide-chapter__badge guide-chapter__badge--<%= steps[3][:status] %>">
       <%= steps[3][:status] == :ok ? "All set" : "#{steps[3][:missing_count]} missing" %>
@@ -280,26 +326,37 @@
   </header>
 
   <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
-    Back in the Discord client (Developer Mode on), right-click to <em>Copy ID</em> for each.
-    The console lights the row green when the value lands in
+    In <strong>Auto-provision mode</strong> (the default) the bridge only needs three IDs
+    from you: the server, the <em>Reddit DMs</em> category, and the <em>system channels</em>
+    category. On save it mints <code>#app-status</code>, <code>#app-logs</code>,
+    <code>#commands</code>, and <code>#message-requests</code> inside that second category
+    itself. Right-click in Discord (Developer Mode on) and pick <em>Copy ID</em> for each.
+    Rows light green once the value lands in
     <a href="/settings" class="text-ember hover:underline">settings</a>.
   </p>
 
   <ul class="id-list mt-6">
     <% guide_id_rows.each do |row| %>
-      <li class="id-row" data-status="<%= row[:status] %>">
+      <li class="id-row" data-status="<%= row[:status] %>" data-required="<%= row[:required] %>">
         <span class="id-row__tick" aria-hidden="true">
           <%= row[:status] == :ok ? "✓" : "○" %>
         </span>
         <div class="id-row__body">
-          <p class="id-row__name"><%= row[:label] %></p>
+          <p class="id-row__name">
+            <%= row[:label] %>
+            <% if row[:required] %>
+              <span class="id-row__badge id-row__badge--required">Required</span>
+            <% else %>
+              <span class="id-row__badge id-row__badge--advanced">Manual mode only</span>
+            <% end %>
+          </p>
           <p class="id-row__how">
             <span class="id-row__how-label">How</span><%= row[:how] %>
           </p>
           <% if row[:status] == :ok %>
             <p class="id-row__value">
               <span class="id-row__value-label">Stored</span>
-              <code>…<%= row[:tail] %></code>
+              <code><%= row[:value] %></code>
             </p>
           <% end %>
         </div>
@@ -312,12 +369,13 @@
   </ul>
 
   <div class="guide-tip guide-tip--inline mt-6">
-    <p class="kicker">System channels</p>
+    <p class="kicker">Advanced · manual mode</p>
     <p class="guide-tip__body">
-      Prefer to have the bridge mint <code>#app-status</code> / <code>#app-logs</code> /
-      <code>#commands</code> / <code>#message-requests</code> itself? Leave those four IDs blank
-      and use <strong>Auto-provision</strong> on the settings page — you'll only need the
-      category ID.
+      Want to pre-create <code>#app-status</code> / <code>#app-logs</code> / <code>#commands</code>
+      / <code>#message-requests</code> yourself so you can place them wherever? Flip to
+      <strong>Manual IDs</strong> on the settings page and paste a Channel ID for each.
+      Auto and manual are interchangeable; you can switch back and the bridge will adopt
+      whatever IDs you have saved.
     </p>
   </div>
 </article>
@@ -359,10 +417,10 @@
   <div class="guide-tip mt-6">
     <p class="kicker">Troubleshoot</p>
     <ul class="guide-tip__list">
-      <li>Token typo — paste again in <a href="/settings#discord_bot_token" class="guide-link">settings</a>.</li>
-      <li>Guild ID belongs to a different server — right-click the server name, not a channel.</li>
-      <li>Bot invited but role not assigned — double-check <code>@BotAdmin</code> has the 8 perms.</li>
-      <li>On Unraid, the last resort is <code>docker logs --tail 100 reddit_chat_bridge</code>.</li>
+      <li>Token typo: paste again in <a href="/settings#discord_bot_token" class="guide-link">settings</a>.</li>
+      <li>Guild ID belongs to a different server. Right-click the server name in the server list, not a channel inside it.</li>
+      <li>Permissions missing: Discord created a managed role named after your app when you invited the bot. Open <em>Server Settings → Roles</em>, click that role, and confirm it still has the 8 bot permissions. Re-running the invite URL from Step 03 will re-grant them.</li>
+      <li>Container logs are the last resort. Check whatever logging surface your platform provides for the bridge's output.</li>
     </ul>
   </div>
 </article>

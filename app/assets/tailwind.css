@@ -769,6 +769,10 @@
     border-radius: 0.55rem;
     padding: 0.65rem 0.85rem;
     transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    /* Deep-links from /guide/bot-setup anchor to input IDs. Without this,
+     * the browser scrolls the input to the top edge of the viewport and
+     * the field-label above is clipped by the sticky header. */
+    scroll-margin-top: 6rem;
   }
 
   .field-input:focus,
@@ -777,6 +781,27 @@
     border-color: var(--color-ember);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ember) 25%, transparent);
     background: oklch(14% 0.009 55);
+  }
+
+  /* Brief ember pulse when the page is loaded with a #field-id hash — tells
+   * the operator which field the guide wanted them to fill without obscuring
+   * the value. One-shot animation, CSS-only. */
+  .field-input:target,
+  .field-textarea:target {
+    animation: rcb-field-target-pulse 1.6s ease-out 1;
+    border-color: var(--color-ember);
+  }
+
+  @keyframes rcb-field-target-pulse {
+    0%   {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-ember) 70%, transparent);
+    }
+    30%  {
+      box-shadow: 0 0 0 12px color-mix(in oklab, var(--color-ember) 40%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ember) 25%, transparent);
+    }
   }
 
   .field-textarea {
@@ -2616,6 +2641,24 @@
     font-style: italic;
   }
 
+  .channel-tree__footnote {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed oklch(28% 0.014 55);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--color-bone-dim);
+  }
+
+  .channel-tree__footnote code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.25rem;
+    background: oklch(14% 0.009 55);
+    color: var(--color-bone);
+  }
+
   /* Side panel callout used inside guide chapters */
   .guide-tip {
     padding: 1rem 1.15rem;
@@ -2951,7 +2994,26 @@
     font-size: 0.92rem;
     font-weight: 600;
     color: var(--color-bone);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
   }
+
+  .id-row__badge {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    background: color-mix(in oklab, currentColor 10%, transparent);
+  }
+
+  .id-row__badge--required { color: var(--color-ember-soft); }
+  .id-row__badge--advanced { color: var(--color-bone-mute); }
 
   .id-row__how {
     margin-top: 0.15rem;
@@ -2971,15 +3033,22 @@
   }
 
   .id-row__value {
-    margin-top: 0.2rem;
+    margin-top: 0.3rem;
     font-size: 0.8rem;
     color: var(--color-bone-dim);
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .id-row__value code {
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--color-ember-soft);
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    line-height: 1.4;
   }
 
   .id-row__jump {

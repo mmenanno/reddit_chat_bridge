@@ -40,7 +40,7 @@ module Bridge
         # One regex covering all five h2s in render order, so any drift in the
         # view's chapter list fails this single test instead of producing
         # separate failures per title.
-        ordered = /Stand up the dedicated server.*Mint the app, mint the bot.*Invite the bot to your server.*Copy the IDs into the bridge.*Prove the bot can talk/m
+        ordered = /Stand up a dedicated server.*Create the Discord application.*Invite the bot to your server.*Copy the category IDs into the bridge.*Prove the bot can talk/m
 
         assert_match(ordered, last_response.body)
       end
@@ -150,6 +150,25 @@ module Bridge
         assert_includes(url, "client_id=1234567890123456789")
         assert_includes(url, "scope=bot%20applications.commands")
         assert_includes(url, "permissions=#{App::GUIDE_INVITE_PERMISSIONS}")
+      end
+
+      # ---- guide_id_rows ----
+
+      test "id rows render the full stored ID, not a truncation" do
+        AppConfig.set("discord_guild_id", "1302472019403047121")
+
+        row = App.new!.guide_id_rows.find { |r| r[:key] == "discord_guild_id" }
+
+        assert_equal("1302472019403047121", row[:value])
+      end
+
+      test "id rows flag server and both categories as required in default auto mode" do
+        required_keys = App.new!.guide_id_rows.select { |r| r[:required] }.map { |r| r[:key] }
+
+        assert_equal(
+          ["discord_guild_id", "discord_dms_category_id", "discord_system_channels_category_id"],
+          required_keys,
+        )
       end
     end
   end
