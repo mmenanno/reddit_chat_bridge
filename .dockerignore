@@ -54,9 +54,9 @@
 
 # icon.svg is the ImageMagick source for bin/build-icons — a dev-only
 # regeneration helper that runs on the workstation, never in CI.
-# The exported icons/icon-<size>.png files DO ship (the /guide/bot-setup
-# page offers them as Discord bot-icon downloads), so they stay in the
-# context.
+# Of the exported PNGs, only icon-1024.png ships (served by
+# /guide/bot-setup as the bot-icon download at Discord's recommended
+# 1024×1024 dimension). The smaller sizes stay as dev-only exports.
 #
 # app/assets/built holds build artifacts produced inside the assets
 # stage (application.css, grain.png, icons/). Keeping any local copy
@@ -68,6 +68,9 @@
 # and `cp app/assets/grain.png`. .dockerignore gates the whole context,
 # not per-stage, so excluding them here would break the build.
 /app/assets/icon.svg
+/app/assets/icons/icon-128.png
+/app/assets/icons/icon-256.png
+/app/assets/icons/icon-512.png
 /app/assets/built
 
 # Dockerfile and Rakefile themselves are not needed at runtime

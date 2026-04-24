@@ -66,13 +66,15 @@ COPY --link package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm ci --silent
 
-# Bot-icon PNGs ship first in their own layer. They regenerate only when
-# bin/build-icons runs (i.e., when the branding SVG is edited), which is
-# rare — separating this COPY from the bulk `app/` copy below keeps the
-# icon-staging step out of the invalidation path for every view/CSS tweak.
-COPY --link app/assets/icons ./app/assets/icons
-RUN mkdir -p app/assets/built && \
-    cp -r app/assets/icons app/assets/built/icons
+# Bot-icon PNG ships first in its own layer. Only the 1024×1024 variant
+# ships — it matches Discord's recommended bot-avatar dimensions and is
+# the single size the /guide/bot-setup download link serves. The other
+# sizes (128/256/512) stay as dev-only exports under app/assets/icons/.
+# Keeping the COPY narrow also means the layer only invalidates when
+# that specific file regenerates via bin/build-icons.
+COPY --link app/assets/icons/icon-1024.png ./app/assets/icons/icon-1024.png
+RUN mkdir -p app/assets/built/icons && \
+    cp app/assets/icons/icon-1024.png app/assets/built/icons/icon-1024.png
 
 # App source + Tailwind compile. Invalidates on any app/ edit.
 # Runtime-served assets under app/assets/built (= PUBLIC_ROOT):
