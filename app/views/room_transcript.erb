@@ -71,7 +71,7 @@
         <%= status_pill[1] %>
       </span>
       <% if @room.discord_channel_id %>
-        <span class="status-pill status-pill--idle text-[0.65rem] font-mono">
+        <span class="status-pill status-pill--idle status-pill--compact font-mono">
           #<%= @room.discord_channel_id %>
         </span>
       <% end %>

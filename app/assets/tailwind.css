@@ -67,6 +67,7 @@
   --color-ember: oklch(68% 0.17 42);
   --color-ember-soft: oklch(78% 0.12 45);
   --color-moss: oklch(72% 0.11 125);
+  --color-amber: oklch(78% 0.14 72);
   --color-rust: oklch(62% 0.2 25);
   --color-bone: oklch(92% 0.015 80);
   --color-bone-dim: oklch(72% 0.02 75);
@@ -74,6 +75,13 @@
   --color-ink: oklch(14% 0.01 55);
   --color-ink-raised: oklch(22% 0.013 55);
   --color-line: oklch(30% 0.017 55);
+
+  /* Soft halo shadows keyed to the three lifecycle colors. Used by
+   * .rooms-section__tick and .rooms-breakdown__dot so every "status dot"
+   * shares one recipe instead of inlining the color-mix three times. */
+  --glow-moss: color-mix(in oklab, var(--color-moss) 20%, transparent);
+  --glow-amber: color-mix(in oklab, var(--color-amber) 20%, transparent);
+  --glow-rust: color-mix(in oklab, var(--color-rust) 20%, transparent);
 }
 
 /* --------------------------------------------------------------------------
@@ -294,9 +302,21 @@
   }
 
   .status-pill--healthy { color: var(--color-moss); }
-  .status-pill--warning { color: oklch(78% 0.14 72); }
+  .status-pill--warning { color: var(--color-amber); }
   .status-pill--danger  { color: var(--color-rust); }
   .status-pill--idle    { color: var(--color-bone-mute); }
+
+  /* Size modifiers for pills rendered inline in tight layouts (table rows,
+   * header chips, card corners). --compact matches the old px-2 py-1 inline
+   * overrides; --compact-dense matches py-0.5 for single-line table cells. */
+  .status-pill--compact {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .status-pill--compact-dense {
+    font-size: 0.65rem;
+    padding: 0.125rem 0.5rem;
+  }
 
   /* Logomark — bridge glyph · wordmark │ console · version.
    *
@@ -1116,18 +1136,18 @@
     height: 0.45rem;
     border-radius: 999px;
     background: var(--color-moss);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-moss) 20%, transparent);
+    box-shadow: 0 0 0 3px var(--glow-moss);
     flex-shrink: 0;
   }
 
   .rooms-section__tick--warning {
-    background: oklch(78% 0.14 72);
-    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(78% 0.14 72) 20%, transparent);
+    background: var(--color-amber);
+    box-shadow: 0 0 0 3px var(--glow-amber);
   }
 
   .rooms-section__tick--danger {
     background: var(--color-rust);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust) 20%, transparent);
+    box-shadow: 0 0 0 3px var(--glow-rust);
   }
 
   .rooms-section__count {
@@ -1184,7 +1204,7 @@
   }
 
   .rooms-breakdown__seg--active   { background: var(--color-moss); }
-  .rooms-breakdown__seg--archived { background: oklch(78% 0.14 72); }
+  .rooms-breakdown__seg--archived { background: var(--color-amber); }
   .rooms-breakdown__seg--hidden   { background: var(--color-rust); }
 
   .rooms-breakdown__legend {
@@ -1229,17 +1249,17 @@
 
   .rooms-breakdown__dot--active {
     background: var(--color-moss);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-moss) 20%, transparent);
+    box-shadow: 0 0 0 3px var(--glow-moss);
   }
 
   .rooms-breakdown__dot--archived {
-    background: oklch(78% 0.14 72);
-    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(78% 0.14 72) 20%, transparent);
+    background: var(--color-amber);
+    box-shadow: 0 0 0 3px var(--glow-amber);
   }
 
   .rooms-breakdown__dot--hidden {
     background: var(--color-rust);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust) 20%, transparent);
+    box-shadow: 0 0 0 3px var(--glow-rust);
   }
 
   /* Semantic aliases for reuse outside the rooms-lifecycle context
@@ -1247,17 +1267,17 @@
    * naming so room-lifecycle classes don't leak into unrelated tiles. */
   .rooms-breakdown__dot--ok {
     background: var(--color-moss);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-moss) 20%, transparent);
+    box-shadow: 0 0 0 3px var(--glow-moss);
   }
 
   .rooms-breakdown__dot--warn {
-    background: oklch(78% 0.14 72);
-    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(78% 0.14 72) 20%, transparent);
+    background: var(--color-amber);
+    box-shadow: 0 0 0 3px var(--glow-amber);
   }
 
   .rooms-breakdown__dot--bad {
     background: var(--color-rust);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust) 20%, transparent);
+    box-shadow: 0 0 0 3px var(--glow-rust);
   }
 
   /* Paired outbound-link chips in the transcript header. Each chip carries
@@ -2530,7 +2550,7 @@
   }
 
   .guide-chapter__badge--ok      { color: var(--color-moss); }
-  .guide-chapter__badge--pending { color: oklch(78% 0.14 72); }
+  .guide-chapter__badge--pending { color: var(--color-amber); }
 
   /* Channel-tree diagram — an iconographic representation of the target
    * Discord server layout. Purely presentational — the data is the prose
@@ -3240,6 +3260,198 @@
       grid-column: 1 / -1;
       justify-content: center;
     }
+  }
+
+  /* --------------------------------------------------------------------
+   * /auth page components
+   * ------------------------------------------------------------------ */
+
+  /* "How to grab the value" ordered list.
+   *
+   * We cannot use `display: grid` on the <li> — each inline child
+   * (text node, <code>, text node, nested <dl>) would become its own
+   * grid item and collide in the same cell. Instead: normal inline flow
+   * inside the <li>, and an absolute-positioned pseudo-element for the
+   * counter. That keeps counter-to-content alignment reliable without
+   * disturbing the step's inline layout. */
+  .grab-steps {
+    counter-reset: grab-step;
+    list-style: none;
+    margin: 0.9rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+  .grab-steps > li {
+    counter-increment: grab-step;
+    position: relative;
+    padding-left: 2.1rem;
+    line-height: 1.55;
+  }
+  .grab-steps > li::before {
+    content: counter(grab-step, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0.05em;
+    width: 1.5rem;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: color-mix(in oklab, var(--color-ember) 70%, var(--color-bone-mute));
+  }
+
+  /* Cookie-inspector paths — three stacked entries, each with a mono
+   * kicker label above the DevTools path. Stacked beats side-by-side
+   * here: the paths are the same length as the container, so a 2-column
+   * "name | path" layout starves the path column and forces awkward
+   * wraps. The left ember hairline marks the whole block as an inset
+   * reference, not a continuation of the step. */
+  .cookie-paths {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.75rem 0 0.25rem;
+    padding: 0.1rem 0 0.1rem 0.85rem;
+    border-left: 1px solid color-mix(in oklab, var(--color-ember) 38%, var(--color-line));
+  }
+  .cookie-paths > div { display: flex; flex-direction: column; gap: 0.25rem; }
+  .cookie-paths dt {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: color-mix(in oklab, var(--color-ember) 72%, var(--color-bone));
+    margin: 0;
+  }
+  .cookie-paths dd {
+    margin: 0;
+    color: var(--color-bone-dim);
+    line-height: 1.55;
+  }
+  .cookie-paths .sep {
+    color: color-mix(in oklab, var(--color-ember) 60%, var(--color-bone-mute));
+    margin: 0 0.2rem;
+  }
+  .cookie-paths__note {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--color-bone-mute);
+    font-style: italic;
+  }
+
+  /* Bookmarklet slip — a tactile artifact the operator pulls off the page
+   * and drops on their bookmarks bar. The design language: a library filing
+   * tag with a perforated tear-off edge, an ember tint, and a clipped
+   * corner (evoking a real paper slip with a folded dog-ear). Restrained
+   * motion: on hover it leans forward and the grain becomes less shy,
+   * signalling "I'm ready to be grabbed." Scoped to /auth because it's
+   * the only surface that ships a bookmarklet. */
+  .slip {
+    --slip-edge: color-mix(in oklab, var(--color-ember) 55%, var(--color-line));
+    --slip-body: color-mix(in oklab, var(--color-ember) 8%, oklch(19% 0.014 55));
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 0.95rem 1.3rem 1rem 0.9rem;
+    min-width: 18rem;
+    text-decoration: none;
+    color: var(--color-bone);
+    cursor: grab;
+    background:
+      radial-gradient(ellipse at 85% 0%, color-mix(in oklab, var(--color-ember) 18%, transparent) 0%, transparent 55%),
+      linear-gradient(180deg, var(--slip-body) 0%, oklch(17% 0.012 55) 100%);
+    border: 1px solid var(--slip-edge);
+    /* Top-right clipped corner evokes a filing-cabinet tab; the bottom-left
+     * corner stays right-angled to preserve the "index card" weight. */
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-ember) 30%, transparent),
+      0 1px 2px oklch(0% 0 0 / 0.35),
+      0 10px 28px -18px color-mix(in oklab, var(--color-ember) 45%, oklch(0% 0 0 / 0.5));
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .slip:hover {
+    transform: translateX(2px) translateY(-1px) rotate(-0.25deg);
+    border-color: var(--color-ember);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-ember) 45%, transparent),
+      0 2px 4px oklch(0% 0 0 / 0.4),
+      0 16px 34px -14px color-mix(in oklab, var(--color-ember) 55%, oklch(0% 0 0 / 0.5));
+  }
+
+  .slip:active { cursor: grabbing; transform: translateX(3px) translateY(0) rotate(-0.4deg); }
+  .slip:focus-visible { outline: 2px solid var(--color-ember); outline-offset: 3px; }
+
+  /* Left-edge perforation — three columns of ember dots, echoing a real
+   * tear-off slip. The dots are rendered with repeating-linear-gradient so
+   * they scale with the slip's height. */
+  .slip__perf {
+    align-self: stretch;
+    width: 11px;
+    background-image:
+      radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--color-ember) 75%, transparent) 1.4px, transparent 1.8px);
+    background-size: 5px 7px;
+    background-repeat: repeat-y;
+    background-position: center top;
+    opacity: 0.9;
+  }
+
+  .slip__body { display: flex; flex-direction: column; gap: 0.3rem; line-height: 1.1; }
+
+  /* The tag + glyph are pseudo-elements so they don't pollute the anchor's
+   * text content — browsers use that text as the default bookmark name when
+   * the slip is dragged onto the bookmarks bar, and we want it to come out
+   * clean as "Reddit → Bridge JWT". */
+  .slip__body::before {
+    content: "§B.01 · BOOKMARKLET · v1";
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.24em;
+    color: color-mix(in oklab, var(--color-ember) 75%, var(--color-bone));
+  }
+
+  .slip__title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-bone);
+  }
+
+  .slip::after {
+    content: "↗";
+    align-self: start;
+    margin-top: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    color: var(--color-ember);
+    transition: transform 220ms ease;
+  }
+  .slip:hover::after { transform: translate(2px, -2px); }
+
+  .slip__hint {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-bone-mute);
+  }
+  .slip__hint::before {
+    content: "";
+    width: 1.1rem;
+    height: 1px;
+    background: color-mix(in oklab, var(--color-ember) 55%, var(--color-line));
   }
 }
 

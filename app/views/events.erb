@@ -37,14 +37,12 @@
 </section>
 
 <% if @entries.empty? %>
-  <section class="console-card rise rise-delay-2 p-10 text-center">
-    <p class="kicker">Quiet so far</p>
-    <h2 class="section-title mt-3">No events recorded yet</h2>
-    <p class="mt-3 text-sm text-bone-dim max-w-md mx-auto">
-      The journal only starts writing when the supervisor runs. If you just configured the
-      bridge, the first tick will produce entries shortly.
-    </p>
-  </section>
+  <%= erb :_empty_state, locals: {
+    kicker: "Quiet so far",
+    title: "No events recorded yet",
+    body: "The journal only starts writing when the supervisor runs. If you just configured the " \
+          "bridge, the first tick will produce entries shortly."
+  } %>
 <% else %>
   <section class="console-card p-0 overflow-hidden rise rise-delay-2">
     <table class="w-full text-sm">
@@ -66,11 +64,11 @@
             <td class="px-4 py-3">
               <% case entry.level
                  when "critical", "error" %>
-                <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-0.5"><%= entry.level %></span>
+                <span class="status-pill status-pill--danger status-pill--compact-dense"><%= entry.level %></span>
               <% when "warn" %>
-                <span class="status-pill status-pill--warning text-[0.65rem] px-2 py-0.5"><%= entry.level %></span>
+                <span class="status-pill status-pill--warning status-pill--compact-dense"><%= entry.level %></span>
               <% else %>
-                <span class="status-pill status-pill--healthy text-[0.65rem] px-2 py-0.5"><%= entry.level %></span>
+                <span class="status-pill status-pill--healthy status-pill--compact-dense"><%= entry.level %></span>
               <% end %>
             </td>
             <td class="px-4 py-3 font-mono text-xs text-bone-mute">

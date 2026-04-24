@@ -24,13 +24,13 @@
       </a>
     </div>
     <% if room.terminated? %>
-      <span class="status-pill status-pill--danger text-[0.65rem] px-2 py-1">hidden</span>
+      <span class="status-pill status-pill--danger status-pill--compact">hidden</span>
     <% elsif room.archived? %>
-      <span class="status-pill status-pill--warning text-[0.65rem] px-2 py-1">archived</span>
+      <span class="status-pill status-pill--warning status-pill--compact">archived</span>
     <% elsif room.discord_channel_id %>
-      <span class="status-pill status-pill--healthy text-[0.65rem] px-2 py-1">linked</span>
+      <span class="status-pill status-pill--healthy status-pill--compact">linked</span>
     <% else %>
-      <span class="status-pill status-pill--idle text-[0.65rem] px-2 py-1">pending</span>
+      <span class="status-pill status-pill--idle status-pill--compact">pending</span>
     <% end %>
   </header>
 
