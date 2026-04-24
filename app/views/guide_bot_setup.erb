@@ -169,8 +169,7 @@
         <p class="guide-step__hint">
           Click <strong>Bot</strong> in the left sidebar. Fill in a
           <strong class="text-bone">Username</strong> (the handle people see when the bot
-          posts) and optionally upload an icon. The <em>Add Bot</em> button older guides
-          reference is gone; the bot is created with the app.
+          posts) and optionally upload an icon.
         </p>
         <div class="guide-step__callout">
           <span class="guide-step__callout-icon" aria-hidden="true">⬇</span>
@@ -400,12 +399,15 @@
   </p>
 
   <div class="guide-final-grid mt-6">
-    <a href="/actions#test_discord" class="guide-final-card">
-      <p class="kicker">Test</p>
-      <p class="guide-final-card__title">Post a probe to #app-status</p>
-      <p class="guide-final-card__hint">Exercises bot token + guild + status channel in one shot.</p>
-      <span class="guide-final-card__arrow" aria-hidden="true">→</span>
-    </a>
+    <form method="post" action="/actions/test_discord" class="guide-final-card__form">
+      <button type="submit" class="guide-final-card guide-final-card--action">
+        <p class="kicker">Test</p>
+        <p class="guide-final-card__title">Post a probe to #app-status</p>
+        <p class="guide-final-card__hint">Fires a one-line test message. Redirects to the
+          Actions page with a flash showing whether it landed.</p>
+        <span class="guide-final-card__arrow" aria-hidden="true">→</span>
+      </button>
+    </form>
     <a href="/events" class="guide-final-card">
       <p class="kicker">Watch</p>
       <p class="guide-final-card__title">Tail the operational log</p>

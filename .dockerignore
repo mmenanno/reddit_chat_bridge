@@ -52,20 +52,23 @@
 /bin/build-icons
 /bin/setup-hooks
 
-# Source assets the assets stage doesn't touch: icon.svg is only used
-# by bin/build-icons on a dev machine, and icons/icon-*.png aren't
-# referenced by any view or by application.css. Keep them out of the
-# build context — the assets stage doesn't need them and they'd only
-# bloat the runtime image via `COPY . .`.
+# icon.svg is the ImageMagick source for bin/build-icons — a dev-only
+# regeneration helper that runs on the workstation, never in CI.
+# The exported icons/icon-<size>.png files DO ship (the /guide/bot-setup
+# page offers them as Discord bot-icon downloads), so they stay in the
+# context.
 #
-# NOTE: tailwind.css and grain.png are NOT excluded even though they
-# feel like "source assets." The assets stage's `npx @tailwindcss/cli
-# -i app/assets/tailwind.css ...` and `cp app/assets/grain.png ...`
-# both read them from the context; excluding them here would make
-# them unavailable during build (.dockerignore gates the whole
-# context, not per-stage).
+# app/assets/built holds build artifacts produced inside the assets
+# stage (application.css, grain.png, icons/). Keeping any local copy
+# out of the context prevents a stale host-side `built/` from leaking
+# into the runtime image ahead of the fresh build.
+#
+# NOTE: tailwind.css and grain.png stay in the context; the assets
+# stage reads them via `npx @tailwindcss/cli -i app/assets/tailwind.css`
+# and `cp app/assets/grain.png`. .dockerignore gates the whole context,
+# not per-stage, so excluding them here would break the build.
 /app/assets/icon.svg
-/app/assets/icons
+/app/assets/built
 
 # Dockerfile and Rakefile themselves are not needed at runtime
 /Dockerfile

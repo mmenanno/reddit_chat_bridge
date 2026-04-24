@@ -66,13 +66,21 @@ COPY --link package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm ci --silent
 
-# App source + asset compile invalidates whenever app/ changes.
-# Only application.css and grain.png are served at runtime. The loose
-# icon.svg and icons/icon-*.png files in app/assets/ are dev-only
-# branding source — not referenced by any view or by application.css.
-COPY --link app ./app
+# Bot-icon PNGs ship first in their own layer. They regenerate only when
+# bin/build-icons runs (i.e., when the branding SVG is edited), which is
+# rare — separating this COPY from the bulk `app/` copy below keeps the
+# icon-staging step out of the invalidation path for every view/CSS tweak.
+COPY --link app/assets/icons ./app/assets/icons
 RUN mkdir -p app/assets/built && \
-    npx @tailwindcss/cli \
+    cp -r app/assets/icons app/assets/built/icons
+
+# App source + Tailwind compile. Invalidates on any app/ edit.
+# Runtime-served assets under app/assets/built (= PUBLIC_ROOT):
+#   - application.css       — compiled Tailwind bundle (built below)
+#   - grain.png             — film-grain overlay referenced by the CSS
+#   - icons/icon-<size>.png — bot-icon downloads (staged in the layer above)
+COPY --link app ./app
+RUN npx @tailwindcss/cli \
       -i app/assets/tailwind.css \
       -o app/assets/built/application.css \
       --minify && \

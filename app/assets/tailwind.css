@@ -3091,6 +3091,19 @@
     flex-direction: column;
     gap: 0.25rem;
     overflow: hidden;
+    /* Render identically whether the card is an <a>, <button>, or wrapped
+     * in a form. Resets native button chrome so the declarations below
+     * win across elements. */
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+    appearance: none;
+  }
+
+  .guide-final-card__form {
+    display: contents;
   }
 
   .guide-final-card:hover,
