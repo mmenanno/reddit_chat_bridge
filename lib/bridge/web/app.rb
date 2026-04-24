@@ -62,6 +62,11 @@ module Bridge
         "discord_message_requests_channel_id",
       ].freeze
 
+      # Discord snowflake upper bound (2^63 - 1). Shared between the
+      # form validator and any caller that wants to cheaply check a
+      # stored ID is still in range.
+      SNOWFLAKE_MAX = (2**63) - 1
+
       GUIDE_TRACKED_KEYS = (
         GUIDE_MANUAL_SYSTEM_KEYS + [
           "discord_application_id",
@@ -257,6 +262,29 @@ module Bridge
             value = stored.nil? || stored.empty? ? field[:default] : stored
             field.merge(value: value)
           end
+        end
+
+        # Discord snowflakes are 64-bit unsigned integers; any submission
+        # that isn't pure digits in that range will wedge a running bridge
+        # with a 400 "Invalid Form Body" on every Discord call. Blank is
+        # allowed because the operator can legitimately un-set a field.
+        # Returns a list of human-readable error strings, one per bad field.
+        def validate_snowflake_fields(submitted)
+          App::SETTINGS_FIELDS.filter_map do |field|
+            next unless field[:snowflake]
+
+            value = submitted[field[:key]].to_s.strip
+            next if value.empty?
+            next if valid_snowflake?(value)
+
+            "#{field[:label]} is not a valid Discord ID (expected an 18-19 digit number)"
+          end
+        end
+
+        def valid_snowflake?(value)
+          return false unless /\A\d+\z/.match?(value)
+
+          value.to_i <= App::SNOWFLAKE_MAX
         end
 
         # Drives the /guide/bot-setup progress rail + "done when" ready-check.
@@ -762,6 +790,7 @@ module Bridge
           hint: "Right-click the server in Discord (with Developer Mode on) → Copy Server ID.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_dms_category_id",
@@ -769,6 +798,7 @@ module Bridge
           hint: "The category where #dm-* channels will be auto-created.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_system_channels_mode",
@@ -783,6 +813,7 @@ module Bridge
           hint: "Auto mode: the category where the bridge mints #app-status, #app-logs, #commands, #message-requests.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_system_channels_order",
@@ -797,6 +828,7 @@ module Bridge
           hint: "Where critical alerts land. @everyone pinged on fatal errors only.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_admin_logs_channel_id",
@@ -804,6 +836,7 @@ module Bridge
           hint: "Info/warn lines from the bridge's operational log.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_admin_commands_channel_id",
@@ -811,6 +844,7 @@ module Bridge
           hint: "Slash-command surface. Restrict to @BotAdmin.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_message_requests_channel_id",
@@ -818,6 +852,7 @@ module Bridge
           hint: "Incoming Reddit message requests post here with Approve/Decline buttons. Falls back to #app-status if blank.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_application_id",
@@ -825,6 +860,7 @@ module Bridge
           hint: "Developer Portal → your app → General Information → Application ID.",
           default: "",
           secret: false,
+          snowflake: true,
         },
         {
           key: "discord_operator_user_ids",
@@ -841,6 +877,13 @@ module Bridge
       end
 
       post "/settings" do
+        invalid = validate_snowflake_fields(params)
+        if invalid.any?
+          flash_error!("#{invalid.join("; ")}. Nothing was saved.")
+          redirect("/settings")
+          return
+        end
+
         SETTINGS_FIELDS.each do |field|
           submitted = params[field[:key]].to_s.strip
           AppConfig.set(field[:key], submitted)
@@ -848,7 +891,14 @@ module Bridge
 
         provision_result = maybe_provision_system_channels!
 
+        # The service graph snapshots AppConfig at construction time
+        # (Discord::ChannelIndex, notifiers, gateway bot token, etc.), so a
+        # config change doesn't take effect until the Application is torn
+        # down and rebuilt. Without this, fixing e.g. a bad category ID here
+        # would still leave the running bridge using the stale in-memory
+        # value and looping 400s until the container restarts.
         was_running = Bridge::Application.running?
+        Bridge::Application.shutdown! if was_running
         Bridge::Application.start_if_configured!
 
         if provision_result && provision_result[:status] == :error
@@ -859,7 +909,9 @@ module Bridge
           )
         else
           flash_notice!(
-            if !was_running && Bridge::Application.running?
+            if was_running && Bridge::Application.running?
+              "Settings saved. Sync restarted with the new config."
+            elsif !was_running && Bridge::Application.running?
               "Settings saved. Sync is now running."
             else
               "Settings saved."

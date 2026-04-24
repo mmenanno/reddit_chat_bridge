@@ -69,9 +69,9 @@ module Bridge
       end
 
       test "POST /settings strips whitespace around submitted values" do
-        post "/settings", discord_guild_id: "  pad  "
+        post "/settings", discord_guild_id: "  1494755976241221705  "
 
-        assert_equal("pad", AppConfig.get("discord_guild_id"))
+        assert_equal("1494755976241221705", AppConfig.get("discord_guild_id"))
       end
 
       test "POST /settings triggers the provisioner when mode=auto and category is set" do
@@ -79,7 +79,7 @@ module Bridge
 
         post "/settings",
           discord_system_channels_mode: "auto",
-          discord_system_channels_category_id: "cat_42",
+          discord_system_channels_category_id: "1494756356119461968",
           discord_system_channels_order: "status,logs,commands,message_requests"
       end
 
@@ -94,7 +94,7 @@ module Bridge
 
         post "/settings",
           discord_system_channels_mode: "auto",
-          discord_system_channels_category_id: "cat_42"
+          discord_system_channels_category_id: "1494756356119461968"
         follow_redirect!
 
         assert_match(/2 channels created/, last_response.body)
@@ -106,7 +106,7 @@ module Bridge
 
         post "/settings",
           discord_system_channels_mode: "manual",
-          discord_system_channels_category_id: "cat_42"
+          discord_system_channels_category_id: "1494756356119461968"
       end
 
       test "POST /settings does not trigger the provisioner when the category is blank" do
@@ -123,7 +123,7 @@ module Bridge
 
         post "/settings",
           discord_system_channels_mode: "auto",
-          discord_system_channels_category_id: "cat_42"
+          discord_system_channels_category_id: "1494756356119461968"
         follow_redirect!
 
         assert_match(/Missing Permissions/, last_response.body)
@@ -148,6 +148,93 @@ module Bridge
           /<input[^>]*name="discord_system_channels_mode"[^>]*value="auto"[^>]*checked/i,
           last_response.body,
         )
+      end
+
+      # ---- snowflake validation ----
+      #
+      # All Discord IDs are 64-bit snowflakes. A stale or mis-pasted value
+      # silently wedges the sync loop (Poster logs "Invalid Form Body" on
+      # every event), so catching a bad value at save time is cheaper than
+      # debugging a running bridge.
+
+      test "POST /settings rejects a non-numeric category ID with a named flash error" do
+        AppConfig.set("discord_dms_category_id", "123456789012345678")
+
+        post "/settings", discord_dms_category_id: "abc123"
+        follow_redirect!
+
+        assert_match(/Reddit DMs category ID/i, last_response.body)
+        assert_match(/not a valid Discord ID/i, last_response.body)
+        assert_equal("123456789012345678", AppConfig.get("discord_dms_category_id"))
+      end
+
+      test "POST /settings rejects a snowflake overflow (value > 2^63-1) without clobbering the stored value" do
+        AppConfig.set("discord_dms_category_id", "1494756288171868311")
+
+        post "/settings", discord_dms_category_id: "14947562881718683111"
+        follow_redirect!
+
+        assert_match(/Reddit DMs category ID/i, last_response.body)
+        assert_equal("1494756288171868311", AppConfig.get("discord_dms_category_id"))
+      end
+
+      test "POST /settings accepts a blank snowflake (allows un-setting a field)" do
+        post "/settings", discord_admin_commands_channel_id: ""
+
+        follow_redirect!
+
+        assert_match(/Settings saved/, last_response.body)
+        assert_equal("", AppConfig.get("discord_admin_commands_channel_id"))
+      end
+
+      test "POST /settings accepts a valid 19-digit snowflake" do
+        post "/settings", discord_guild_id: "1494755976241221705"
+
+        follow_redirect!
+
+        assert_equal("1494755976241221705", AppConfig.get("discord_guild_id"))
+      end
+
+      test "POST /settings accumulates validation errors across multiple fields" do
+        post "/settings",
+          discord_guild_id: "not_a_number",
+          discord_dms_category_id: "99999999999999999999"
+        follow_redirect!
+
+        assert_match(/server \(guild\) ID/i, last_response.body)
+        assert_match(/Reddit DMs category ID/i, last_response.body)
+      end
+
+      # ---- rebuild-on-save ----
+      #
+      # Discord::ChannelIndex and friends snapshot AppConfig at construction
+      # time, so in-flight changes don't propagate to a running Application
+      # without a graph rebuild. Without this, fixing a bad category ID
+      # via /settings won't actually unblock the sync loop — you'd need a
+      # container restart.
+
+      test "POST /settings tears down and restarts the Application when already running so config changes take effect" do
+        Bridge::Application.stubs(:running?).returns(true)
+        Bridge::Application.expects(:shutdown!).once
+        Bridge::Application.expects(:start_if_configured!).once
+
+        post "/settings", discord_guild_id: "1494755976241221705"
+      end
+
+      test "POST /settings does not call shutdown! when the Application was not running" do
+        Bridge::Application.stubs(:running?).returns(false)
+        Bridge::Application.expects(:shutdown!).never
+        Bridge::Application.expects(:start_if_configured!).once
+
+        post "/settings", discord_guild_id: "1494755976241221705"
+      end
+
+      test "POST /settings does not rebuild when validation fails" do
+        Bridge::Application.stubs(:running?).returns(true)
+        Bridge::Application.expects(:shutdown!).never
+        Bridge::Application.expects(:start_if_configured!).never
+
+        post "/settings", discord_guild_id: "garbage"
       end
     end
   end
