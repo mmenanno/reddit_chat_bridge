@@ -100,8 +100,28 @@ ENV BUILD_SHA=$BUILD_SHA \
     MALLOC_CONF=background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000
 
 COPY --link --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY --link --from=assets /app/app/assets/built ./app/assets/built
-COPY --link . .
+
+# Staged-asset COPYs split per artifact so each lands in its own layer.
+# Rationale: a single `COPY --from=assets /app/app/assets/built ...` bundles
+# css + grain + icon into one layer that invalidates on every view/CSS edit.
+# Icons (3 MB, regenerated only by bin/build-icons) get their own layer,
+# so pulls skip that layer whenever the icon file is byte-identical to the
+# previously-published image.
+COPY --link --from=assets /app/app/assets/built/icons ./app/assets/built/icons
+COPY --link --from=assets /app/app/assets/built/grain.png ./app/assets/built/grain.png
+COPY --link --from=assets /app/app/assets/built/application.css ./app/assets/built/application.css
+
+# Explicit runtime sources. A blanket `COPY --link . .` would re-ship the
+# 3 MB loose icon source at app/assets/icons/icon-1024.png (duplicating
+# the staged bundle above) and would also invalidate on any repo edit.
+# Listing directories explicitly scopes the layer to what the process
+# actually reads at runtime: Ruby, ERB views, the Rack entrypoint,
+# bundler manifests, VERSION for BuildInfo, and the migrations directory.
+COPY --link lib ./lib
+COPY --link app/views ./app/views
+COPY --link db/migrate ./db/migrate
+COPY --link bin/start ./bin/start
+COPY --link config.ru Gemfile Gemfile.lock VERSION ./
 
 # User creation comes AFTER the COPYs. Rationale: this RUN's output is
 # non-deterministic (useradd embeds today's date in /etc/shadow and sets
