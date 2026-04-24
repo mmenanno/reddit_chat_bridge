@@ -220,7 +220,30 @@ module Discord
       body = response.body
       return body.to_s unless body.is_a?(Hash)
 
-      body["message"] || body.to_s
+      base = body["message"] || body.to_s
+      details = format_field_errors(body["errors"])
+      details.empty? ? base : "#{base} (#{details})"
+    end
+
+    # Discord's 400 "Invalid Form Body" responses carry field-level detail in
+    # a nested `errors` map — without flattening it into the exception
+    # message, the log line just says "Invalid Form Body" with no hint which
+    # field failed validation. Shape is e.g.
+    #   { "topic" => { "_errors" => [{ "code" => "...", "message" => "..." }] } }
+    # with arbitrary nesting for array-indexed fields like components.
+    def format_field_errors(errors, path = [])
+      return "" unless errors.is_a?(Hash)
+
+      if errors["_errors"].is_a?(Array)
+        return errors["_errors"].map do |err|
+          label = path.join(".")
+          detail = [err["code"], err["message"]].compact.reject(&:empty?).join(": ")
+          "#{label}: #{detail}"
+        end.join("; ")
+      end
+
+      errors.flat_map { |key, value| format_field_errors(value, path + [key]) }
+        .reject(&:empty?).join("; ")
     end
 
     def retry_after_ms(response)

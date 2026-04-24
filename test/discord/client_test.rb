@@ -67,6 +67,55 @@ module Discord
       end
     end
 
+    test "BadRequest carries the Discord errors map so the offending field is visible in logs" do
+      stub_request(:post, "#{BASE}/guilds/#{GUILD}/channels")
+        .to_return(
+          status: 400,
+          body: {
+            message: "Invalid Form Body",
+            code: 50_035,
+            errors: {
+              topic: {
+                "_errors" => [
+                  { code: "BASE_TYPE_MAX_LENGTH", message: "Must be 1024 or fewer in length." },
+                ],
+              },
+            },
+          }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      error = assert_raises(Discord::BadRequest) do
+        @client.create_channel(guild_id: GUILD, name: "x")
+      end
+
+      assert_match(/topic.*(?:BASE_TYPE_MAX_LENGTH|Must be 1024)/, error.message)
+    end
+
+    test "BadRequest surfaces nested field paths from the errors map" do
+      stub_request(:post, "#{BASE}/guilds/#{GUILD}/channels")
+        .to_return(
+          status: 400,
+          body: {
+            message: "Invalid Form Body",
+            errors: {
+              name: {
+                "_errors" => [
+                  { code: "STRING_TYPE_REGEX", message: "String value did not match validation regex." },
+                ],
+              },
+            },
+          }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      error = assert_raises(Discord::BadRequest) do
+        @client.create_channel(guild_id: GUILD, name: "x")
+      end
+
+      assert_match(/name.*(?:STRING_TYPE_REGEX|did not match)/, error.message)
+    end
+
     test "send_message POSTs content to the right channel and returns the message id" do
       stub_request(:post, "#{BASE}/channels/#{CHANNEL}/messages")
         .with(
