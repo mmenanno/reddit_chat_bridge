@@ -37,6 +37,42 @@ module Bridge
       EVENTS_PER_PAGE_DEFAULT = 10
       EVENTS_PER_PAGE_COOKIE = "events_per_page"
 
+      # OAuth2 invite permission bitmask — OR of the eight Discord permission
+      # bits the bridge actually uses at runtime. Keep in sync with the
+      # Permissions callout on /guide/bot-setup and with Discord::Poster's
+      # AuthError handling. Bits:
+      #   MANAGE_CHANNELS       (1 << 4)   = 16
+      #   SEND_MESSAGES         (1 << 11)  = 2048
+      #   MANAGE_MESSAGES       (1 << 13)  = 8192
+      #   EMBED_LINKS           (1 << 14)  = 16384
+      #   ATTACH_FILES          (1 << 15)  = 32768
+      #   READ_MESSAGE_HISTORY  (1 << 16)  = 65536
+      #   MANAGE_WEBHOOKS       (1 << 29)  = 536870912
+      #   USE_APPLICATION_CMDS  (1 << 31)  = 2147483648
+      GUIDE_INVITE_PERMISSIONS = (1 << 4) | (1 << 11) | (1 << 13) | (1 << 14) |
+        (1 << 15) | (1 << 16) | (1 << 29) | (1 << 31)
+
+      # AppConfig keys that `guide_bot_setup_steps` reads in one batched
+      # query. Bundled here so the list can't drift out of sync with the
+      # step logic.
+      GUIDE_MANUAL_SYSTEM_KEYS = [
+        "discord_admin_status_channel_id",
+        "discord_admin_logs_channel_id",
+        "discord_admin_commands_channel_id",
+        "discord_message_requests_channel_id",
+      ].freeze
+
+      GUIDE_TRACKED_KEYS = (
+        GUIDE_MANUAL_SYSTEM_KEYS + [
+          "discord_application_id",
+          "discord_guild_id",
+          "discord_bot_token",
+          "discord_dms_category_id",
+          "discord_system_channels_mode",
+          "discord_system_channels_category_id",
+        ]
+      ).freeze
+
       # This block runs at class-load time and reads AppConfig for the
       # persisted session_secret. Callers must have run `Bridge::Boot.call`
       # before requiring this file — otherwise the model constants aren't
@@ -221,6 +257,138 @@ module Bridge
             value = stored.nil? || stored.empty? ? field[:default] : stored
             field.merge(value: value)
           end
+        end
+
+        # Drives the /guide/bot-setup progress rail + "done when" ready-check.
+        # Each step is marked `:ok` when the AppConfig keys that prove the
+        # operator completed that phase are populated. `:pending` otherwise.
+        # Step 01 (server layout) has nothing to inspect from the database —
+        # it's an inherent prerequisite — so it mirrors Step 04's green state,
+        # which only lights up when all channel IDs (or the auto-provision
+        # category + the mode) are in place.
+        def guide_bot_setup_steps
+          values = AppConfig.fetch_many(App::GUIDE_TRACKED_KEYS)
+          app_id   = values["discord_application_id"].to_s
+          guild    = values["discord_guild_id"].to_s
+          token    = values["discord_bot_token"].to_s
+          dms_cat  = values["discord_dms_category_id"].to_s
+          sys_mode = values["discord_system_channels_mode"].to_s
+          sys_cat  = values["discord_system_channels_category_id"].to_s
+
+          manual_ids = App::GUIDE_MANUAL_SYSTEM_KEYS.map { |k| values[k].to_s }
+          manual_filled = manual_ids.count { |v| !v.empty? }
+          channels_ok =
+            if sys_mode == "manual"
+              !dms_cat.empty? && manual_ids.all? { |v| !v.empty? }
+            else
+              !dms_cat.empty? && !sys_cat.empty?
+            end
+          channels_missing =
+            if sys_mode == "manual"
+              (dms_cat.empty? ? 1 : 0) + (manual_ids.size - manual_filled)
+            else
+              (dms_cat.empty? ? 1 : 0) + (sys_cat.empty? ? 1 : 0)
+            end
+
+          [
+            {
+              num: 1,
+              rail: "Server",
+              rail_full: "Dedicated Discord server with the right channel layout",
+              status: channels_ok ? :ok : :pending,
+            },
+            {
+              num: 2,
+              rail: "App & bot",
+              rail_full: "Discord application + bot token (with Message Content Intent)",
+              status: !token.empty? && !app_id.empty? ? :ok : :pending,
+            },
+            {
+              num: 3,
+              rail: "Invite",
+              rail_full: "Bot invited to the server with the 8 required permissions",
+              status: !app_id.empty? && !guild.empty? ? :ok : :pending,
+            },
+            {
+              num: 4,
+              rail: "IDs",
+              rail_full: "Guild + category + channel IDs pasted into /settings",
+              status: channels_ok ? :ok : :pending,
+              missing_count: channels_missing,
+            },
+            {
+              num: 5,
+              rail: "Confirm",
+              rail_full: "Discord config complete — ready for the #app-status probe",
+              status: !token.empty? && !guild.empty? && channels_ok ? :ok : :pending,
+            },
+          ]
+        end
+
+        # Rows for the Step 04 checklist — one per channel ID the bridge
+        # reads. Each row carries enough to render its status chip + the
+        # "Paste" / "Review" jump link into /settings.
+        def guide_id_rows
+          specs = [
+            {
+              key: "discord_guild_id",
+              label: "Server (guild) ID",
+              how: "Right-click the server name → Copy Server ID.",
+            },
+            {
+              key: "discord_dms_category_id",
+              label: "Reddit DMs category ID",
+              how: "Right-click the 📥 Reddit DMs category → Copy Channel ID.",
+            },
+            {
+              key: "discord_admin_status_channel_id",
+              label: "#app-status channel ID",
+              how: "Right-click the channel → Copy Channel ID. Leave blank to auto-provision.",
+            },
+            {
+              key: "discord_admin_logs_channel_id",
+              label: "#app-logs channel ID",
+              how: "Right-click the channel → Copy Channel ID. Leave blank to auto-provision.",
+            },
+            {
+              key: "discord_admin_commands_channel_id",
+              label: "#commands channel ID",
+              how: "Right-click the channel → Copy Channel ID. Leave blank to auto-provision.",
+            },
+            {
+              key: "discord_message_requests_channel_id",
+              label: "#message-requests channel ID",
+              how: "Optional — falls back to #app-status when blank.",
+            },
+          ]
+
+          specs.map do |spec|
+            stored = AppConfig.fetch(spec[:key], "").to_s
+            status = stored.empty? ? :pending : :ok
+            spec.merge(
+              status: status,
+              tail: stored.empty? ? "" : stored[-4..] || stored,
+            )
+          end
+        end
+
+        # Pre-builds the OAuth2 invite URL when the operator has already saved
+        # the application ID. Otherwise the view renders a placeholder and the
+        # client-side builder fills in as soon as an ID is pasted.
+        def guide_invite_url(app_id)
+          return if app_id.to_s.strip.empty?
+
+          # Pattern mirrors the URL Discord's own generator produces; `bot`
+          # scope installs the role + assigns permissions, `applications.commands`
+          # lets the bridge register slash commands in the guild.
+          "https://discord.com/api/oauth2/authorize" \
+            "?client_id=#{CGI.escape(app_id)}" \
+            "&scope=bot%20applications.commands" \
+            "&permissions=#{App::GUIDE_INVITE_PERMISSIONS}"
+        end
+
+        def guide_invite_permissions
+          App::GUIDE_INVITE_PERMISSIONS.to_s
         end
 
         # Rows for the reorder rail in the Auto system-channels panel — in
@@ -518,11 +686,23 @@ module Bridge
         begin
           user = AdminUser.create_with_password!(username: username, password: password)
           login!(user)
-          redirect("/")
+          # Fresh install → no Discord config → send the new admin to the
+          # interactive guide instead of the dashboard. Reauthentications
+          # (which no longer hit this branch once an admin exists) and
+          # operators who've already configured Discord bypass this.
+          redirect(guide_bot_setup_steps.any? { |s| s[:status] == :pending } ? "/guide/bot-setup" : "/")
         rescue ActiveRecord::RecordInvalid => e
           flash_error!(e.message)
           redirect("/setup")
         end
+      end
+
+      # In-app walkthrough for the Discord half of the bridge setup. Lives
+      # alongside /settings as a guided, stateful alternative to reading
+      # guides/bot_setup.md — surfaces live AppConfig status per step so a
+      # returning operator can see at a glance what's still missing.
+      get "/guide/bot-setup" do
+        erb(:guide_bot_setup)
       end
 
       get "/login" do

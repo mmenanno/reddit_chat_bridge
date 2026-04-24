@@ -1,0 +1,505 @@
+<%
+  # Live detection of which steps already have their AppConfig fields populated.
+  # Drives the progress rail and the "you're done when..." strip at the bottom.
+  steps = guide_bot_setup_steps
+  discord_ok = steps.all? { |s| s[:status] == :ok }
+  app_id     = AppConfig.fetch("discord_application_id", "").to_s
+  bot_id     = AppConfig.fetch("discord_application_id", "").to_s
+  invite_url = guide_invite_url(app_id)
+%>
+
+<section class="rise">
+  <p class="kicker">§00 / Setup guide</p>
+  <h1 class="page-title mt-3">
+    Wire Discord to the <em>bridge</em>.
+  </h1>
+  <p class="mt-4 max-w-2xl text-bone-dim text-base leading-relaxed">
+    Five steps to stand up the Discord side: a dedicated server, a bot identity, an invite, and
+    a handful of channel IDs pasted into
+    <a href="/settings" class="text-ember hover:underline">settings</a>.
+    Once the checklist at the bottom lights up, head to
+    <a href="/auth" class="text-ember hover:underline">auth</a> to paste your Reddit session
+    cookies and the bridge starts syncing.
+  </p>
+  <div class="mt-6 flex flex-wrap items-center gap-3">
+    <% if discord_ok %>
+      <span class="status-pill status-pill--healthy">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        Discord wired
+      </span>
+    <% else %>
+      <span class="status-pill status-pill--warning">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <%= steps.count { |s| s[:status] == :ok } %> of <%= steps.size %> wired
+      </span>
+    <% end %>
+    <a href="/settings" class="btn btn-outline btn-sm">Skip to settings</a>
+    <a href="/" class="btn btn-outline btn-sm">Back to dashboard</a>
+  </div>
+</section>
+
+<nav class="guide-rail rise rise-delay-1" aria-label="Setup progress">
+  <% steps.each_with_index do |step, i| %>
+    <a href="#step-<%= step[:num] %>"
+       class="guide-rail__step"
+       data-status="<%= step[:status] %>"
+       data-current="<%= i.zero? ? 'true' : 'false' %>">
+      <span class="guide-rail__dot" aria-hidden="true">
+        <% if step[:status] == :ok %>
+          <span class="guide-rail__dot-tick">✓</span>
+        <% else %>
+          <span class="guide-rail__dot-num"><%= format("%02d", step[:num]) %></span>
+        <% end %>
+      </span>
+      <span class="guide-rail__body">
+        <span class="guide-rail__kicker">Step <%= format("%02d", step[:num]) %></span>
+        <span class="guide-rail__label"><%= step[:rail] %></span>
+      </span>
+    </a>
+  <% end %>
+</nav>
+
+<!-- Step 01 — the dedicated server -->
+<article class="console-card p-7 rise rise-delay-2 guide-chapter" id="step-01">
+  <header class="guide-chapter__header">
+    <div>
+      <p class="kicker kicker-ember">Step 01 · Discord server</p>
+      <h2 class="section-title mt-2">Stand up the dedicated server</h2>
+    </div>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= steps[0][:status] %>">
+      <%= steps[0][:status] == :ok ? "Linked" : "Not yet" %>
+    </span>
+  </header>
+
+  <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
+    Create a new Discord server (or reuse a personal one) named
+    <strong class="text-bone">Reddit Chat Bridge</strong>. Enable Developer Mode so you can
+    right-click to copy IDs: <em>User Settings → Advanced → Developer Mode</em>.
+  </p>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[1.15fr_1fr] items-start">
+    <div class="channel-tree" aria-label="Target channel layout">
+      <p class="channel-tree__caption">Target channel tree</p>
+      <div class="channel-tree__server">
+        <span class="channel-tree__server-glyph" aria-hidden="true">◆</span>
+        <span class="channel-tree__server-name">Reddit Chat Bridge</span>
+      </div>
+      <ul class="channel-tree__list">
+        <li class="channel-tree__category">
+          <span class="channel-tree__arrow" aria-hidden="true">▾</span>
+          <span class="channel-tree__category-name">📥 &nbsp;Reddit DMs</span>
+          <span class="channel-tree__tag">auto-populated</span>
+        </li>
+        <li class="channel-tree__leaf channel-tree__leaf--ghost">
+          <code>#dm-&lt;username&gt;</code>
+          <span class="channel-tree__leaf-note">bot creates these on first message</span>
+        </li>
+        <li class="channel-tree__category channel-tree__category--spaced">
+          <span class="channel-tree__arrow" aria-hidden="true">▾</span>
+          <span class="channel-tree__category-name">🔧 &nbsp;Admin</span>
+          <span class="channel-tree__tag">you pre-create</span>
+        </li>
+        <li class="channel-tree__leaf"><code>#app-status</code><span class="channel-tree__leaf-note">critical alerts · @everyone on fatals</span></li>
+        <li class="channel-tree__leaf"><code>#app-logs</code><span class="channel-tree__leaf-note">rolling info / warn log</span></li>
+        <li class="channel-tree__leaf"><code>#commands</code><span class="channel-tree__leaf-note">slash-command surface · @BotAdmin only</span></li>
+        <li class="channel-tree__leaf"><code>#message-requests</code><span class="channel-tree__leaf-note">approve / decline incoming DMs</span></li>
+      </ul>
+    </div>
+
+    <aside class="guide-tip">
+      <p class="kicker">Role</p>
+      <h3 class="guide-tip__title">Create <code>@BotAdmin</code></h3>
+      <p class="guide-tip__body">
+        Assign it to yourself. Deny <code>@everyone</code> access to <code>#commands</code>;
+        allow <code>@BotAdmin</code>. Slash commands will refuse to work anywhere else.
+      </p>
+    </aside>
+  </div>
+</article>
+
+<!-- Step 02 — application + bot -->
+<article class="console-card p-7 rise rise-delay-3 guide-chapter" id="step-02">
+  <header class="guide-chapter__header">
+    <div>
+      <p class="kicker kicker-ember">Step 02 · Application &amp; bot</p>
+      <h2 class="section-title mt-2">Mint the app, mint the bot</h2>
+    </div>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= steps[1][:status] %>">
+      <%= steps[1][:status] == :ok ? "Token set" : "Missing" %>
+    </span>
+  </header>
+
+  <ol class="guide-steps mt-6">
+    <li class="guide-step">
+      <span class="guide-step__num">A</span>
+      <div class="guide-step__body">
+        <p class="guide-step__title">Open the Developer Portal</p>
+        <p class="guide-step__hint">
+          <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer"
+             class="guide-link">discord.com/developers/applications ↗</a>
+          — <strong>New Application</strong>, name it <em>Reddit Chat Bridge</em> to match the server.
+        </p>
+      </div>
+    </li>
+    <li class="guide-step">
+      <span class="guide-step__num">B</span>
+      <div class="guide-step__body">
+        <p class="guide-step__title">Sidebar → Bot → Add Bot</p>
+        <p class="guide-step__hint">
+          Under <em>Privileged Gateway Intents</em>, toggle on
+          <strong class="text-bone">Message Content Intent</strong>. Harmless to enable now.
+        </p>
+      </div>
+    </li>
+    <li class="guide-step">
+      <span class="guide-step__num">C</span>
+      <div class="guide-step__body">
+        <p class="guide-step__title">Reset Token → copy it</p>
+        <p class="guide-step__hint">
+          Discord shows the value once. Paste it into
+          <a href="/settings#discord_bot_token" class="guide-link">settings · Discord bot token</a>
+          before navigating away.
+        </p>
+        <div class="guide-step__callout guide-step__callout--warn">
+          <span class="guide-step__callout-icon" aria-hidden="true">!</span>
+          <span>Resetting invalidates any older token. If the bridge is already running, the
+            next <code>/sync</code>-adjacent Discord call will fail until you save the new token.</span>
+        </div>
+      </div>
+    </li>
+    <li class="guide-step">
+      <span class="guide-step__num">D</span>
+      <div class="guide-step__body">
+        <p class="guide-step__title">Grab the Application ID</p>
+        <p class="guide-step__hint">
+          <em>General Information → Application ID</em>. Needed for slash commands and for
+          the invite URL in the next step.
+          <a href="/settings#discord_application_id" class="guide-link">settings · Application ID →</a>
+        </p>
+      </div>
+    </li>
+  </ol>
+</article>
+
+<!-- Step 03 — invite -->
+<article class="console-card p-7 rise rise-delay-3 guide-chapter" id="step-03">
+  <header class="guide-chapter__header">
+    <div>
+      <p class="kicker kicker-ember">Step 03 · Invite</p>
+      <h2 class="section-title mt-2">Invite the bot to your server</h2>
+    </div>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= steps[2][:status] %>">
+      <%= steps[2][:status] == :ok ? "Ready" : "App ID first" %>
+    </span>
+  </header>
+
+  <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
+    You can use Discord's OAuth2 URL Generator, or — easier — let the console build it for you
+    with the exact permission bitmask the bridge needs.
+  </p>
+
+  <div class="invite-builder mt-6" data-invite-builder>
+    <div class="invite-builder__field">
+      <label class="field-label" for="invite-app-id">Application ID</label>
+      <input
+        id="invite-app-id"
+        class="field-input"
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="e.g. 1234567890123456789"
+        value="<%= app_id %>"
+        data-invite-input>
+      <span class="field-hint">
+        Pulled from <code>/settings</code> if saved — otherwise paste a preview value here. Not persisted.
+      </span>
+    </div>
+    <div class="invite-builder__output">
+      <p class="kicker">Generated URL</p>
+      <div class="invite-builder__row">
+        <code class="invite-builder__url" data-invite-url>
+          <% if invite_url %><%= invite_url %><% else %>Enter an Application ID above to generate<% end %>
+        </code>
+        <button type="button"
+                class="btn btn-outline btn-sm copy-btn"
+                data-copy-target="[data-invite-url]"
+                data-copy-empty-selector="[data-invite-input]"
+                aria-label="Copy invite URL">
+          <span class="copy-btn__label">Copy</span>
+        </button>
+      </div>
+      <div class="invite-builder__actions">
+        <a href="<%= invite_url || "#" %>"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="btn btn-primary btn-sm <%= invite_url ? '' : 'btn-disabled' %>"
+           data-invite-open
+           <%= invite_url ? "" : "aria-disabled=\"true\"" %>>
+          Open invite URL ↗
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-7">
+    <p class="kicker">Permissions the bridge needs</p>
+    <ul class="perm-list mt-3">
+      <% [
+        ["Manage Channels",     "Create and delete #dm-* channels."],
+        ["Manage Webhooks",     "Per-channel webhooks so bubbles show the sender's Reddit identity."],
+        ["Manage Messages",     "Delete your original Discord bubble after the webhook rewrite."],
+        ["Send Messages",       "Baseline — the bridge posts here."],
+        ["Embed Links",         "Embedded image previews for Reddit media."],
+        ["Attach Files",        "Upload image attachments where embeds fall through."],
+        ["Read Message History","Reconcile / backfill needs to read posted messages."],
+        ["Use Slash Commands",  "/status, /resync, /reconcile in #commands."],
+      ].each do |(label, why)| %>
+        <li class="perm-chip">
+          <span class="perm-chip__tick" aria-hidden="true">✓</span>
+          <div class="perm-chip__body">
+            <span class="perm-chip__label"><%= label %></span>
+            <span class="perm-chip__why"><%= why %></span>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+</article>
+
+<!-- Step 04 — IDs -->
+<article class="console-card p-7 rise rise-delay-4 guide-chapter" id="step-04">
+  <header class="guide-chapter__header">
+    <div>
+      <p class="kicker kicker-ember">Step 04 · Identifiers</p>
+      <h2 class="section-title mt-2">Copy the IDs into the bridge</h2>
+    </div>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= steps[3][:status] %>">
+      <%= steps[3][:status] == :ok ? "All set" : "#{steps[3][:missing_count]} missing" %>
+    </span>
+  </header>
+
+  <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
+    Back in the Discord client (Developer Mode on), right-click to <em>Copy ID</em> for each.
+    The console lights the row green when the value lands in
+    <a href="/settings" class="text-ember hover:underline">settings</a>.
+  </p>
+
+  <ul class="id-list mt-6">
+    <% guide_id_rows.each do |row| %>
+      <li class="id-row" data-status="<%= row[:status] %>">
+        <span class="id-row__tick" aria-hidden="true">
+          <%= row[:status] == :ok ? "✓" : "○" %>
+        </span>
+        <div class="id-row__body">
+          <p class="id-row__name"><%= row[:label] %></p>
+          <p class="id-row__how">
+            <span class="id-row__how-label">How</span><%= row[:how] %>
+          </p>
+          <% if row[:status] == :ok %>
+            <p class="id-row__value">
+              <span class="id-row__value-label">Stored</span>
+              <code>…<%= row[:tail] %></code>
+            </p>
+          <% end %>
+        </div>
+        <a href="/settings#<%= row[:key] %>" class="id-row__jump">
+          <%= row[:status] == :ok ? "Review" : "Paste" %>
+          <span aria-hidden="true">→</span>
+        </a>
+      </li>
+    <% end %>
+  </ul>
+
+  <div class="guide-tip guide-tip--inline mt-6">
+    <p class="kicker">System channels</p>
+    <p class="guide-tip__body">
+      Prefer to have the bridge mint <code>#app-status</code> / <code>#app-logs</code> /
+      <code>#commands</code> / <code>#message-requests</code> itself? Leave those four IDs blank
+      and use <strong>Auto-provision</strong> on the settings page — you'll only need the
+      category ID.
+    </p>
+  </div>
+</article>
+
+<!-- Step 05 — confirm -->
+<article class="console-card p-7 rise rise-delay-4 guide-chapter" id="step-05">
+  <header class="guide-chapter__header">
+    <div>
+      <p class="kicker kicker-ember">Step 05 · Confirm</p>
+      <h2 class="section-title mt-2">Prove the bot can talk</h2>
+    </div>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= steps[4][:status] %>">
+      <%= steps[4][:status] == :ok ? "Configured" : "After 01-04" %>
+    </span>
+  </header>
+
+  <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
+    With the token saved and a guild ID in place, the bridge can post a probe message to
+    <code>#app-status</code>. If you don't see
+    <code class="whitespace-nowrap">🟢 reddit_chat_bridge started</code>, the Actions page
+    has diagnostics for the usual suspects.
+  </p>
+
+  <div class="guide-final-grid mt-6">
+    <a href="/actions#test_discord" class="guide-final-card">
+      <p class="kicker">Test</p>
+      <p class="guide-final-card__title">Post a probe to #app-status</p>
+      <p class="guide-final-card__hint">Exercises bot token + guild + status channel in one shot.</p>
+      <span class="guide-final-card__arrow" aria-hidden="true">→</span>
+    </a>
+    <a href="/events" class="guide-final-card">
+      <p class="kicker">Watch</p>
+      <p class="guide-final-card__title">Tail the operational log</p>
+      <p class="guide-final-card__hint">Warnings surface here first. Empty is healthy.</p>
+      <span class="guide-final-card__arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+
+  <div class="guide-tip mt-6">
+    <p class="kicker">Troubleshoot</p>
+    <ul class="guide-tip__list">
+      <li>Token typo — paste again in <a href="/settings#discord_bot_token" class="guide-link">settings</a>.</li>
+      <li>Guild ID belongs to a different server — right-click the server name, not a channel.</li>
+      <li>Bot invited but role not assigned — double-check <code>@BotAdmin</code> has the 8 perms.</li>
+      <li>On Unraid, the last resort is <code>docker logs --tail 100 reddit_chat_bridge</code>.</li>
+    </ul>
+  </div>
+</article>
+
+<!-- Finish -->
+<section class="rise rise-delay-4">
+  <div class="rule-labeled">
+    <span class="rule-labeled__text">Done when</span>
+  </div>
+
+  <div class="console-card p-7 guide-finish">
+    <div class="guide-finish__head">
+      <div>
+        <p class="kicker">Ready check</p>
+        <h2 class="section-title mt-2">
+          <%= discord_ok ? "Discord is wired." : "A couple of slots still empty." %>
+        </h2>
+      </div>
+      <span class="status-pill status-pill--<%= discord_ok ? 'healthy' : 'warning' %>">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <%= discord_ok ? "All green" : "#{steps.count { |s| s[:status] == :ok }} of #{steps.size}" %>
+      </span>
+    </div>
+
+    <ul class="guide-finish__list">
+      <% steps.each do |step| %>
+        <li class="guide-finish__row" data-status="<%= step[:status] %>">
+          <span class="guide-finish__tick" aria-hidden="true">
+            <%= step[:status] == :ok ? "✓" : "○" %>
+          </span>
+          <span class="guide-finish__label"><%= step[:rail_full] %></span>
+          <a href="#step-<%= step[:num] %>" class="guide-finish__jump">Review</a>
+        </li>
+      <% end %>
+    </ul>
+
+    <div class="guide-finish__cta">
+      <a href="/settings" class="btn btn-primary">Open settings</a>
+      <a href="/auth" class="btn btn-outline">Paste Reddit cookies</a>
+      <a href="/" class="btn btn-outline">Back to dashboard</a>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Copy-to-clipboard for the invite URL + any other [data-copy-target] button.
+  // Progressive enhancement — the code element is still selectable + copy-able
+  // manually if JS is off.
+  (function () {
+    const buttons = document.querySelectorAll(".copy-btn");
+    if (!buttons.length) return;
+
+    const briefly = (btn, text, tone) => {
+      const label = btn.querySelector(".copy-btn__label");
+      if (!label) return;
+      const prev = label.textContent;
+      label.textContent = text;
+      btn.dataset.tone = tone || "";
+      clearTimeout(btn._resetTimer);
+      btn._resetTimer = setTimeout(() => {
+        label.textContent = prev;
+        delete btn.dataset.tone;
+      }, 1400);
+    };
+
+    for (const btn of buttons) {
+      btn.addEventListener("click", async () => {
+        const target = document.querySelector(btn.dataset.copyTarget);
+        if (!target) return;
+        const text = (target.textContent || "").trim();
+        if (!text || text.startsWith("Enter an Application ID")) {
+          briefly(btn, "Fill ID first", "warn");
+          const empty = btn.dataset.copyEmptySelector
+            ? document.querySelector(btn.dataset.copyEmptySelector)
+            : null;
+          if (empty && empty.focus) empty.focus();
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(text);
+          briefly(btn, "Copied", "ok");
+        } catch (err) {
+          briefly(btn, "Select + ⌘C", "warn");
+        }
+      });
+    }
+  })();
+
+  // Live invite URL builder. The Ruby helper pre-renders the URL when the
+  // Application ID is already in AppConfig; this lets a first-run operator
+  // paste one in without leaving the page, see the URL update in real time,
+  // and copy it to paste into a new tab.
+  (function () {
+    const scope = document.querySelector("[data-invite-builder]");
+    if (!scope) return;
+    const input  = scope.querySelector("[data-invite-input]");
+    const output = scope.querySelector("[data-invite-url]");
+    const open   = scope.querySelector("[data-invite-open]");
+    if (!input || !output) return;
+
+    // Keep in sync with Bridge::Web::App::GUIDE_INVITE_PERMISSIONS — Ruby is
+    // the source of truth. Writing it here second lets the client render
+    // without a round-trip once the ID is typed.
+    const PERMISSIONS = "<%= guide_invite_permissions %>";
+    const SCOPES = "bot%20applications.commands";
+
+    const build = (id) => {
+      const trimmed = String(id || "").replace(/[^0-9]/g, "");
+      if (trimmed.length < 15) return null;
+      return "https://discord.com/api/oauth2/authorize" +
+        "?client_id=" + trimmed +
+        "&scope=" + SCOPES +
+        "&permissions=" + PERMISSIONS;
+    };
+
+    const sync = () => {
+      const url = build(input.value);
+      if (url) {
+        output.textContent = url;
+        output.classList.remove("invite-builder__url--empty");
+        if (open) {
+          open.setAttribute("href", url);
+          open.removeAttribute("aria-disabled");
+          open.classList.remove("btn-disabled");
+        }
+      } else {
+        output.textContent = "Enter an Application ID above to generate";
+        output.classList.add("invite-builder__url--empty");
+        if (open) {
+          open.setAttribute("href", "#");
+          open.setAttribute("aria-disabled", "true");
+          open.classList.add("btn-disabled");
+        }
+      }
+    };
+
+    input.addEventListener("input", sync);
+    sync();
+  })();
+</script>

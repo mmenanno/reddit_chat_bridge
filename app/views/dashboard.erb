@@ -264,15 +264,16 @@
 <nav class="chapter-index mt-6 rise rise-delay-4" aria-label="Jump to section">
   <div class="chapter-index__header">
     <p class="kicker">Table of contents</p>
-    <span class="chapter-index__header-hint">six chapters</span>
+    <span class="chapter-index__header-hint">seven chapters</span>
   </div>
   <% [
-    ["§02", "Rooms",    "Per-room refresh and backfill.",                    "/rooms"],
-    ["§03", "Actions",  "Resync, reconcile channels, full reset.",           "/actions"],
-    ["§04", "Auth",     "Rotate cookies, paste a fresh Matrix token.",       "/auth"],
-    ["§05", "Settings", "Discord IDs and channel targets.",                 "/settings"],
-    ["§06", "Events",   "Operational log - warnings, errors, milestones.",   "/events"],
-    ["§07", "Requests", "Approve or decline strangers messaging in.",        "/requests"],
+    ["§00", "Setup guide", "Walk the Discord bot + server setup (first-run).",   "/guide/bot-setup"],
+    ["§02", "Rooms",       "Per-room refresh and backfill.",                     "/rooms"],
+    ["§03", "Actions",     "Resync, reconcile channels, full reset.",            "/actions"],
+    ["§04", "Auth",        "Rotate cookies, paste a fresh Matrix token.",        "/auth"],
+    ["§05", "Settings",    "Discord IDs and channel targets.",                   "/settings"],
+    ["§06", "Events",      "Operational log - warnings, errors, milestones.",    "/events"],
+    ["§07", "Requests",    "Approve or decline strangers messaging in.",         "/requests"],
   ].each do |(number, title, hint, href)| %>
     <a href="<%= href %>" class="chapter-link">
       <span class="chapter-link__number"><%= number %></span>

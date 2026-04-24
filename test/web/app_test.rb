@@ -78,8 +78,23 @@ module Bridge
         post "/setup", username: "michael", password: "hunter2hunter2"
 
         assert_equal(302, last_response.status)
-        assert_equal("/", URI(last_response.location).path)
+        # Fresh install — no Discord config yet, so setup routes the new
+        # admin into the interactive guide instead of the dashboard.
+        assert_equal("/guide/bot-setup", URI(last_response.location).path)
         assert_equal(1, AdminUser.count)
+      end
+
+      test "POST /setup redirects to / when Discord is already fully configured" do
+        # Edge case for reinstalls / test fixtures where AppConfig is already
+        # populated before the admin is created. No guide is needed — the
+        # operator already has everything wired and just needs the dashboard.
+        Bridge::Web::App::GUIDE_TRACKED_KEYS.each { |k| AppConfig.set(k, "1234") }
+        AppConfig.set("discord_system_channels_mode", "auto")
+
+        post "/setup", username: "michael", password: "hunter2hunter2"
+
+        assert_equal(302, last_response.status)
+        assert_equal("/", URI(last_response.location).path)
       end
 
       test "POST /setup with a too-short password redirects back to /setup with a flash error" do
