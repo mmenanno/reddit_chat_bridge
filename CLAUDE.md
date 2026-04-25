@@ -1,6 +1,6 @@
 # reddit_chat_bridge — Project Context for Claude Code
 
-Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process self-hosted on an Unraid container. Built slice-by-slice via TDD.
+Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process self-hosted as a Docker container. Built slice-by-slice via TDD.
 
 ## Current state
 
@@ -20,31 +20,21 @@ Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord
 
 ## Non-negotiable decisions
 
-- **Not Rails.** Sinatra + Puma + standalone ActiveRecord/ActiveSupport. Do not introduce `rails`, `solid_queue`, `config/credentials.*`, or `config/master.key` without explicit discussion. These were rejected during planning for good reasons (mostly: the user wanted to avoid master-key pain when deploying GHCR images to Unraid).
-- **Web UI is the admin surface.** No Thor CLI. Every admin op lives on `Admin::Actions` and is invoked by both web controllers and (future) Discord slash command handlers. Do not duplicate admin logic between entry points.
+- **Web UI is the admin surface.** No Thor CLI. Every admin op lives on `Admin::Actions` and is invoked by both web controllers and Discord slash command handlers. Do not duplicate admin logic between entry points.
 - **Matrix access token lives in the database**, not env vars. `AuthState.access_token` is source of truth. `Matrix::Client` takes a callable for access_token so token updates take effect on the next request without restarts.
 - **Reddit session cookies live in the database encrypted at rest** (key derived from `AppConfig.session_secret` via `ActiveSupport::KeyGenerator`). `AuthState.reddit_cookie_jar` is the ciphertext; the reader decrypts on demand.
-- **Almost nothing is an env var.** All Discord + Matrix config is in `app_config`, edited via `/settings`. Supported env vars: `PORT`, `LOG_LEVEL`, `RACK_ENV`. Database path hardcoded to `/app/state/state.sqlite3`.
-- **No voice/video support, ever.** Images yes, eventually. Voice/video never.
-- **No simplecov, no honeybadger.** They were dropped from scope.
+- **Almost nothing is an env var.** All Discord + Matrix config is in `app_config`, edited via `/settings`. Supported env vars: `PORT`, `RACK_ENV`, optional `SESSION_SECRET`. Database path hardcoded to `/app/state/state.sqlite3`.
 
 ## Run / test / lint commands
 
 ```bash
 bundle install
 bin/start                        # boots Puma; config.ru starts the supervisor if configured
-bundle exec rake test            # full suite (215+ tests currently)
+bundle exec rake test            # full suite (parallel minitest)
 bundle exec rake test TEST=test/matrix/client_test.rb
 bundle exec rubocop              # must be green for CI to pass
 bundle exec rubocop -a           # autocorrect what you can
-
-# Live spike scripts (need .env with real credentials):
-dotenvx run -- bundle exec bin/spike_matrix_sync    # live Matrix /sync read
-dotenvx run -- bundle exec bin/spike_matrix_send    # live Matrix send
-dotenvx run -- bundle exec bin/spike_token_refresh  # Reddit-cookie → fresh JWT
 ```
-
-The `.env` file is gitignored and holds real secrets. `.env.example` documents the schema.
 
 ## Versioning
 
@@ -237,24 +227,21 @@ lib/
 
 ## Known gotchas
 
-- **`matrix_sdk` gem is in Gemfile but unused.** We use Faraday directly (decision from Phase 0 spike). Don't reintroduce matrix_sdk without discussion.
 - **`discordrb` 3.7.2** is pinned; confirmed loads on Ruby 4.0.2. Voice support is irrelevant (libsodium warning on load is benign).
 - **Tailwind v4 + DaisyUI**: Dockerfile's assets stage has a Node.js install because DaisyUI is a JS plugin and the standalone Tailwind CLI can't resolve `@plugin "daisyui"` without `node_modules/daisyui`. Node is only in the build stage; the runtime image has no Node.
 - **Boot order matters for `require`s**: `config.ru` must call `Bridge::Boot.call` BEFORE `require "bridge/web/app"`, because the app's `configure` block reads `AppConfig` at class-load time (for the persisted session_secret). Same rule in `test_helper.rb`.
-- **Never pass the Matrix access token as a shell positional arg.** Bash / LLM copy layers have mangled characters in the 1309-char JWT before. For local scripts use `dotenvx run -- …` with `.env`; in production use the web UI's `/auth` paste field.
-- **Unraid container management goes through the Unraid web UI only.** Never create/delete/recreate containers via CLI (container config lives in Unraid's XML templates, which the CLI doesn't know about). Config changes like env vars go through the template edit form.
-- **CI gates release.** Rubocop + minitest must pass before the GHCR image is published. If you locally `rubocop -a` and don't commit the autocorrected files, CI will fail (we've hit this twice).
+- **CI gates release.** Rubocop + minitest must pass before the GHCR image is published. If you locally `rubocop -a` and don't commit the autocorrected files, CI will fail.
 - **docs/ is gitignored** (our working notes). `guides/` is committed for user-facing documentation.
 
 ## Infrastructure
 
-- **Image:** `ghcr.io/mmenanno/reddit_chat_bridge:latest` (also tagged `:<short-sha>`) — published by `.github/workflows/ci.yml` on push to main after CI green.
-- **Container:** deployed to Unraid via the web UI per `guides/unraid_deployment.md`. Runs as uid/gid `1000:1000`. SQLite on `/mnt/cache/appdata/reddit_chat_bridge/state.sqlite3` (mapped to `/app/state`).
-- **Network:** on `proxynet`, exposed via TSDProxy labels (`tsdproxy.enable=true`, `tsdproxy.name=reddit-chat-bridge`, `tsdproxy.container_port=4567`) as `https://reddit-chat-bridge.<your-tailnet>.ts.net`.
-- **Secrets model:** operator keeps cookies/tokens in 1Password (personal backup). At runtime, the web UI's `/auth` and `/settings` pages write them to SQLite. The Unraid template has no secrets in env vars.
+- **Image:** `ghcr.io/mmenanno/reddit_chat_bridge:latest` (also tagged `:v<version>` and `:sha-<short>`) — published by `.github/workflows/ci.yml` on push to main after CI green.
+- **Deployment:** generic Docker. `guides/deployment.md` is the public walkthrough; `docker-compose.yml` at repo root is the reference compose file. Container runs as uid/gid `1000:1000`. SQLite at `/app/state/state.sqlite3` on a mounted volume so it survives container recreation. Web UI on port 4567.
+- **Network:** the bridge ships only the web port. Operator decides exposure (Tailscale, reverse proxy, LAN — out of scope for the bridge itself).
+- **Secrets model:** all credentials (Discord bot token, Reddit session cookie, Matrix JWT) entered through the web UI at runtime and stored in SQLite. The Reddit cookie jar is encrypted at rest with a key derived from `AppConfig.session_secret`. No secrets in env vars; `SESSION_SECRET` is optional and self-generated on first boot if absent.
 
 ## Pointers
 
 - `app/views/guide_bot_setup.erb` + `GET /guide/bot-setup` — in-app Discord bot + server setup walkthrough (single source of truth for Discord-side setup; no markdown mirror).
-- `guides/unraid_deployment.md` — Unraid template walkthrough.
-- `guides/runbook.md` — operating the bridge when it misbehaves.
+- `guides/deployment.md` — generic Docker deployment walkthrough.
+- `docker-compose.yml` — reference compose file at repo root.

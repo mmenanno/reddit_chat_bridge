@@ -12,8 +12,7 @@ require "active_support/testing/time_helpers"
 require "mocha/minitest"
 require "webmock/minitest"
 
-# No test should ever reach the network; the spike scripts are the only
-# real-endpoint surface in this repo.
+# No test should ever reach the network.
 WebMock.disable_net_connect!
 
 Minitest::Reporters.use!(Minitest::Reporters::ProgressReporter.new)

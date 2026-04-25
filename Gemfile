@@ -22,11 +22,10 @@ gem "concurrent-ruby"
 gem "faraday"
 gem "faraday-retry"
 
-# Integrations
-#
-# matrix_sdk was evaluated in the Phase 0 spike and dropped — we use Faraday
-# directly for Matrix (no unmaintained-gem risk, easier to test, and matches
-# Reddit's custom event types better than a generic SDK).
+# Integrations.
+# Matrix is intentionally a direct Faraday client rather than a generic
+# Matrix SDK gem: Reddit's homeserver ships custom event types and a
+# non-standard /login flow that a generic SDK doesn't model.
 gem "discordrb"
 gem "websocket-client-simple"
 
