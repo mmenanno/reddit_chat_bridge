@@ -5,7 +5,7 @@ require "json"
 require "websocket-client-simple"
 
 module Discord
-  # Thin Discord Gateway v10 client scoped to what Phase 2 needs:
+  # Thin Discord Gateway v10 client scoped to what the bridge needs:
   #   - IDENTIFY with intents for GUILD_MESSAGES + MESSAGE_CONTENT
   #   - heartbeat on the server's cadence
   #   - dispatch MESSAGE_CREATE payloads to the injected handler

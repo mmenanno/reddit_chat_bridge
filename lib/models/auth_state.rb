@@ -15,9 +15,9 @@ require "json"
 #
 # The Reddit cookie jar (source of all future Matrix JWT refreshes) is
 # stored encrypted with a key derived from AppConfig's session_secret.
-# the Unraid host's trust boundary already covers the whole appdata volume, so
-# this is defence-in-depth rather than a security boundary on its own —
-# it does mean a stray database dump in isolation doesn't hand an
+# The host's filesystem permissions already cover the whole state volume,
+# so this is defence-in-depth rather than a security boundary on its own.
+# It does mean a stray database dump in isolation doesn't hand an
 # attacker a usable Reddit session.
 class AuthState < ApplicationRecord
   self.table_name = "auth_state"

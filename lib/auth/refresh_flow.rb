@@ -10,7 +10,7 @@ module Auth
   # Reddit's chat.reddit.com bootstrap returns an SSR'd HTML page with a
   # custom `<rs-app token="{json}">` element containing the current Matrix
   # JWT. Omitting the `token_v2` cookie forces the backend to mint a fresh
-  # JWT on demand — the spike in `bin/spike_token_refresh` proved this.
+  # JWT on demand.
   #
   # Everything else — reddit_session, loid, session_tracker, edgebucket —
   # stays in the cookie jar so Reddit authenticates the request as the

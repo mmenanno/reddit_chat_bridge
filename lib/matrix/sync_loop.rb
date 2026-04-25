@@ -9,8 +9,8 @@ module Matrix
   # Success path:
   #   1. GET /sync?since=<checkpoint>
   #   2. Normalize the response into NormalizedEvent values.
-  #   3. Hand the events to `dispatcher` (Phase 1 = a Discord poster,
-  #      tests = a collector).
+  #   3. Hand the events to `dispatcher` (in production a Discord poster;
+  #      tests use a collector).
   #   4. Advance the checkpoint to the `next_batch` from the response.
   #   5. Mark auth healthy.
   #
