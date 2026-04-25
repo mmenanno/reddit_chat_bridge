@@ -1,10 +1,10 @@
-# reddit_chat_bridge — Project Context for Claude Code
+# reddit_chat_bridge - Project Context for Claude Code
 
 Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord server. Long-running Ruby process self-hosted as a Docker container. Built slice-by-slice via TDD.
 
 ## Current state
 
-1.0 is shipped and running in production. The bridge is bidirectional, the chat lifecycle works end-to-end, and there is no active roadmap — future work is reactive (bug fixes, adjustments for upstream API drift, occasional UX polish).
+1.0 is shipped and running in production. The bridge is bidirectional, the chat lifecycle works end-to-end, and there is no active roadmap - future work is reactive (bug fixes, adjustments for upstream API drift, occasional UX polish).
 
 **Reddit → Discord:** Reddit chat events land in per-conversation `#dm-*` channels under the "Reddit DMs" category. Each bubble posts through a channel-owned webhook so it shows the real Reddit user's display name + snoovatar instead of the bot. Matrix access token is auto-refreshed from stored Reddit session cookies; `/user/<name>/about.json` is the snoovatar fallback when Matrix state has no avatar. Images auto-embed (mxc → https); voice/video and E2E encryption are out of scope forever.
 
@@ -14,7 +14,7 @@ Bridge between Reddit Chat (Matrix-based under the hood) and a dedicated Discord
 
 - **Message requests:** strangers land in a pending `MessageRequest`; `#message-requests` channel surfaces each with Approve/Decline buttons. Approve joins the Matrix room; Decline leaves it (this works on invite-state rooms). Future DMs from the same user land as a fresh request.
 - **Archive:** delete the Discord channel, keep the Matrix link, auto-unarchive on next message.
-- **End chat (hide):** delete the channel, mark `Room` terminated, filter every future event for that `matrix_room_id`. Reddit's Matrix server refuses `/leave` on DM rooms — same limit their own "Hide chat" button has to live with — so `end_chat!` skips the call for `is_direct?` rooms entirely; the local-hide + Restore pair is the semantic.
+- **End chat (hide):** delete the channel, mark `Room` terminated, filter every future event for that `matrix_room_id`. Reddit's Matrix server refuses `/leave` on DM rooms - same limit their own "Hide chat" button has to live with - so `end_chat!` skips the call for `is_direct?` rooms entirely; the local-hide + Restore pair is the semantic.
 
 **Intentionally not shipping:** Reddit → Discord edit / redaction sync, voice/video, E2E encryption. Reddit cookie auto-rotation is unsolved (supervisor warns at T-7 days; operator pastes a fresh jar manually) and stays that way until Reddit exposes a long-lived refresh path.
 
@@ -38,7 +38,7 @@ bundle exec rubocop -a           # autocorrect what you can
 
 ## Versioning
 
-Semantic version lives in `VERSION` (plain text, one line). Every push to `main` must bump it — the repo-committed `.githooks/pre-push` rejects a push to `main` when `VERSION` matches the remote tip's. Activate hooks after cloning with:
+Semantic version lives in `VERSION` (plain text, one line). Most pushes to `main` must bump it. The repo-committed `.githooks/pre-push` enforces this locally; CI's `version-bump-check` job is the GitHub-side gate. Activate the local hook after cloning with:
 
 ```bash
 bin/setup-hooks    # sets core.hooksPath to .githooks
@@ -46,11 +46,13 @@ bin/setup-hooks    # sets core.hooksPath to .githooks
 
 Bump rules (conventional-commits aligned):
 
-- patch (`1.0.0 → 1.0.1`) — bug fixes, docs, refactors, test-only changes.
-- minor (`1.0.0 → 1.1.0`) — new features.
-- major (`1.0.0 → 2.0.0`) — breaking changes (there shouldn't be any in a single-user bridge, but the lane exists).
+- patch (`1.0.0` to `1.0.1`) for bug fixes and refactors.
+- minor (`1.0.0` to `1.1.0`) for new features.
+- major (`1.0.0` to `2.0.0`) for breaking changes (there shouldn't be any in a single-user bridge, but the lane exists).
 
-CI reads `VERSION` and publishes the GHCR image with three tags on every push to `main`: `:latest`, `:v<version>`, and `:sha-<short>`. `Bridge::BuildInfo.version` surfaces the version in logs + the web UI's logomark (`console · v<version>`).
+Exemptions from the bump rule: docs-only pushes (every changed path matches `*.md` or `LICENSE`) and dependabot-authored PRs. Both checks are encoded in CI and the local hook (the local hook only handles the docs case; dependabot doesn't push from a clone).
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and gets the bump alongside `VERSION` in the same commit. CI reads `VERSION` and publishes the GHCR image with three tags on every push to `main`: `:latest`, `:v<version>`, and `:sha-<short>`. After the image push, CI also pushes a matching `v<version>` git tag and creates a GitHub Release whose body is sourced from `CHANGELOG.md`. `Bridge::BuildInfo.version` surfaces the version in logs and the web UI's logomark (`console · v<version>`).
 
 ## Testing conventions
 
@@ -59,7 +61,7 @@ CI reads `VERSION` and publishes the GHCR image with three tags on every push to
 - `mocha` for stubbing (`stubs`, `expects`, `any_instance`).
   - **Prefer `expects` over `stubs` inside a single test.** `stubs` permits any
     call count (including zero), so if the code path changes and the method
-    never gets hit, the stub silently goes unused — wasted setup, and a
+    never gets hit, the stub silently goes unused - wasted setup, and a
     regression can hide behind it. `expects` asserts the method was actually
     called at least once, catching that drift.
   - `stubs` is fine in `setup` blocks and shared test helpers (`support/*.rb`,
@@ -72,7 +74,7 @@ CI reads `VERSION` and publishes the GHCR image with three tags on every push to
   The block form auto-restores at `end`, and these helpers cover `Time`,
   `Date`, and `DateTime` uniformly.
 - **`setup do` / `teardown do`, not `def setup`.** Block form chains
-  automatically — multiple `setup do` blocks (from `test_helper.rb`,
+  automatically - multiple `setup do` blocks (from `test_helper.rb`,
   from the file itself, and potentially from future concerns) all run
   in registration order. `def setup` needs manual `super`, and a missing
   one silently breaks isolation.
@@ -105,7 +107,7 @@ lib/
 ├── discord/
 │   ├── client.rb              # Faraday; channels, messages, webhooks, reorder, interactions, delete_message
 │   ├── channel_index.rb       # room → discord_channel_id + discord_webhook_id/token, auto-creates both
-│   ├── channel_reorderer.rb   # bulk PATCH /guilds/:id/channels — sorts #dm-* most-recent-first
+│   ├── channel_reorderer.rb   # bulk PATCH /guilds/:id/channels - sorts #dm-* most-recent-first
 │   ├── poster.rb              # Inbound dispatcher: NormalizedEvent → webhook post under Reddit identity
 │   ├── outbound_dispatcher.rb # MESSAGE_CREATE → Matrix relay → delete original → webhook persona rewrite
 │   ├── gateway.rb             # Websocket (IDENTIFY/HEARTBEAT/DISPATCH/INTERACTION_CREATE)
@@ -138,32 +140,32 @@ lib/
 
 ## Database schema (migrations 0001–0016)
 
-- `app_configs` (key, value) — /settings fields + session_secret + `discord_permissions_blocked_at` + `own_display_name` + `own_avatar_url` + `reddit_session_warned_expires_at`
-- `auth_state` (singleton) — access_token, user_id, paused flag, reddit_cookie_jar (encrypted), reddit_session_expires_at
-- `sync_checkpoints` (singleton) — next_batch_token, last_batch_at
-- `rooms` — `matrix_room_id` (unique), `discord_channel_id`, `discord_webhook_id` + token, `counterparty_matrix_id`, `counterparty_username`, `counterparty_avatar_url` + `_checked_at`, `counterparty_deleted_at`, `last_event_id`, `archived_at`, `terminated_at`, `last_activity_at`, `is_direct`
-- `admin_users` — username (unique), password_digest (bcrypt)
-- `posted_events` — event_id (unique), room_id, posted_at
-- `event_log_entries` — level, source, message, context (json), created_at (ring-buffer capped at 2000)
-- `outbound_messages` — txn_id, discord_message_id, matrix_room_id, matrix_event_id, status, last_error
-- `message_requests` — matrix_room_id (unique), inviter_matrix_id, inviter_username, inviter_avatar_url, preview_body, discord_message_id/channel_id, resolved_at, decision
+- `app_configs` (key, value) - /settings fields + session_secret + `discord_permissions_blocked_at` + `own_display_name` + `own_avatar_url` + `reddit_session_warned_expires_at`
+- `auth_state` (singleton) - access_token, user_id, paused flag, reddit_cookie_jar (encrypted), reddit_session_expires_at
+- `sync_checkpoints` (singleton) - next_batch_token, last_batch_at
+- `rooms` - `matrix_room_id` (unique), `discord_channel_id`, `discord_webhook_id` + token, `counterparty_matrix_id`, `counterparty_username`, `counterparty_avatar_url` + `_checked_at`, `counterparty_deleted_at`, `last_event_id`, `archived_at`, `terminated_at`, `last_activity_at`, `is_direct`
+- `admin_users` - username (unique), password_digest (bcrypt)
+- `posted_events` - event_id (unique), room_id, posted_at
+- `event_log_entries` - level, source, message, context (json), created_at (ring-buffer capped at 2000)
+- `outbound_messages` - txn_id, discord_message_id, matrix_room_id, matrix_event_id, status, last_error
+- `message_requests` - matrix_room_id (unique), inviter_matrix_id, inviter_username, inviter_avatar_url, preview_body, discord_message_id/channel_id, resolved_at, decision
 
 ## Non-obvious Reddit/Matrix quirks discovered
 
 - **Matrix user_ids use `@t2_<account_id>:reddit.com`**, not the display name. Username is resolved from `m.room.member.m.relations.com.reddit.profile.username` in the lazy-loaded state, or via `GET /_matrix/client/v3/profile/{user_id}` as a fallback.
 - **Reddit ships custom event types**: `com.reddit.profile`, `com.reddit.chat.type`, `com.reddit.invite_spam_status`. `Matrix::EventNormalizer` filters to `m.room.message` + `m.room.member` only.
 - **`@t2_1qwk:reddit.com` is Reddit's system/redactor bot**, listed in `m.room.create.redactors`. Posts from it are marked `is_system?` and prefixed `🤖 **Reddit**`.
-- **Reddit's `/login` endpoint uses `type: "com.reddit.token"`** (not standard `m.login.password` / `m.login.token`). The request body is `{"type":"com.reddit.token","token":"<jwt>","initial_device_display_name":"..."}` and the JWT it sends is the same JWT that comes back as `access_token`. The /login call registers the JWT as a device session — without it, Matrix returns `M_UNKNOWN_TOKEN` when you use the JWT as a bearer.
+- **Reddit's `/login` endpoint uses `type: "com.reddit.token"`** (not standard `m.login.password` / `m.login.token`). The request body is `{"type":"com.reddit.token","token":"<jwt>","initial_device_display_name":"..."}` and the JWT it sends is the same JWT that comes back as `access_token`. The /login call registers the JWT as a device session - without it, Matrix returns `M_UNKNOWN_TOKEN` when you use the JWT as a bearer.
 - **Reddit mints Matrix JWTs in the SSR'd `/chat/` HTML.** The page embeds `<rs-app token="{json}">` where the JSON is `{token: "<jwt>", expires: <ms>}`. Omit `token_v2` from the outgoing cookie jar and Reddit's backend re-mints a fresh JWT. This is how `Auth::RefreshFlow` refreshes.
 - **JWT lifetimes:** the Matrix access token JWT lives ~24h; the `reddit_session` JWT lives ~6 months. The refresh loop triggers when the Matrix JWT has <1h remaining; operator alert fires when the reddit_session has <7 days remaining.
 - **Lazy-loaded member state:** on resume `/sync` requests, Matrix only ships `m.room.member` for users appearing in the timeline batch. For rooms where the first event we see is from us, the counterparty's member state might be absent. `Discord::Poster` falls back to `Matrix::Client#profile(user_id:)`.
-- **Matrix room versions are `org.matrix.msc3929`** — custom Reddit MSC. No impact today; noted for future debugging.
+- **Matrix room versions are `org.matrix.msc3929`** - custom Reddit MSC. No impact today; noted for future debugging.
 - **Reddit chat is NOT end-to-end encrypted.** Plain `/sync` returns plaintext events. No Olm/Megolm work required.
 - **Reddit's Matrix server refuses `/leave` on DM rooms** (`M_FORBIDDEN: You cannot leave this room`). Their own UI only offers "Hide chat" for the same reason. `Reconciler#end_chat!` best-efforts `/leave`, swallows the failure, and falls back to local termination (filter future events for that matrix_room_id at the Poster + InviteHandler).
-- **Matrix `/leave` DOES work on invite-state rooms** — `MessageRequest`'s Decline path uses it successfully because the room is `rooms.invite`, not `rooms.join`.
+- **Matrix `/leave` DOES work on invite-state rooms** - `MessageRequest`'s Decline path uses it successfully because the room is `rooms.invite`, not `rooms.join`.
 - **Reddit's chat avatar may be missing even when a snoovatar exists.** `Reddit::ProfileClient` fetches `/user/<name>/about.json` and prefers `snoovatar_img`, falling back to `icon_img` only when it's not the `avatar_default_*.png` placeholder.
-- **Read receipts: Reddit's server emits `m.read.private` (not public `m.read`) for own reads, and does NOT forward counterparty receipts over `/sync`.** A live probe against 10 joined rooms returned 11 receipt entries, 100% self + 100% `m.read.private`, zero counterparty entries. That kills any "✓✓ seen by them" feature over Matrix on this homeserver. For outbound marking, `Matrix::Client#set_read_marker` posts all three keys (`m.fully_read` + `m.read` + `m.read.private`) to `/rooms/:id/read_markers` — the private variant is what actually clears Reddit's web UI badge, but sending all three is cheap insurance and mirrors what Element-class clients do.
-- **`com.reddit.*_counter` top-level `/sync` keys are initial-sync-only.** Reddit ships `com.reddit.global_navigation_counter`, `com.reddit.main_timeline_counter`, `com.reddit.invites_counter`, and `com.reddit.spam_invites_counter` as top-level sync keys only when the request has no `since` token. Incremental syncs (which the bridge always does after its first boot) carry just `com.reddit.sequenced_sync` (boolean feature flag) and `com.reddit.w3_report_labels` (long-poll status like `{"response_type":"timeout"}`) — no counters. A dashboard tile snapshotting those counters from the normal sync loop was tried in 1.8.0 and ripped out in 1.8.1; any future resurrection would need a dedicated no-`since` fetch on a periodic tick.
+- **Read receipts: Reddit's server emits `m.read.private` (not public `m.read`) for own reads, and does NOT forward counterparty receipts over `/sync`.** A live probe against 10 joined rooms returned 11 receipt entries, 100% self + 100% `m.read.private`, zero counterparty entries. That kills any "✓✓ seen by them" feature over Matrix on this homeserver. For outbound marking, `Matrix::Client#set_read_marker` posts all three keys (`m.fully_read` + `m.read` + `m.read.private`) to `/rooms/:id/read_markers` - the private variant is what actually clears Reddit's web UI badge, but sending all three is cheap insurance and mirrors what Element-class clients do.
+- **`com.reddit.*_counter` top-level `/sync` keys are initial-sync-only.** Reddit ships `com.reddit.global_navigation_counter`, `com.reddit.main_timeline_counter`, `com.reddit.invites_counter`, and `com.reddit.spam_invites_counter` as top-level sync keys only when the request has no `since` token. Incremental syncs (which the bridge always does after its first boot) carry just `com.reddit.sequenced_sync` (boolean feature flag) and `com.reddit.w3_report_labels` (long-poll status like `{"response_type":"timeout"}`) - no counters. A dashboard tile snapshotting those counters from the normal sync loop was tried in 1.8.0 and ripped out in 1.8.1; any future resurrection would need a dedicated no-`since` fetch on a periodic tick.
 
 ## Discord API quirks
 
@@ -172,32 +174,32 @@ lib/
 - **Slash command description length cap is 100 chars.** Exceeding any one blows up the bulk-register call with `Invalid Form Body`. Keep `COMMAND_DEFINITIONS` descriptions ≤~95 chars; em-dashes occasionally trip certain locales, so prefer ASCII hyphens in command descriptions defensively.
 - **Rate limits:** Discord returns 429 with `retry_after` (seconds, as a float). `Discord::RateLimited` carries `retry_after_ms`. Poster respects it and retries up to 3 times.
 - **Channel deletion recovery:** Poster catches `Discord::NotFound`, clears the stale webhook first (then channel if that also 404s), re-ensures, and retries. Idempotent.
-- **Channel rename:** when `counterparty_username` resolves after the channel was created (e.g. first event lacked member state), Poster renames via `Discord::Client#rename_channel`. If rename returns 404 (manual delete), Reconciler's `rename_or_recreate!` clears PostedEvent for the room before recreating — otherwise backfill silently skips every event as "already posted."
+- **Channel rename:** when `counterparty_username` resolves after the channel was created (e.g. first event lacked member state), Poster renames via `Discord::Client#rename_channel`. If rename returns 404 (manual delete), Reconciler's `rename_or_recreate!` clears PostedEvent for the room before recreating - otherwise backfill silently skips every event as "already posted."
 - **Permissions needed on the bot role:**
-  - `Manage Channels` — create/delete `#dm-*` channels
-  - `Manage Webhooks` — create webhooks per channel for the persona rewrites
-  - `Manage Messages` — delete the operator's Discord-typed bubble after outbound persona rewrite
-  - `Send Messages`, `Embed Links`, `Attach Files`, `Read Message History`, `Use Slash Commands` — baseline
+  - `Manage Channels` - create/delete `#dm-*` channels
+  - `Manage Webhooks` - create webhooks per channel for the persona rewrites
+  - `Manage Messages` - delete the operator's Discord-typed bubble after outbound persona rewrite
+  - `Send Messages`, `Embed Links`, `Attach Files`, `Read Message History`, `Use Slash Commands` - baseline
   When any are missing, Poster catches `Discord::AuthError`, sets `AppConfig["discord_permissions_blocked_at"]` (dashboard banner), records event as posted to avoid flood, warns once per batch.
 - **Webhook-per-channel architecture:** every inbound message posts through the room's cached webhook so bubbles show the sender's Reddit display name + snoovatar, not the bot. Outbound dispatches also use the webhook to replace the operator's Discord bubble with their Reddit identity. Own-message username gets a `📤` suffix so it's visually distinct from the native Discord user if they're both in the channel.
-- **Bulk channel reorder:** `PATCH /guilds/:id/channels` with `[{id, position}, ...]` — `Discord::ChannelReorderer` uses this to sort `#dm-*` most-recent-first on every material post. One call per sync batch, not per event.
+- **Bulk channel reorder:** `PATCH /guilds/:id/channels` with `[{id, position}, ...]` - `Discord::ChannelReorderer` uses this to sort `#dm-*` most-recent-first on every material post. One call per sync batch, not per event.
 - **Long-lived pages + `mix-blend-mode: overlay` + SVG `feTurbulence` on `position: fixed` full-viewport element** make Safari reclaim the tab for memory. The grain overlay in `tailwind.css` uses a pre-rasterized tile (`app/assets/grain.png`) without blend mode to avoid this.
 
 ## Architecture touchpoints
 
-- `lib/bridge/application.rb` — wires threads (supervisor + gateway) + Puma + builds the service graph. `announce_online` emits a startup journal entry once per process. Read this first when making structural changes.
-- `lib/admin/actions.rb` — single home for admin operations. Web controllers AND Discord slash commands both call into it. Never duplicate admin logic between entry points.
-- `lib/admin/reconciler.rb` — per-room + bulk operations: rename, backfill, archive/unarchive, end_chat!/restore, delete_all_discord_channels!.
-- `lib/matrix/sync_loop.rb` — the long-poll `/sync` loop. Advances the checkpoint only after successful dispatch. Hands invites to `InviteHandler` before handing timeline to the Poster.
-- `lib/bridge/supervisor.rb` — wraps SyncLoop with retry, token-expiry auto-refresh (<1h left), T-7 cookie warning, hourly `PostedEvent.prune!`.
-- `lib/bridge/journal.rb` — calls to it write a row to `event_log_entries` AND forward to `admin_notifier`/`logger`. Always prefer `@journal.info/warn/error/critical` over direct notifier calls.
-- `lib/discord/poster.rb` — all the defensive logic: truncation, idempotency, rate-limit retry, webhook + channel 404 recovery, rename on username resolution, persona webhook with Reddit identity, auto-unarchive, terminated-room filter, AuthError → permissions-blocked flag + skip-to-avoid-flood, ChannelReorderer trigger at batch end.
-- `lib/discord/outbound_dispatcher.rb` — Discord → Matrix relay. Records in SentRegistry so `/sync` echoes don't double-post. Reposts under the operator's Reddit persona (Matrix /profile → AppConfig cache → Reddit snoovatar → matrix_id localpart). Deletes the operator's original Discord bubble after the webhook repost.
-- `lib/discord/channel_reorderer.rb` — sorts `#dm-*` most-recent-first via bulk reorder. Triggered from Poster (batch end) + OutboundDispatcher (per dispatch).
-- `lib/discord/slash_command_router.rb` — global + per-#dm-* slash commands. `UNRESTRICTED_CHANNEL_COMMANDS` allow-list routes `/refresh /archive /endchat /room` past the `#commands`-only gate.
-- `lib/discord/interaction_handler.rb` — sits between `Discord::Gateway` and the two routers. ACKs every interaction with a *deferred* callback (type 5 ephemeral for slash commands, type 6 for buttons) so the 3-second Discord deadline is met even when the router's work (Matrix `join_room`, reconciler operations, etc.) takes several seconds. The real response is PATCHed to `@original` via the 15-minute interaction-webhook window. Don't revert to the synchronous pattern — "This interaction failed" on Approve/Decline was caused by it.
-- `lib/auth/refresh_flow.rb` — mints a fresh JWT via `/chat/` + registers it with Matrix via `/login`. Both steps are required.
-- `app/views/layout.erb` — themed confirm dialog (all destructive forms use `data-confirm` attributes instead of `window.confirm`). Shift+R / Shift+C go through the same dialog via hidden forms.
+- `lib/bridge/application.rb` - wires threads (supervisor + gateway) + Puma + builds the service graph. `announce_online` emits a startup journal entry once per process. Read this first when making structural changes.
+- `lib/admin/actions.rb` - single home for admin operations. Web controllers AND Discord slash commands both call into it. Never duplicate admin logic between entry points.
+- `lib/admin/reconciler.rb` - per-room + bulk operations: rename, backfill, archive/unarchive, end_chat!/restore, delete_all_discord_channels!.
+- `lib/matrix/sync_loop.rb` - the long-poll `/sync` loop. Advances the checkpoint only after successful dispatch. Hands invites to `InviteHandler` before handing timeline to the Poster.
+- `lib/bridge/supervisor.rb` - wraps SyncLoop with retry, token-expiry auto-refresh (<1h left), T-7 cookie warning, hourly `PostedEvent.prune!`.
+- `lib/bridge/journal.rb` - calls to it write a row to `event_log_entries` AND forward to `admin_notifier`/`logger`. Always prefer `@journal.info/warn/error/critical` over direct notifier calls.
+- `lib/discord/poster.rb` - all the defensive logic: truncation, idempotency, rate-limit retry, webhook + channel 404 recovery, rename on username resolution, persona webhook with Reddit identity, auto-unarchive, terminated-room filter, AuthError → permissions-blocked flag + skip-to-avoid-flood, ChannelReorderer trigger at batch end.
+- `lib/discord/outbound_dispatcher.rb` - Discord → Matrix relay. Records in SentRegistry so `/sync` echoes don't double-post. Reposts under the operator's Reddit persona (Matrix /profile → AppConfig cache → Reddit snoovatar → matrix_id localpart). Deletes the operator's original Discord bubble after the webhook repost.
+- `lib/discord/channel_reorderer.rb` - sorts `#dm-*` most-recent-first via bulk reorder. Triggered from Poster (batch end) + OutboundDispatcher (per dispatch).
+- `lib/discord/slash_command_router.rb` - global + per-#dm-* slash commands. `UNRESTRICTED_CHANNEL_COMMANDS` allow-list routes `/refresh /archive /endchat /room` past the `#commands`-only gate.
+- `lib/discord/interaction_handler.rb` - sits between `Discord::Gateway` and the two routers. ACKs every interaction with a *deferred* callback (type 5 ephemeral for slash commands, type 6 for buttons) so the 3-second Discord deadline is met even when the router's work (Matrix `join_room`, reconciler operations, etc.) takes several seconds. The real response is PATCHed to `@original` via the 15-minute interaction-webhook window. Don't revert to the synchronous pattern - "This interaction failed" on Approve/Decline was caused by it.
+- `lib/auth/refresh_flow.rb` - mints a fresh JWT via `/chat/` + registers it with Matrix via `/login`. Both steps are required.
+- `app/views/layout.erb` - themed confirm dialog (all destructive forms use `data-confirm` attributes instead of `window.confirm`). Shift+R / Shift+C go through the same dialog via hidden forms.
 
 ## Style
 
@@ -217,10 +219,10 @@ lib/
   explaining why the cop's concern doesn't apply here.
 - Current legitimate exemptions (project-level in `.rubocop.yml`):
   - `ThreadSafety/MutableClassInstanceVariable` excluded for Sinatra's
-    `lib/bridge/web/**/*.rb` and `test/**/*.rb` — Sinatra routes and
+    `lib/bridge/web/**/*.rb` and `test/**/*.rb` - Sinatra routes and
     `setup do` blocks both run at instance level despite appearing
     class-level to static analysis.
-  - `Metrics/ParameterLists: CountKeywordArgs: false` — every
+  - `Metrics/ParameterLists: CountKeywordArgs: false` - every
     "too many params" hit in this codebase is DI constructors with
     all-keyword args, which are self-documenting; the cop's concern
     ("what does positional arg 6 mean?") doesn't apply.
@@ -231,17 +233,17 @@ lib/
 - **Tailwind v4 + DaisyUI**: Dockerfile's assets stage has a Node.js install because DaisyUI is a JS plugin and the standalone Tailwind CLI can't resolve `@plugin "daisyui"` without `node_modules/daisyui`. Node is only in the build stage; the runtime image has no Node.
 - **Boot order matters for `require`s**: `config.ru` must call `Bridge::Boot.call` BEFORE `require "bridge/web/app"`, because the app's `configure` block reads `AppConfig` at class-load time (for the persisted session_secret). Same rule in `test_helper.rb`.
 - **CI gates release.** Rubocop + minitest must pass before the GHCR image is published. If you locally `rubocop -a` and don't commit the autocorrected files, CI will fail.
-- **docs/ is gitignored** (our working notes). `guides/` is committed for user-facing documentation.
+- **docs/ is gitignored** for working notes (not shared). `guides/` is committed for user-facing documentation.
 
 ## Infrastructure
 
-- **Image:** `ghcr.io/mmenanno/reddit_chat_bridge:latest` (also tagged `:v<version>` and `:sha-<short>`) — published by `.github/workflows/ci.yml` on push to main after CI green.
+- **Image:** `ghcr.io/mmenanno/reddit_chat_bridge:latest` (also tagged `:v<version>` and `:sha-<short>`) - published by `.github/workflows/ci.yml` on push to main after CI green.
 - **Deployment:** generic Docker. `guides/deployment.md` is the public walkthrough; `docker-compose.yml` at repo root is the reference compose file. Container runs as uid/gid `1000:1000`. SQLite at `/app/state/state.sqlite3` on a mounted volume so it survives container recreation. Web UI on port 4567.
-- **Network:** the bridge ships only the web port. Operator decides exposure (Tailscale, reverse proxy, LAN — out of scope for the bridge itself).
+- **Network:** the bridge ships only the web port. Operator decides exposure (Tailscale, reverse proxy, LAN - out of scope for the bridge itself).
 - **Secrets model:** all credentials (Discord bot token, Reddit session cookie, Matrix JWT) entered through the web UI at runtime and stored in SQLite. The Reddit cookie jar is encrypted at rest with a key derived from `AppConfig.session_secret`. No secrets in env vars; `SESSION_SECRET` is optional and self-generated on first boot if absent.
 
 ## Pointers
 
-- `app/views/guide_bot_setup.erb` + `GET /guide/bot-setup` — in-app Discord bot + server setup walkthrough (single source of truth for Discord-side setup; no markdown mirror).
-- `guides/deployment.md` — generic Docker deployment walkthrough.
-- `docker-compose.yml` — reference compose file at repo root.
+- `app/views/guide_bot_setup.erb` + `GET /guide/bot-setup` - in-app Discord bot + server setup walkthrough (single source of truth for Discord-side setup; no markdown mirror).
+- `guides/deployment.md` - generic Docker deployment walkthrough.
+- `docker-compose.yml` - reference compose file at repo root.

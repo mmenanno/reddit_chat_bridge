@@ -34,13 +34,74 @@ jobs:
           bundler-cache: true
       - run: bundle exec rake test
 
+  version-bump-check:
+    name: VERSION bump
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff base
+        id: base
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$EVENT" == "pull_request" ]]; then
+            echo "ref=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$PUSH_BEFORE" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enforce VERSION bump
+        env:
+          ACTOR: ${{ github.actor }}
+          BASE: ${{ steps.base.outputs.ref }}
+        run: |
+          if [[ "$ACTOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot author; VERSION bump not required."
+            exit 0
+          fi
+
+          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+            echo "No diff base; skipping."
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "$BASE" HEAD)
+          if [[ -z "$changed" ]]; then
+            echo "No file changes; skipping."
+            exit 0
+          fi
+
+          non_docs=$(printf '%s\n' "$changed" \
+            | grep -vE '\.md$' \
+            | grep -vx 'LICENSE' || true)
+          if [[ -z "$non_docs" ]]; then
+            echo "Docs-only change; VERSION bump not required."
+            exit 0
+          fi
+
+          if printf '%s\n' "$changed" | grep -qx 'VERSION'; then
+            echo "VERSION bumped."
+            exit 0
+          fi
+
+          echo "::error::VERSION must be bumped for non-docs, non-dependabot changes."
+          echo "Changed files:"
+          printf '%s\n' "$changed"
+          exit 1
+
   build-and-push:
     name: ghcr release
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, version-bump-check]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v6
@@ -88,3 +149,34 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
           sbom: false
+
+      - name: Tag release
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null; then
+            echo "Tag v${VERSION} already exists; skipping"
+            exit 0
+          fi
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Extract CHANGELOG section
+        id: changelog
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          awk -v v="$VERSION" '
+            /^## \[/ { if (found) exit; if ($0 ~ "\\["v"\\]") { found=1; next } }
+            found
+          ' CHANGELOG.md > .release-notes.md
+          echo "path=.release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          name: v${{ steps.version.outputs.value }}
+          body_path: ${{ steps.changelog.outputs.path }}
+          fail_on_unmatched_files: false

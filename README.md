@@ -218,10 +218,15 @@ Issues and PRs are welcome. A few conventions to know up front:
 
 - **TDD-first.** Write the failing test before the implementation.
 - **Rubocop must be green.** CI gates on `bundle exec rubocop`. Use `bundle exec rubocop -a` to autocorrect.
-- **`VERSION` bumps on every push to `main`.** The repo-committed pre-push hook enforces this. Run `bin/setup-hooks` once after cloning to activate it. Bump rules follow conventional-commits: patch for fixes/refactors/docs, minor for new features, major for breaking changes.
+- **`VERSION` bumps on every push to `main`.** The repo-committed pre-push hook enforces this locally; CI's `version-bump-check` job enforces it on GitHub. Run `bin/setup-hooks` once after cloning to activate the local hook. Bump rules follow conventional-commits: patch for fixes and refactors, minor for new features, major for breaking changes. Docs-only pushes (every changed path matches `*.md` or `LICENSE`) and dependabot-authored PRs are exempt from the bump rule.
+- **`CHANGELOG.md` gets the bump alongside `VERSION`.** Add an entry under the matching version section in the same commit that bumps `VERSION`. The CI release job sources GitHub Release bodies from this file.
 - **Single-maintainer, reactive maintenance.** This is a small project with no active roadmap. Bug fixes and API-drift adjustments get attention; large new features may not.
 
-Deeper conventions (testing patterns, service graph, Reddit/Matrix quirks discovered) are documented in [`CLAUDE.md`](./CLAUDE.md).
+Deeper conventions (testing patterns, service graph, Reddit/Matrix quirks discovered) are documented in [`CLAUDE.md`](./CLAUDE.md). Release history is in [`CHANGELOG.md`](./CHANGELOG.md).
+
+## Security
+
+If you've found a security issue, please report it privately. See [`SECURITY.md`](./SECURITY.md) for the disclosure channel and what is in scope.
 
 ## License
 
