@@ -61,6 +61,7 @@ jobs:
           ACTOR: ${{ github.actor }}
           BASE: ${{ steps.base.outputs.ref }}
         run: |
+          # Exemption 1: dependabot pushed (covers the PR-branch run).
           if [[ "$ACTOR" == "dependabot[bot]" ]]; then
             echo "Dependabot author; VERSION bump not required."
             exit 0
@@ -68,6 +69,18 @@ jobs:
 
           if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then
             echo "No diff base; skipping."
+            exit 0
+          fi
+
+          # Exemption 2: every non-merge commit in the diff range was authored
+          # by dependabot (covers PRs merged via the GitHub UI, where the merge
+          # commit is authored by the merger but the underlying changes are
+          # still dependabot's).
+          authors=$(git log --no-merges --format='%ae' "$BASE"..HEAD)
+          total_commits=$(printf '%s\n' "$authors" | grep -c '.' || true)
+          dependabot_commits=$(printf '%s\n' "$authors" | grep -cF 'dependabot[bot]@' || true)
+          if [[ "$total_commits" -gt 0 && "$total_commits" == "$dependabot_commits" ]]; then
+            echo "All ${total_commits} non-merge commit(s) authored by dependabot; VERSION bump not required."
             exit 0
           fi
 

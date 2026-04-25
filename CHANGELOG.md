@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-04-25
+
+### Fixed
+
+- CI `version-bump-check` job now also exempts pushes whose every non-merge commit in the diff range was authored by dependabot. The original actor check fired only on dependabot's PR-branch runs, not on the merge-to-main run (where `github.actor` becomes the merger).
+
+### Changed
+
+- Dependencies: rubocop family (rubocop, rubocop-minitest, rubocop-performance, rubocop-thread_safety) bumped via dependabot.
+- Dependencies: minitest bumped from 5.27.0 to 6.0.5 via dependabot.
+- Dependencies: npm frontend group bumped via dependabot.
+
 ## [1.11.1] - 2026-04-25
 
 ### Added
@@ -402,7 +414,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.2...HEAD
+[1.11.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.10.7...v1.11.0
 [1.10.7]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.10.6...v1.10.7
