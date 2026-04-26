@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>reddit_chat_bridge</Name>
+  <Name>RedditChatBridge</Name>
   <Repository>ghcr.io/mmenanno/reddit_chat_bridge:latest</Repository>
   <Registry>https://github.com/mmenanno/reddit_chat_bridge/pkgs/container/reddit_chat_bridge</Registry>
   <Network>bridge</Network>
