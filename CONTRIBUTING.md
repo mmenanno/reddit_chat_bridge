@@ -81,7 +81,7 @@ sequenceDiagram
 
 ## Stack
 
-- Ruby 4.0.3, Sinatra + Puma (no Rails)
+- Ruby 4, Sinatra + Puma
 - Standalone ActiveRecord + ActiveSupport + SQLite
 - Tailwind CSS v4 + DaisyUI v5 (standalone CLI, built into the Docker image)
 - Faraday for Matrix and Discord REST; `websocket-client-simple` for the Discord gateway
