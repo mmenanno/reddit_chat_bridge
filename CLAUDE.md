@@ -54,6 +54,12 @@ Exemptions from the bump rule: release-irrelevant pushes (every changed path mat
 
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and gets the bump alongside `VERSION` in the same commit. CI reads `VERSION` and publishes a multi-arch GHCR manifest list (`linux/amd64` + `linux/arm64`) with three tags on every push to `main`: `:latest`, `:v<version>`, and `:sha-<short>`. The build-per-arch matrix uses GitHub's free native ARM runner (`ubuntu-24.04-arm`) for arm64; the publish job stitches the per-arch digests into the manifest list via `docker buildx imagetools create`. After the image push, CI pushes a matching `v<version>` git tag and creates a GitHub Release whose body is sourced from `CHANGELOG.md` plus a Container image trailer with the manifest digest for digest-pinned pulls. `Bridge::BuildInfo.version` surfaces the version in logs and the web UI's logomark (`console · v<version>`).
 
+**When you bump `VERSION`, also section the `CHANGELOG.md` entries.** The release-notes step in CI runs `awk` against `## [<VERSION>]` and uses that section verbatim as the Release body. Leaving entries under `## [Unreleased]` produces a Release body containing only the Container image trailer. Workflow when committing a bump:
+
+1. Move the entries you're shipping out of `## [Unreleased]` into a new `## [<VERSION>] - <YYYY-MM-DD>` heading directly below it (date is UTC, matching the date the merge will land on `main`).
+2. Leave `## [Unreleased]` empty (the placeholder header stays).
+3. CI also has a fallback: if `## [<VERSION>]` is missing, it extracts `## [Unreleased]` instead. The fallback exists for safety but the explicit dated section is the contract.
+
 Multi-arch produces two intentionally-untagged digest-only entries in GHCR per push (one per arch) that the manifest list points at. This is normal multi-arch image structure, not a misconfiguration. GHCR does not expose time-based retention rules for user-owned packages; if the orphaned-untagged accumulation becomes a problem the options are manual bulk delete via Settings → Packages → `reddit_chat_bridge` → Manage versions, or a scheduled `actions/delete-package-versions` workflow.
 
 ## Testing conventions
@@ -236,6 +242,20 @@ lib/
 - **Boot order matters for `require`s**: `config.ru` must call `Bridge::Boot.call` BEFORE `require "bridge/web/app"`, because the app's `configure` block reads `AppConfig` at class-load time (for the persisted session_secret). Same rule in `test_helper.rb`.
 - **CI gates release.** Rubocop + minitest must pass before the GHCR image is published. If you locally `rubocop -a` and don't commit the autocorrected files, CI will fail.
 - **docs/ is gitignored** for working notes (not shared). `guides/` is committed for user-facing documentation.
+
+## Surfaces touched by a slash-command change
+
+When adding, removing, or renaming a slash command, update every surface that names it. Easy to miss until a screenshot turns up wrong:
+
+- `lib/discord/slash_command_router.rb` - `COMMAND_DEFINITIONS`, `COMMANDS`, the handler, and `UNRESTRICTED_CHANNEL_COMMANDS` if it's per-room.
+- `lib/discord/message_component_router.rb` - any new button-family `custom_id` regex if the command has confirm/select buttons.
+- `app/views/actions.erb` - the "Register commands with Discord" list (global + per-room sections).
+- `app/views/settings.erb` - the slash-command examples in the "Slash commands + operator allow-list" section header.
+- `app/views/guide_bot_setup.erb` - the "Use Slash Commands" permission row's example list.
+- `README.md` - the "Slash command reference" tables (global + per-room).
+- `test/discord/slash_command_router_test.rb` and `test/discord/message_component_router_test.rb` - command coverage.
+
+Re-register slash commands after deploying a removal: Discord caches the registered set, so a removed command keeps autocompleting until the bridge issues a fresh bulk register (use the **Register now** button on `/actions`).
 
 ## Infrastructure
 

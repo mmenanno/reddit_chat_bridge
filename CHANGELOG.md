@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-04-26
+
+### Changed
+
+- CI release-notes step now falls back to the `## [Unreleased]` section when `## [<VERSION>]` doesn't exist in `CHANGELOG.md`. Previously the awk extract returned an empty body in that case, so the GitHub Release showed only the Container image trailer (no actual changelog). Future releases get useful notes even if the changelog wasn't sectioned before the VERSION bump.
+- `/status` embed restructured to scan more cleanly: sync state and Matrix auth move into the description, last sync batch and Reddit cookie become block-style fields (one per row) so long timestamps no longer wrap awkwardly across an inline 3-column layout, and the bridge version moves to the embed footer.
+- Web UI surfaces (Actions page, Settings page, bot-setup guide) and README updated to reflect the slash-command surface change shipped in 1.12.0: `/resync` and `/test_discord` no longer in the global slash command list (still on the `/actions` page as web-only buttons), `/unarchive` and `/restore` added.
+
+## [1.12.0] - 2026-04-26
+
 ### Added
 
 - New `/unarchive <query>` slash command. Substring-fuzzy-matches the query against archived rooms' Reddit usernames and surfaces an action-row picker: zero matches returns an error embed, one match jumps to a Yes/Cancel confirm, multiple matches present a numbered button list (capped at 4 + Cancel) where each click drops into the same confirm. Confirm calls `Admin::Actions#unarchive_room!(backfill: true)` so the operator gets a fresh channel with recent history preloaded.
@@ -16,8 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Every slash command response is now an ephemeral embed instead of a plain content string. Commands use level-appropriate colors (success / info / warn / error / diagnostic) and structured key-value fields where they have multiple data points to surface (e.g. `/status`, `/room`, `/reconcile`, `/rebuild`, `/refresh`).
-- `/reconcile` reports a four-way breakdown: `renamed`, `unchanged`, `skipped`, `errors`. Previously every room that went through the rename code path was counted as "renamed", even when Discord already had the right name and no API change happened — `Reconciler#reconcile_room` now fetches the current channel state and short-circuits to `:unchanged` when slug+topic already match. Idempotent re-runs now report 0 renamed instead of misleadingly inflated counts.
-- `/rebuild` no longer touches archived or terminated rooms. Previously the iteration was unscoped, so backfill ran against archived rooms — and the Poster auto-unarchives on the first event it sees, which silently un-archived every archived room. The rebuild stat now includes a `Skipped (archived/hidden)` count alongside `Refreshed` and `Errors`.
+- `/reconcile` reports a four-way breakdown: `renamed`, `unchanged`, `skipped`, `errors`. Previously every room that went through the rename code path was counted as "renamed", even when Discord already had the right name and no API change happened. `Reconciler#reconcile_room` now fetches the current channel state and short-circuits to `:unchanged` when slug+topic already match. Idempotent re-runs now report 0 renamed instead of misleadingly inflated counts.
+- `/rebuild` no longer touches archived or terminated rooms. Previously the iteration was unscoped, so backfill ran against archived rooms, and the Poster auto-unarchives on the first event it sees, which silently un-archived every archived room. The rebuild stat now includes a `Skipped (archived/hidden)` count alongside `Refreshed` and `Errors`.
 - `Matrix::InviteHandler#find_preview_body` now tries multiple event-type shapes (`m.room.message` first, then `com.reddit.chat.type`, then any event with a non-empty `content.body` as a last-resort fallback). When no preview is extracted, the handler journals the event types it saw under source `invite_handler` so the operator can inspect `/events` and identify a future Reddit shape change. Addresses the missing message-snippet on Discord message-request cards.
 - `/status`, `/ping` now include the bridge version (`v<VERSION>`) for at-a-glance build identification.
 - `Discord::MessageRequestNotifier` color constants moved to the shared `Discord::Colors` module so embed identity is consistent across all bridge-authored Discord messages.

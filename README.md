@@ -84,12 +84,12 @@ Run these in your configured `#commands` channel.
 | `/status` | Show sync state, Matrix auth state, last `/sync` batch timestamp, cookie expiry. |
 | `/pause` | Pause the `/sync` loop without dropping the Matrix token. |
 | `/resume` | Resume the `/sync` loop after a manual pause. |
-| `/resync` | Clear the `/sync` checkpoint and re-pull recent history. |
-| `/reconcile` | Sweep every room and rename channels to current Reddit usernames. |
+| `/reconcile` | Sweep every active room and rename channels to current Reddit usernames. Reports renamed / unchanged / skipped / errors. |
 | `/refresh_token` | Mint a fresh Matrix JWT from stored Reddit cookies. |
 | `/ping` | Health check. Replies pong. |
-| `/rebuild` | Refresh every room: rename and replay recent history. Non-destructive. |
-| `/test_discord` | Probe Discord by posting a hello line to `#app-status`. |
+| `/rebuild` | Refresh every active room: rename and replay recent history. Skips archived and terminated rooms. Non-destructive. |
+| `/unarchive <query>` | Fuzzy-match an archived room by Reddit username, then confirm to unarchive (with backfill). Shows a button picker when multiple rooms match. |
+| `/restore <query>` | Counterpart for terminated (hidden) chats. Same fuzzy + confirm flow. |
 
 ### Per-room commands
 

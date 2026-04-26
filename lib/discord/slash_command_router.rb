@@ -58,22 +58,26 @@ module Discord
     # -------- handlers (invoked via COMMANDS table below) --------
 
     def status_handler(_payload)
-      sync_label = Bridge::Application.running? ? "running" : "stopped"
-      sync_icon  = Bridge::Application.running? ? "✅" : "⏹"
+      sync_label = Bridge::Application.running? ? "✅ running" : "⏹ stopped"
       matrix     = matrix_auth_label
       last       = SyncCheckpoint.current.last_batch_at
       cookie     = AuthState.reddit_session_expires_at
 
-      fields = SlashEmbed.kv_fields([
-        ["Sync", "#{sync_icon} #{sync_label}"],
-        ["Matrix auth", matrix],
-        ["Last /sync batch", relative_with_iso(last)],
-        ["Reddit cookie", reddit_cookie_label(cookie)],
-        ["Version", "v#{Bridge::BuildInfo.version}"],
-      ])
+      description = []
+      description << cookie_warning(cookie) if cookie_warning(cookie)
+      description << "**Sync:** #{sync_label}"
+      description << "**Matrix auth:** #{matrix}"
 
-      embed = SlashEmbed.info(title: "Bridge status", fields: fields)
-      embed[:description] = cookie_warning(cookie) if cookie_warning(cookie)
+      fields = []
+      fields << { name: "Last /sync batch", value: relative_with_iso(last), inline: false } if last
+      fields << { name: "Reddit cookie", value: reddit_cookie_label(cookie), inline: false } if cookie
+
+      embed = SlashEmbed.info(
+        title: "Bridge status",
+        description: description.join("\n"),
+        fields: fields,
+        footer: "v#{Bridge::BuildInfo.version}",
+      )
       SlashEmbed.ephemeral(embed)
     end
 

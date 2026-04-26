@@ -287,10 +287,20 @@ jobs:
           DIGEST: ${{ steps.manifest.outputs.digest }}
           IMAGE: ghcr.io/mmenanno/reddit_chat_bridge
         run: |
+          # Prefer a dated `## [<VERSION>]` section. Falls back to
+          # `## [Unreleased]` when the changelog wasn't sectioned before
+          # the VERSION bump — without the fallback the release body
+          # would be empty save for the Container image trailer.
           awk -v v="$VERSION" '
             /^## \[/ { if (found) exit; if ($0 ~ "\\["v"\\]") { found=1; next } }
             found
           ' CHANGELOG.md > .release-notes.md
+          if [[ ! -s .release-notes.md ]]; then
+            awk '
+              /^## \[/ { if (found) exit; if ($0 ~ /\[Unreleased\]/) { found=1; next } }
+              found
+            ' CHANGELOG.md > .release-notes.md
+          fi
           {
             echo ""
             echo "## Container image"

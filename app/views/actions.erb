@@ -82,12 +82,12 @@
       <code class="<%= code %>">/status</code>,
       <code class="<%= code %>">/pause</code>,
       <code class="<%= code %>">/resume</code>,
-      <code class="<%= code %>">/resync</code>,
       <code class="<%= code %>">/reconcile</code>,
       <code class="<%= code %>">/rebuild</code>,
-      <code class="<%= code %>">/test_discord</code>,
       <code class="<%= code %>">/refresh_token</code>,
-      <code class="<%= code %>">/ping</code>.
+      <code class="<%= code %>">/ping</code>,
+      <code class="<%= code %>">/unarchive &lt;query&gt;</code>,
+      <code class="<%= code %>">/restore &lt;query&gt;</code>.
     </li>
     <li>
       <strong class="text-bone">Per-room (run inside the <code class="<%= code %>">#dm-*</code> channel):</strong>
@@ -95,6 +95,12 @@
       <code class="<%= code %>">/archive</code>,
       <code class="<%= code %>">/endchat</code>,
       <code class="<%= code %>">/room</code>.
+    </li>
+    <li class="text-bone-mute">
+      <em>Web-only (no Discord slash command):</em>
+      <code class="<%= code %>">Resync now</code>,
+      <code class="<%= code %>">Test Discord</code>
+      below.
     </li>
   </ul>
   <p class="mt-3 text-sm text-bone-dim max-w-3xl leading-relaxed">

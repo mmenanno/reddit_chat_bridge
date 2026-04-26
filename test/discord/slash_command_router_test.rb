@@ -65,7 +65,7 @@ module Discord
 
       response = @router.dispatch(interaction(name: "status"))
 
-      assert_includes(field_value(response, "Matrix auth"), "paused by operator")
+      assert_match(/paused by operator/i, embed(response)[:description].to_s)
     end
 
     test "/status reports 'paused - token rejected' when AuthState was auto-paused" do
@@ -73,7 +73,7 @@ module Discord
 
       response = @router.dispatch(interaction(name: "status"))
 
-      assert_includes(field_value(response, "Matrix auth"), "paused - token rejected")
+      assert_match(/paused - token rejected/i, embed(response)[:description].to_s)
     end
 
     test "/status surfaces a description warning when the Reddit cookie is close to expiring" do
