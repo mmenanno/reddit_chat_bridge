@@ -1,4 +1,4 @@
-# reddit_chat_bridge
+# Reddit Chat Bridge
 
 A self-hosted bridge between Reddit Chat and a private Discord server. Reddit Chat is Matrix under the hood (homeserver `matrix.redditspace.com`), so this is a specialized Matrix ↔ Discord bridge that targets Reddit specifically.
 
