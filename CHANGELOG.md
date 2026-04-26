@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-04-26
+
+### Changed
+
+- Dockerfile: collapsed five small `COPY` layers in the final stage (lib, app/views, db/migrate, bin/start, config.ru+Gemfile+Lock+VERSION) into one consolidated layer via an intermediate `source` stage. Each of those was shipping under 10 KB compressed, where per-layer overhead exceeded the content. The legitimately-separate layers (gems, icons, grain.png, application.css, useradd) are unchanged. Pulls now fetch one ~80 KB layer instead of five tiny ones, with the same cache invalidation semantics on view-edit / lib-edit / lockfile-bump.
+
 ## [1.12.1] - 2026-04-26
 
 ### Changed
@@ -484,7 +490,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.6...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.2...HEAD
+[1.12.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.1...v1.12.2
+[1.12.1]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.0...v1.12.1
+[1.12.0]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.6...v1.12.0
 [1.11.6]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.5...v1.11.6
 [1.11.5]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.4...v1.11.5
 [1.11.4]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.3...v1.11.4

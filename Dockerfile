@@ -88,6 +88,21 @@ RUN npx @tailwindcss/cli \
       --minify && \
     cp app/assets/grain.png app/assets/built/grain.png
 
+# ---- source consolidation stage ----
+# Stages every small runtime artifact so the final image picks them up
+# in a single `COPY --from=source` layer. Without this stage, each file
+# group (lib, app/views, db/migrate, bin/start, configs) shipped as its
+# own layer; several were under 10 KB compressed, where per-layer
+# overhead exceeds the file content. Listing directories explicitly
+# (rather than `COPY . .`) still scopes the layer to runtime-read paths
+# only and avoids re-shipping the 3 MB loose icon source.
+FROM base AS source
+COPY --link lib ./lib
+COPY --link app/views ./app/views
+COPY --link db/migrate ./db/migrate
+COPY --link bin/start ./bin/start
+COPY --link config.ru Gemfile Gemfile.lock VERSION ./
+
 # ---- final runtime ----
 FROM base
 ARG BUILD_SHA=""
@@ -101,27 +116,22 @@ ENV BUILD_SHA=$BUILD_SHA \
 
 COPY --link --from=gems "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 
+# Single layer for all the small runtime sources. See the `source` stage
+# above for rationale. Comes BEFORE the asset layers so that view edits
+# (which invalidate this layer AND application.css) leave the icon and
+# grain layers cached.
+COPY --link --from=source /app /app
+
 # Staged-asset COPYs split per artifact so each lands in its own layer.
-# Rationale: a single `COPY --from=assets /app/app/assets/built ...` bundles
-# css + grain + icon into one layer that invalidates on every view/CSS edit.
 # Icons (3 MB, regenerated only by bin/build-icons) get their own layer,
-# so pulls skip that layer whenever the icon file is byte-identical to the
-# previously-published image.
+# so pulls skip that layer whenever the icon file is byte-identical to
+# the previously-published image. grain.png is a stable static asset.
+# application.css regenerates on every view or CSS edit; keeping it
+# distinct lets pulls skip the icon and grain layers when only CSS
+# changes.
 COPY --link --from=assets /app/app/assets/built/icons ./app/assets/built/icons
 COPY --link --from=assets /app/app/assets/built/grain.png ./app/assets/built/grain.png
 COPY --link --from=assets /app/app/assets/built/application.css ./app/assets/built/application.css
-
-# Explicit runtime sources. A blanket `COPY --link . .` would re-ship the
-# 3 MB loose icon source at app/assets/icons/icon-1024.png (duplicating
-# the staged bundle above) and would also invalidate on any repo edit.
-# Listing directories explicitly scopes the layer to what the process
-# actually reads at runtime: Ruby, ERB views, the Rack entrypoint,
-# bundler manifests, VERSION for BuildInfo, and the migrations directory.
-COPY --link lib ./lib
-COPY --link app/views ./app/views
-COPY --link db/migrate ./db/migrate
-COPY --link bin/start ./bin/start
-COPY --link config.ru Gemfile Gemfile.lock VERSION ./
 
 # User creation comes AFTER the COPYs. Rationale: this RUN's output is
 # non-deterministic (useradd embeds today's date in /etc/shadow and sets
