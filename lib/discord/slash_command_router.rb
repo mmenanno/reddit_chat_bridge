@@ -3,6 +3,7 @@
 require "bridge/build_info"
 require "discord/colors"
 require "discord/slash_embed"
+require "matrix/sync_loop"
 
 module Discord
   # Maps a Discord "interaction" payload (a slash command fired in
@@ -67,6 +68,7 @@ module Discord
       description << cookie_warning(cookie) if cookie_warning(cookie)
       description << "**Sync:** #{sync_label}"
       description << "**Matrix auth:** #{matrix}"
+      description << "**Cadence:** long-poll · #{Matrix::SyncLoop::DEFAULT_TIMEOUT_MS / 1000}s idle timeout (real-time when events arrive)"
 
       fields = []
       fields << { name: "Last /sync batch", value: relative_with_iso(last), inline: false } if last
@@ -79,6 +81,22 @@ module Discord
         footer: "v#{Bridge::BuildInfo.version}",
       )
       SlashEmbed.ephemeral(embed)
+    end
+
+    # Forces the next /sync iteration to be an initial sync (no `since`
+    # token) by clearing the SyncCheckpoint. Rare but unique value: it
+    # re-fetches pending invites in one shot and re-establishes a fresh
+    # sync baseline if the checkpoint is stale. /rebuild is the heavier
+    # per-room hammer for "I'm missing events"; /resync is the lighter
+    # "I think the sync state itself is off" lever.
+    def resync_handler(_payload)
+      @admin_actions.resync
+      timeout_s = Matrix::SyncLoop::DEFAULT_TIMEOUT_MS / 1000
+      SlashEmbed.ephemeral(SlashEmbed.success(
+        title: "Sync checkpoint cleared",
+        description: "Next `/sync` iteration runs within ~#{timeout_s}s and pulls a fresh baseline (initial sync). " \
+                     "PostedEvent dedup keeps replay safe.",
+      ))
     end
 
     def pause_handler(_payload)
@@ -260,6 +278,7 @@ module Discord
       { name: "status",        description: "Show the bridge's sync and auth state" },
       { name: "pause",         description: "Pause the /sync loop without dropping the Matrix token" },
       { name: "resume",        description: "Resume the /sync loop after a manual pause" },
+      { name: "resync",        description: "Clear the /sync checkpoint and force a fresh initial sync" },
       { name: "reconcile",     description: "Sweep every room and rename channels to current usernames" },
       { name: "refresh_token", description: "Mint a fresh Matrix JWT from the stored Reddit cookies" },
       { name: "ping",          description: "Health check - replies pong" },
@@ -294,6 +313,7 @@ module Discord
       "status" => ->(r, p) { r.status_handler(p) },
       "pause" => ->(r, p) { r.pause_handler(p) },
       "resume" => ->(r, p) { r.resume_handler(p) },
+      "resync" => ->(r, p) { r.resync_handler(p) },
       "reconcile" => ->(r, p) { r.reconcile_handler(p) },
       "refresh_token" => ->(r, p) { r.refresh_token_handler(p) },
       "ping" => ->(r, p) { r.ping_handler(p) },

@@ -115,11 +115,20 @@ module Discord
       assert_equal(gateway_response, http_response)
     end
 
-    test "removes /resync and /test_discord from the registered command set" do
+    test "removes /test_discord from the registered command set (keeps /resync — see comments in SlashCommandRouter#resync_handler)" do
       names = SlashCommandRouter::COMMAND_DEFINITIONS.map { |c| c[:name] }
 
-      refute_includes(names, "resync")
       refute_includes(names, "test_discord")
+      assert_includes(names, "resync")
+    end
+
+    test "runs /resync by delegating to Admin::Actions and surfaces the cadence in the description" do
+      @actions.expects(:resync).returns(:ok)
+
+      response = @router.dispatch(interaction(name: "resync"))
+
+      assert_match(/checkpoint cleared/i, embed(response)[:title])
+      assert_match(/Next.*sync/, embed(response)[:description])
     end
 
     test "an unknown command returns an error embed" do

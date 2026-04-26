@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-04-26
+
+### Added
+
+- `/resync` slash command restored after a one-version detour. The command was removed in 1.12.0 on the assumption it overlapped fully with `/rebuild`, but the niches it covers are real: re-fetching pending invites in one shot, and re-establishing a fresh sync baseline in the rare cases where the checkpoint is stale. `/rebuild` is per-room `/messages` backfill (heavier hammer, doesn't touch invites or sync state). `/resync` is the lighter "I think the sync state itself is off" lever. The Discord embed now also surfaces the cadence so operators know what "next /sync" means.
+
+### Changed
+
+- `/status` description now includes a **Cadence** line surfacing the bridge's `/sync` rhythm: long-poll with a 10-second idle timeout (real-time when events arrive). Previously the cadence was implicit; operators had to guess what "next iteration" meant.
+- Web UI `/actions` Resync card copy clarified: explains the 10-second long-poll cadence, names the situations where Resync uniquely helps (sync-state staleness, pending-invite re-fetch), and steers the operator toward Rebuild for the more common "missing events" case.
+- README Slash-command reference: `/resync` row restored, `/status` row mentions the new cadence line, and a paragraph after the Global commands table explains the long-poll model so the cadence vocabulary is consistent across the Discord embed and the docs.
+- Bot-setup guide's "Use Slash Commands" example list updated to include `/resync` again.
+
 ## [1.12.2] - 2026-04-26
 
 ### Changed

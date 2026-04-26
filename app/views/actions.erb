@@ -82,6 +82,7 @@
       <code class="<%= code %>">/status</code>,
       <code class="<%= code %>">/pause</code>,
       <code class="<%= code %>">/resume</code>,
+      <code class="<%= code %>">/resync</code>,
       <code class="<%= code %>">/reconcile</code>,
       <code class="<%= code %>">/rebuild</code>,
       <code class="<%= code %>">/refresh_token</code>,
@@ -98,7 +99,6 @@
     </li>
     <li class="text-bone-mute">
       <em>Web-only (no Discord slash command):</em>
-      <code class="<%= code %>">Resync now</code>,
       <code class="<%= code %>">Test Discord</code>
       below.
     </li>
@@ -138,9 +138,17 @@
       <h2 class="section-title mt-2">Re-pull recent history</h2>
     </div>
     <p class="text-sm text-bone-dim">
-      Clears the Matrix <code class="font-mono text-xs bg-base-300/60 px-1 rounded">next_batch</code> pointer.
-      The next /sync iteration will pull recent history from Reddit. PostedEvent dedup keeps
-      this idempotent - you won't get duplicates.
+      Clears the Matrix <code class="font-mono text-xs bg-base-300/60 px-1 rounded">next_batch</code> pointer
+      so the next sync runs as a fresh initial sync. The bridge long-polls
+      <code class="font-mono text-xs bg-base-300/60 px-1 rounded">/sync</code> with a 10-second idle timeout
+      (real-time when events are flowing), so the new baseline lands within ~10s.
+      PostedEvent dedup keeps replay idempotent - no duplicates.
+    </p>
+    <p class="text-sm text-bone-mute">
+      Most "I'm missing events" cases are better served by Rebuild (per-room
+      <code class="font-mono text-xs bg-base-300/60 px-1 rounded">/messages</code> backfill).
+      Reach for Resync when you suspect the sync state itself is stale or you want the bridge to
+      re-fetch pending invites in one shot.
     </p>
     <form method="post" action="/actions/resync" class="mt-auto">
       <button type="submit" class="btn btn-outline">Resync now</button>
