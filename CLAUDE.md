@@ -52,7 +52,9 @@ Bump rules (conventional-commits aligned):
 
 Exemptions from the bump rule: docs-only pushes (every changed path matches `*.md` or `LICENSE`) and dependabot-authored PRs. Both checks are encoded in CI and the local hook (the local hook only handles the docs case; dependabot doesn't push from a clone).
 
-`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and gets the bump alongside `VERSION` in the same commit. CI reads `VERSION` and publishes the GHCR image with three tags on every push to `main`: `:latest`, `:v<version>`, and `:sha-<short>`. After the image push, CI also pushes a matching `v<version>` git tag and creates a GitHub Release whose body is sourced from `CHANGELOG.md`. `Bridge::BuildInfo.version` surfaces the version in logs and the web UI's logomark (`console · v<version>`).
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and gets the bump alongside `VERSION` in the same commit. CI reads `VERSION` and publishes a multi-arch GHCR manifest list (`linux/amd64` + `linux/arm64`) with three tags on every push to `main`: `:latest`, `:v<version>`, and `:sha-<short>`. The build-per-arch matrix uses GitHub's free native ARM runner (`ubuntu-24.04-arm`) for arm64; the publish job stitches the per-arch digests into the manifest list via `docker buildx imagetools create`. After the image push, CI pushes a matching `v<version>` git tag and creates a GitHub Release whose body is sourced from `CHANGELOG.md` plus a Container image trailer with the manifest digest for digest-pinned pulls. `Bridge::BuildInfo.version` surfaces the version in logs and the web UI's logomark (`console · v<version>`).
+
+Multi-arch produces two intentionally-untagged digest-only entries in GHCR per push (one per arch) that the manifest list points at. This is normal multi-arch image structure, not a misconfiguration. Set GHCR retention rules under Settings → Packages → reddit_chat_bridge → Manage versions if the orphaned-untagged accumulation becomes a problem.
 
 ## Testing conventions
 

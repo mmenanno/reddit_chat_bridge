@@ -108,10 +108,87 @@ jobs:
           printf '%s\n' "$changed"
           exit 1
 
-  build-and-push:
+  build-per-arch:
+    # Each arch builds on its native runner (free for public repos) and
+    # pushes the per-arch image to GHCR by digest only - no human-readable
+    # tag yet. The publish job below stitches the digests into a single
+    # multi-arch manifest list and applies the human tags. Native runners
+    # avoid QEMU emulation, which would otherwise triple build wall-clock.
+    name: build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [lint, test, version-bump-check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read VERSION
+        id: version
+        run: echo "value=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          # push-by-digest=true publishes the per-arch image as a digest
+          # reference only; no human-readable tag is created. The publish
+          # job below applies tags to the manifest list, not to the
+          # individual per-arch images.
+          outputs: type=image,name=ghcr.io/mmenanno/reddit_chat_bridge,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+            BUILD_REF=${{ github.ref_name }}
+            BUILD_VERSION=${{ steps.version.outputs.value }}
+          # Per-arch cache scopes so amd64 and arm64 don't collide.
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          provenance: false
+          sbom: false
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    # Stitches the per-arch digests into a multi-arch manifest list,
+    # tags it (:latest, :v<version>, :sha-<short>), pushes the matching
+    # git tag, and creates a GitHub Release whose body is the matching
+    # CHANGELOG section plus a Container image trailer with the manifest
+    # digest for digest-pinned pulls.
     name: ghcr release
     runs-on: ubuntu-latest
-    needs: [lint, test, version-bump-check]
+    needs: [build-per-arch]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -123,8 +200,12 @@ jobs:
         id: version
         run: echo "value=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
-      # No setup-qemu-action: runner is already linux/amd64 and we build
-      # amd64 only. QEMU would just add ~7s of setup+teardown for nothing.
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
@@ -133,35 +214,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/metadata-action@v6
-        id: meta
-        with:
-          images: ghcr.io/mmenanno/reddit_chat_bridge
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=v${{ steps.version.outputs.value }}
-            type=sha,format=short
-
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BUILD_SHA=${{ github.sha }}
-            BUILD_REF=${{ github.ref_name }}
-            BUILD_VERSION=${{ steps.version.outputs.value }}
-          cache-from: type=gha
-          # mode=max caches intermediate stages too (gems + assets).
-          # Without it, bundle install + npm ci would re-run from
-          # scratch every build since the final stage only COPIEs
-          # their output. The extra cache-push cost is small vs. the
-          # 30+ seconds those stages take cold.
-          cache-to: type=gha,mode=max
-          provenance: false
-          sbom: false
+      - name: Create multi-arch manifest list
+        id: manifest
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          IMAGE: ghcr.io/mmenanno/reddit_chat_bridge
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          short_sha="${GITHUB_SHA:0:7}"
+          tag_args=()
+          for tag in "v${VERSION}" "latest" "sha-${short_sha}"; do
+            tag_args+=(-t "${IMAGE}:${tag}")
+          done
+          source_args=()
+          for f in /tmp/digests/*; do
+            source_args+=("${IMAGE}@sha256:$(basename "$f")")
+          done
+          docker buildx imagetools create "${tag_args[@]}" "${source_args[@]}"
+          # Capture the manifest list digest so the Release body can
+          # surface it for digest-pinned pulls.
+          manifest_digest=$(docker buildx imagetools inspect "${IMAGE}:v${VERSION}" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=${manifest_digest}" >> "$GITHUB_OUTPUT"
 
       - name: Tag release
         env:
@@ -171,8 +244,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Check the remote, not the local clone. The runner's checkout
           # doesn't fetch tags, so a local rev-parse would always claim
-          # the tag is missing and the subsequent push would fail when the
-          # remote already has it (every docs-only push triggers this).
+          # the tag is missing and the subsequent push would fail when
+          # the remote already has it (every docs-only push triggers
+          # this).
           if git ls-remote --tags --exit-code origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists on remote; skipping push"
           else
@@ -180,20 +254,36 @@ jobs:
             git push origin "v${VERSION}"
           fi
 
-      - name: Extract CHANGELOG section
-        id: changelog
+      - name: Build release notes
+        id: notes
         env:
           VERSION: ${{ steps.version.outputs.value }}
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+          IMAGE: ghcr.io/mmenanno/reddit_chat_bridge
         run: |
           awk -v v="$VERSION" '
             /^## \[/ { if (found) exit; if ($0 ~ "\\["v"\\]") { found=1; next } }
             found
           ' CHANGELOG.md > .release-notes.md
+          {
+            echo ""
+            echo "## Container image"
+            echo ""
+            echo '```bash'
+            echo "docker pull ${IMAGE}:v${VERSION}"
+            echo "# or pin by digest:"
+            echo "docker pull ${IMAGE}@${DIGEST}"
+            echo '```'
+            echo ""
+            echo "Available platforms: \`linux/amd64\`, \`linux/arm64\`."
+            echo ""
+            echo "[View on GHCR](https://github.com/mmenanno/reddit_chat_bridge/pkgs/container/reddit_chat_bridge)"
+          } >> .release-notes.md
           echo "path=.release-notes.md" >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.value }}
           name: v${{ steps.version.outputs.value }}
-          body_path: ${{ steps.changelog.outputs.path }}
+          body_path: ${{ steps.notes.outputs.path }}
           fail_on_unmatched_files: false

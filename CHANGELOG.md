@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.6] - 2026-04-26
+
+### Added
+
+- Multi-arch GHCR images. Every release now publishes `linux/amd64` and `linux/arm64` under one manifest list, so Docker resolves the right arch automatically when you `docker pull` on a Pi, NAS, ARM VPS, or Apple Silicon Mac.
+- GitHub Release bodies now include a "Container image" trailer with both a tag-based and a digest-pinned `docker pull` command, plus a link to the GHCR package page.
+
+### Changed
+
+- CI release pipeline split into a per-arch matrix (`build-per-arch`) and a manifest-merge job (`publish`). The matrix uses GitHub's free native ARM runner (`ubuntu-24.04-arm`) instead of QEMU emulation, so wall-clock for the release stays close to the previous amd64-only timing.
+- Per-arch images are pushed by digest (`push-by-digest=true`); only the manifest list carries the human-readable tags (`:latest`, `:v<version>`, `:sha-<short>`). Standard multi-arch convention; produces two intentionally-untagged digest-only entries in GHCR per push that the manifest list points at.
+
 ## [1.11.5] - 2026-04-26
 
 ### Added
@@ -440,7 +452,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.5...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.6...HEAD
+[1.11.6]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.5...v1.11.6
 [1.11.5]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.4...v1.11.5
 [1.11.4]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.3...v1.11.4
 [1.11.3]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.2...v1.11.3
