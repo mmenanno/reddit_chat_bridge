@@ -6,9 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- New `/unarchive <query>` slash command. Substring-fuzzy-matches the query against archived rooms' Reddit usernames and surfaces an action-row picker: zero matches returns an error embed, one match jumps to a Yes/Cancel confirm, multiple matches present a numbered button list (capped at 4 + Cancel) where each click drops into the same confirm. Confirm calls `Admin::Actions#unarchive_room!(backfill: true)` so the operator gets a fresh channel with recent history preloaded.
+- New `/restore <query>` slash command. Counterpart of `/unarchive` for terminated (hidden) chats. Same fuzzy + confirm flow; calls `Admin::Actions#restore_chat!`.
+- `/status` now surfaces a colored description warning when the Reddit cookie is within 7 days of expiry (yellow), within 24h (red), or already expired (red). The cookie field also shows a relative "Nd left" alongside the absolute ISO timestamp.
+- Shared `Discord::Colors` module + `Discord::SlashEmbed` builder. Slash command responses now render as ephemeral embeds in the bridge's color palette (ember/moss/rust/amber/slate) instead of plain content strings.
+
 ### Changed
 
+- Every slash command response is now an ephemeral embed instead of a plain content string. Commands use level-appropriate colors (success / info / warn / error / diagnostic) and structured key-value fields where they have multiple data points to surface (e.g. `/status`, `/room`, `/reconcile`, `/rebuild`, `/refresh`).
+- `/reconcile` reports a four-way breakdown: `renamed`, `unchanged`, `skipped`, `errors`. Previously every room that went through the rename code path was counted as "renamed", even when Discord already had the right name and no API change happened — `Reconciler#reconcile_room` now fetches the current channel state and short-circuits to `:unchanged` when slug+topic already match. Idempotent re-runs now report 0 renamed instead of misleadingly inflated counts.
+- `/rebuild` no longer touches archived or terminated rooms. Previously the iteration was unscoped, so backfill ran against archived rooms — and the Poster auto-unarchives on the first event it sees, which silently un-archived every archived room. The rebuild stat now includes a `Skipped (archived/hidden)` count alongside `Refreshed` and `Errors`.
+- `Matrix::InviteHandler#find_preview_body` now tries multiple event-type shapes (`m.room.message` first, then `com.reddit.chat.type`, then any event with a non-empty `content.body` as a last-resort fallback). When no preview is extracted, the handler journals the event types it saw under source `invite_handler` so the operator can inspect `/events` and identify a future Reddit shape change. Addresses the missing message-snippet on Discord message-request cards.
+- `/status`, `/ping` now include the bridge version (`v<VERSION>`) for at-a-glance build identification.
+- `Discord::MessageRequestNotifier` color constants moved to the shared `Discord::Colors` module so embed identity is consistent across all bridge-authored Discord messages.
 - CI now skips the per-arch build matrix and the publish job entirely on release-irrelevant pushes. The exemption covers docs (`*.md`, `LICENSE`), any path under `.github/**` (workflows, dependabot config, issue templates, screenshot assets), and any path under `.githooks/**` (local pre-push hook, not in the runtime image). None of those affect the released container image, so re-running both arch builds and re-pushing the same manifest list was wasted work. The same set of paths is also exempt from the `VERSION` bump rule, both in CI and in the local pre-push hook. `version-bump-check` exposes a `skip_build` output that downstream jobs gate on. Dependabot exemptions still rebuild, since `Gemfile.lock` and `package-lock.json` bumps do affect the image.
+
+### Removed
+
+- `/resync` and `/test_discord` removed from Discord. Both remain accessible from the web UI's `/actions` page, which is the right surface for them: `/test_discord` posts to `#app-status` to verify Discord works, but the slash command itself reaching the bridge already proves that; `/resync` (clear sync checkpoint) is rarely needed and overlaps with `/rebuild` for the typical recovery scenarios. Operators with the previous workflow should re-register slash commands after deploying so Discord drops them from autocomplete.
 
 ## [1.11.6] - 2026-04-26
 

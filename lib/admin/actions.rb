@@ -277,18 +277,27 @@ module Admin
     # Per-room rescue: one flaky Matrix/Discord call shouldn't abort the
     # whole rebuild. The refresh_one call itself is idempotent — PostedEvent
     # dedup keeps replay safe if the operator re-runs.
+    #
+    # Archived and terminated rooms are intentionally skipped: backfilling
+    # their history through the Poster auto-unarchives the channel (the
+    # Poster treats "received an event" as a signal to bring the channel
+    # back), and terminated rooms are supposed to stay hidden until the
+    # operator explicitly /restore's them.
     def rebuild_all_rooms!
-      return { rebuilt: 0, rebuild_errors: 0 } unless @reconciler
+      return { rebuilt: 0, rebuild_skipped: 0, rebuild_errors: 0 } unless @reconciler
+
+      active = Room.where(archived_at: nil, terminated_at: nil)
+      skipped = Room.count - active.count
 
       rebuilt = 0
       errors = 0
-      Room.find_each do |room|
+      active.find_each do |room|
         @reconciler.refresh_one(matrix_room_id: room.matrix_room_id)
         rebuilt += 1
       rescue StandardError
         errors += 1
       end
-      { rebuilt: rebuilt, rebuild_errors: errors }
+      { rebuilt: rebuilt, rebuild_skipped: skipped, rebuild_errors: errors }
     end
 
     def require_reconciler!

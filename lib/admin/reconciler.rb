@@ -42,18 +42,20 @@ module Admin
 
     def reconcile_all
       renamed = Concurrent::AtomicFixnum.new
+      unchanged = Concurrent::AtomicFixnum.new
       skipped = Concurrent::AtomicFixnum.new
       errors = Concurrent::AtomicFixnum.new
       each_in_parallel(Room.where.not(discord_channel_id: nil)) do |room|
         case reconcile_room(room)
         when :renamed then renamed.increment
+        when :unchanged then unchanged.increment
         when :skipped then skipped.increment
         end
       rescue StandardError => e
         errors.increment
         @logger&.warn("reconcile failed for #{room.matrix_room_id}: #{e.class}: #{e.message}")
       end
-      { renamed: renamed.value, skipped: skipped.value, errors: errors.value }
+      { renamed: renamed.value, unchanged: unchanged.value, skipped: skipped.value, errors: errors.value }
     end
 
     def refresh_one(matrix_room_id:, history_limit: DEFAULT_HISTORY_LIMIT)
@@ -170,7 +172,10 @@ module Admin
       pool.wait_for_termination
     end
 
-    # Returns :renamed or :skipped — the tally keys used by `reconcile_all`.
+    # Returns :renamed, :unchanged, or :skipped — the tally keys used by
+    # `reconcile_all`. :unchanged is the no-op outcome where Discord already
+    # has the right name + topic; surfacing it separately stops the slash
+    # command from claiming "3 renamed" when nothing actually moved.
     def reconcile_room(room)
       return :skipped unless room.counterparty_matrix_id
       return :skipped unless room.discord_channel_id
@@ -182,7 +187,6 @@ module Admin
       new_slug = @channel_index.channel_name_for(fresh)
       new_topic = @channel_index.topic_for(fresh)
       rename_or_recreate!(fresh, new_slug, new_topic)
-      :renamed
     end
 
     # Discord returns 404 on rename when the channel has been deleted by the
@@ -191,12 +195,31 @@ module Admin
     # keeping them makes backfills skip every event), then let ChannelIndex
     # create a fresh channel. Name + topic are both included so the topic
     # links stay fresh without a follow-up PATCH.
+    #
+    # Returns :renamed when an update fired (or a recreate happened), or
+    # :unchanged when Discord already had the desired name + topic.
     def rename_or_recreate!(room, new_slug, new_topic)
+      return :unchanged if channel_already_matches?(room.discord_channel_id, name: new_slug, topic: new_topic)
+
       @discord_client.update_channel(channel_id: room.discord_channel_id, name: new_slug, topic: new_topic)
+      :renamed
     rescue Discord::NotFound
       room.update!(discord_channel_id: nil)
       room.forget_posted_events!
       @channel_index.ensure_channel(room: room)
+      :renamed
+    end
+
+    # Best-effort comparison between Discord's current channel state and
+    # the slug/topic the reconciler wants to apply. Any failure to fetch
+    # falls through to the update path — the rename is idempotent on
+    # Discord's side, so over-attempting is safe; under-counting was the
+    # bug we're fixing.
+    def channel_already_matches?(channel_id, name:, topic:)
+      current = @discord_client.get_channel(channel_id)
+      current["name"] == name && current["topic"].to_s == topic.to_s
+    rescue Discord::Error
+      false
     end
 
     # Only invoked for non-DM rooms now — end_chat! short-circuits the

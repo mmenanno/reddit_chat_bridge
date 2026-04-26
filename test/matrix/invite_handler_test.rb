@@ -51,6 +51,46 @@ module Matrix
       assert_equal("hey! want to collab?", MessageRequest.find_by!(matrix_room_id: ROOM).preview_body)
     end
 
+    test "extracts preview_body from a com.reddit.chat.type event when Reddit ships under that shape" do
+      body = build_sync_body(
+        member_inviter: member(INVITER, displayname: "testuser", membership: "join"),
+        member_self:    member(OWN, membership: "invite", sender: INVITER),
+        extra_events:   [reddit_chat_event("hi from reddit-flavored event", INVITER)],
+      )
+
+      @handler.call(body)
+
+      assert_equal("hi from reddit-flavored event", MessageRequest.find_by!(matrix_room_id: ROOM).preview_body)
+    end
+
+    test "falls back to any event with a non-empty content.body when neither known type is present" do
+      body = build_sync_body(
+        member_inviter: member(INVITER, displayname: "testuser", membership: "join"),
+        member_self:    member(OWN, membership: "invite", sender: INVITER),
+        extra_events:   [{ "type" => "com.reddit.something_new", "content" => { "body" => "future shape" } }],
+      )
+
+      @handler.call(body)
+
+      assert_equal("future shape", MessageRequest.find_by!(matrix_room_id: ROOM).preview_body)
+    end
+
+    test "journals event types when no preview body could be extracted, so operator can identify the shape" do
+      journal = mock("Journal")
+      journal.expects(:info).with do |message, **kwargs|
+        message.include?("no extractable preview_body") &&
+          message.include?("m.room.member") &&
+          kwargs[:source] == "invite_handler"
+      end
+      handler = InviteHandler.new(own_user_id: OWN, journal: journal)
+      body = build_sync_body(
+        member_inviter: member(INVITER, displayname: "testuser", membership: "join"),
+        member_self:    member(OWN, membership: "invite", sender: INVITER),
+      )
+
+      handler.call(body)
+    end
+
     test "resolves avatar via the media resolver when the inviter has an mxc avatar" do
       resolver = mock("MediaResolver")
       resolver.expects(:resolve).with("mxc://server/x").returns("https://cdn/x.png")
@@ -173,6 +213,14 @@ module Matrix
         "type" => "m.room.message",
         "sender" => sender,
         "content" => { "msgtype" => "m.text", "body" => body },
+      }
+    end
+
+    def reddit_chat_event(body, sender)
+      {
+        "type" => "com.reddit.chat.type",
+        "sender" => sender,
+        "content" => { "body" => body },
       }
     end
   end

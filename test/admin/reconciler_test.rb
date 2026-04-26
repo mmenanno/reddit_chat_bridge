@@ -19,6 +19,10 @@ module Admin
       # receives `topic: nil` and per-test `with(has_entries(...))` matchers
       # can ignore the key.
       @channel_index.stubs(:topic_for).returns(nil)
+      # Default get_channel returns a stale name so the rename path fires by
+      # default. Tests asserting the :unchanged path override this with the
+      # exact slug+topic the reconciler is computing.
+      @discord_client.stubs(:get_channel).returns("name" => "dm-stale", "topic" => "")
       @poster = mock("Poster")
       @normalizer = mock("Normalizer")
       @reconciler = Admin::Reconciler.new(
@@ -46,8 +50,26 @@ module Admin
 
       stats = @reconciler.reconcile_all
 
-      assert_equal({ renamed: 1, skipped: 0, errors: 0 }, stats)
+      assert_equal({ renamed: 1, unchanged: 0, skipped: 0, errors: 0 }, stats)
       assert_equal("newname", room.reload.counterparty_username)
+    end
+
+    test "reports :unchanged when the channel name and topic already match" do
+      Room.create!(
+        matrix_room_id: ROOM_ID,
+        counterparty_matrix_id: PEER,
+        counterparty_username: "peer",
+        discord_channel_id: CHANNEL_ID,
+      )
+      @matrix_client.expects(:profile).with(user_id: PEER).returns("displayname" => "peer")
+      @channel_index.expects(:channel_name_for).returns("dm-peer")
+      @channel_index.stubs(:topic_for).returns("a chat with peer")
+      @discord_client.stubs(:get_channel).with(CHANNEL_ID).returns("name" => "dm-peer", "topic" => "a chat with peer")
+      @discord_client.expects(:update_channel).never
+
+      stats = @reconciler.reconcile_all
+
+      assert_equal({ renamed: 0, unchanged: 1, skipped: 0, errors: 0 }, stats)
     end
 
     test "skips rooms without a discord channel id" do
@@ -55,7 +77,7 @@ module Admin
 
       stats = @reconciler.reconcile_all
 
-      assert_equal({ renamed: 0, skipped: 0, errors: 0 }, stats)
+      assert_equal({ renamed: 0, unchanged: 0, skipped: 0, errors: 0 }, stats)
     end
 
     test "skips rooms without a counterparty matrix id" do
@@ -63,7 +85,7 @@ module Admin
 
       stats = @reconciler.reconcile_all
 
-      assert_equal({ renamed: 0, skipped: 1, errors: 0 }, stats)
+      assert_equal({ renamed: 0, unchanged: 0, skipped: 1, errors: 0 }, stats)
     end
 
     test "counts per-room failures under errors without aborting the sweep" do
@@ -79,7 +101,7 @@ module Admin
 
       stats = @reconciler.reconcile_all
 
-      assert_equal({ renamed: 1, skipped: 0, errors: 1 }, stats)
+      assert_equal({ renamed: 1, unchanged: 0, skipped: 0, errors: 1 }, stats)
     end
 
     test "renames even when profile returns nil, using the existing username" do

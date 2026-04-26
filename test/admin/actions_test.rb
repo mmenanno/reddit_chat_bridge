@@ -177,6 +177,7 @@ module Admin
           rooms_reset: 2,
           events_cleared: 1,
           rebuilt: 0,
+          rebuild_skipped: 0,
           rebuild_errors: 0,
         },
         stats,
@@ -299,7 +300,26 @@ module Admin
         reconciler: reconciler,
       )
 
-      assert_equal({ rebuilt: 2, rebuild_errors: 0 }, actions.rebuild_all!)
+      assert_equal({ rebuilt: 2, rebuild_skipped: 0, rebuild_errors: 0 }, actions.rebuild_all!)
+    end
+
+    test "rebuild_all! skips archived and terminated rooms so they aren't unarchived/unhidden" do
+      Room.create!(matrix_room_id: "!a:reddit.com")
+      Room.create!(matrix_room_id: "!b:reddit.com", archived_at: 1.day.ago)
+      Room.create!(matrix_room_id: "!c:reddit.com", terminated_at: 1.day.ago)
+
+      reconciler = mock("Reconciler")
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").returns(renamed: true, posted_attempted: 0)
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").never
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!c:reddit.com").never
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      assert_equal({ rebuilt: 1, rebuild_skipped: 2, rebuild_errors: 0 }, actions.rebuild_all!)
     end
 
     test "full_resync! counts rebuild failures without aborting the loop" do

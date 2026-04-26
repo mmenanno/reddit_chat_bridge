@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "discord/colors"
+
 module Discord
   # Posts a pending MessageRequest into Discord's #message-requests
   # channel as a rich embed with two buttons (Approve / Decline).
@@ -14,10 +16,6 @@ module Discord
     BUTTON_STYLE_DANGER = 4
     COMPONENT_TYPE_ACTION_ROW = 1
     COMPONENT_TYPE_BUTTON = 2
-
-    EMBER = 0xE8_5D_20    # app theme accent for pending request embeds
-    MOSS  = 0x4A_A5_3B    # resolved-approved
-    RUST  = 0xB8_45_2A    # resolved-declined
 
     PREVIEW_MAX = 1000
 
@@ -87,14 +85,14 @@ module Discord
       {
         title: "📬 Message request from #{request.display_name}",
         description: description_for(request),
-        color: EMBER,
+        color: Colors::EMBER,
         fields: pending_fields(request),
         footer: { text: "Pending · request ##{request.id}" },
       }.compact
     end
 
     def resolved_embed(request)
-      color = request.approved? ? MOSS : RUST
+      color = request.approved? ? Colors::MOSS : Colors::RUST
       verb  = request.approved? ? "Approved" : "Declined"
       {
         title: "📬 Message request from #{request.display_name}",

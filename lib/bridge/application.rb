@@ -300,6 +300,7 @@ module Bridge
           own_user_id: AuthState.user_id.to_s,
           notifier: message_request_notifier,
           media_resolver: media_resolver,
+          journal: @journal,
         ),
       )
     end

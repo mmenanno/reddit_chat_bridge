@@ -16,10 +16,20 @@ module Matrix
   class InviteHandler
     MEMBERSHIP_INVITE = "invite"
 
-    def initialize(own_user_id:, notifier: nil, media_resolver: nil)
+    # Reddit sometimes ships the first message body as part of the invite
+    # state. The shape has shifted between Reddit deployments — sometimes
+    # a regular `m.room.message`, sometimes one of Reddit's custom event
+    # types like `com.reddit.chat.type`. Try the known shapes in priority
+    # order; the find_preview_body method falls through to scanning any
+    # event with a non-empty content.body so we degrade gracefully across
+    # future drifts.
+    PREVIEW_EVENT_TYPES = ["m.room.message", "com.reddit.chat.type"].freeze
+
+    def initialize(own_user_id:, notifier: nil, media_resolver: nil, journal: nil)
       @own_user_id = own_user_id
       @notifier = notifier
       @media_resolver = media_resolver
+      @journal = journal
     end
 
     def call(sync_body)
@@ -38,12 +48,15 @@ module Matrix
 
       events = payload.dig("invite_state", "events") || []
       inviter_id = find_inviter(events)
+      preview = find_preview_body(events)
+      log_unknown_preview_shape(room_id: room_id, events: events) if preview.nil?
+
       request = MessageRequest.create!(
         matrix_room_id: room_id,
         inviter_matrix_id: inviter_id,
         inviter_username: find_username(events, inviter_id),
         inviter_avatar_url: find_avatar_url(events, inviter_id),
-        preview_body: find_preview_body(events),
+        preview_body: preview,
       )
       @notifier&.notify!(request)
     rescue ActiveRecord::RecordNotUnique
@@ -94,12 +107,30 @@ module Matrix
       @media_resolver.resolve(mxc)
     end
 
-    # Reddit sometimes ships the first message body as part of the invite
-    # state via an `m.room.message` event. When it's there, surfacing it
-    # lets the operator approve/decline without joining first.
     def find_preview_body(events)
-      msg = events.find { |e| e["type"] == "m.room.message" }
-      msg&.dig("content", "body")
+      PREVIEW_EVENT_TYPES.each do |type|
+        body = events.find { |e| e["type"] == type }&.dig("content", "body")
+        return body if body.is_a?(String) && !body.empty?
+      end
+      # Defensive last-resort: any event the inviter sent that has a
+      # non-empty content.body string.
+      generic = events.find { |e| e.dig("content", "body").is_a?(String) && !e.dig("content", "body").empty? }
+      generic&.dig("content", "body")
+    end
+
+    # Diagnostic: when the bridge couldn't find a preview body in the
+    # invite_state events, journal the event types we did see so the
+    # operator can inspect /events and identify the actual shape Reddit
+    # is shipping. Limited to the type list — full content would leak
+    # the requester's message into the operator's logs.
+    def log_unknown_preview_shape(room_id:, events:)
+      return unless @journal
+
+      types = events.filter_map { |e| e["type"] }
+      @journal.info(
+        "Invite for #{room_id} had no extractable preview_body; event types seen: #{types.inspect}",
+        source: "invite_handler",
+      )
     end
 
     def member_event_for(events, user_id)
