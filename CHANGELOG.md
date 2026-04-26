@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `/status`, `/ping` now include the bridge version (`v<VERSION>`) for at-a-glance build identification.
 - `Discord::MessageRequestNotifier` color constants moved to the shared `Discord::Colors` module so embed identity is consistent across all bridge-authored Discord messages.
 - CI now skips the per-arch build matrix and the publish job entirely on release-irrelevant pushes. The exemption covers docs (`*.md`, `LICENSE`), any path under `.github/**` (workflows, dependabot config, issue templates, screenshot assets), and any path under `.githooks/**` (local pre-push hook, not in the runtime image). None of those affect the released container image, so re-running both arch builds and re-pushing the same manifest list was wasted work. The same set of paths is also exempt from the `VERSION` bump rule, both in CI and in the local pre-push hook. `version-bump-check` exposes a `skip_build` output that downstream jobs gate on. Dependabot exemptions still rebuild, since `Gemfile.lock` and `package-lock.json` bumps do affect the image.
+- CI: bumped `actions/upload-artifact` from v4 to v7 and `actions/download-artifact` from v4 to v8, both of which moved to Node 24. Resolves the Node 20 deprecation warnings GitHub now emits on every run.
 
 ### Removed
 
