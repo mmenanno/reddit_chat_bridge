@@ -169,12 +169,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null; then
-            echo "Tag v${VERSION} already exists; skipping"
-            exit 0
+          # Check the remote, not the local clone. The runner's checkout
+          # doesn't fetch tags, so a local rev-parse would always claim
+          # the tag is missing and the subsequent push would fail when the
+          # remote already has it (every docs-only push triggers this).
+          if git ls-remote --tags --exit-code origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists on remote; skipping push"
+          else
+            git tag "v${VERSION}"
+            git push origin "v${VERSION}"
           fi
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
 
       - name: Extract CHANGELOG section
         id: changelog

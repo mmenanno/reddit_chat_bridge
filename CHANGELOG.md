@@ -6,9 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-04-25
+
+### Fixed
+
+- CI `Tag release` step now checks the remote (`git ls-remote --exit-code`) instead of the local clone (`git rev-parse`). The runner's checkout doesn't fetch tags, so the local check always claimed the tag was missing and the subsequent push failed when the remote already had it. Every docs-only push triggered this. The release step is now idempotent against pre-existing remote tags.
+
 ### Changed
 
 - Documentation: split `CONTRIBUTING.md` out of `README.md` so the README focuses on what the bridge does and how to run it. Architecture diagrams, local development setup, stack list, and the contribution conventions live in `CONTRIBUTING.md`. Redundant License section dropped from the README; the badge and `LICENSE` file remain authoritative.
+- Documentation: dropped Contributing and Security sections from the README. GitHub auto-surfaces `CONTRIBUTING.md` and `SECURITY.md` in the contributors sidebar and the Security tab respectively, so the README pointers were redundant.
+- Documentation: hoisted the Slash command reference up so it follows Features. Reads as a feature showcase rather than a deep-dive after setup.
+- Repository: backfilled git tags for every historical `VERSION` value (`v1.0.0` through `v1.11.0`) so GitHub's Releases page and the version compare links in this changelog now resolve.
 
 ## [1.11.2] - 2026-04-25
 
@@ -418,7 +427,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.3...HEAD
+[1.11.3]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.10.7...v1.11.0

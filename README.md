@@ -43,6 +43,37 @@ Reddit's chat UI is hard to use. It doesn't reliably notify you of new messages 
 - **In-app setup wizard.** First-run users land on `/guide/bot-setup`, which walks through Discord application creation, builds an invite URL, and live-tracks which configuration fields are still missing.
 - **Operator alerts.** `#app-status` pings on Matrix auth failure, missing Discord permissions, and a T-7-day Reddit cookie expiry warning. `#app-logs` carries the operational log tail.
 
+## Slash command reference
+
+Source of truth: [`lib/discord/slash_command_router.rb`](./lib/discord/slash_command_router.rb).
+
+### Global commands
+
+Run these in your configured `#commands` channel.
+
+| Command | Effect |
+| ------- | ------ |
+| `/status` | Show sync state, Matrix auth state, last `/sync` batch timestamp, cookie expiry. |
+| `/pause` | Pause the `/sync` loop without dropping the Matrix token. |
+| `/resume` | Resume the `/sync` loop after a manual pause. |
+| `/resync` | Clear the `/sync` checkpoint and re-pull recent history. |
+| `/reconcile` | Sweep every room and rename channels to current Reddit usernames. |
+| `/refresh_token` | Mint a fresh Matrix JWT from stored Reddit cookies. |
+| `/ping` | Health check. Replies pong. |
+| `/rebuild` | Refresh every room: rename and replay recent history. Non-destructive. |
+| `/test_discord` | Probe Discord by posting a hello line to `#app-status`. |
+
+### Per-room commands
+
+Run these inside a `#dm-*` channel; the bridge resolves the target room from the channel.
+
+| Command | Effect |
+| ------- | ------ |
+| `/refresh` | Refresh this chat: rename and replay recent history. |
+| `/archive` | Archive this chat. Channel is deleted; auto-recreates on next message. |
+| `/endchat` | Hide this chat. Delete the channel and drop future events for the room. Future DMs come back as a new message request. |
+| `/room` | Show diagnostic info for this chat (IDs, webhook status, state). |
+
 ## Limitations and non-goals
 
 - **Reddit cookie auto-rotation is unsolved.** When the stored `reddit_session` cookie nears expiry (~6 months), the bridge warns 7 days out and the operator pastes a fresh cookie on `/auth`. This stays manual until Reddit exposes a long-lived refresh path.
@@ -91,37 +122,6 @@ Everything else (Discord bot token, application ID, guild ID, channel IDs, opera
 
 The Reddit cookie jar is encrypted at rest with a key derived from `AppConfig.session_secret`, which is auto-generated on first boot if not supplied via `SESSION_SECRET`.
 
-## Slash command reference
-
-Source of truth: [`lib/discord/slash_command_router.rb`](./lib/discord/slash_command_router.rb).
-
-### Global commands
-
-Run these in your configured `#commands` channel.
-
-| Command | Effect |
-| ------- | ------ |
-| `/status` | Show sync state, Matrix auth state, last `/sync` batch timestamp, cookie expiry. |
-| `/pause` | Pause the `/sync` loop without dropping the Matrix token. |
-| `/resume` | Resume the `/sync` loop after a manual pause. |
-| `/resync` | Clear the `/sync` checkpoint and re-pull recent history. |
-| `/reconcile` | Sweep every room and rename channels to current Reddit usernames. |
-| `/refresh_token` | Mint a fresh Matrix JWT from stored Reddit cookies. |
-| `/ping` | Health check. Replies pong. |
-| `/rebuild` | Refresh every room: rename and replay recent history. Non-destructive. |
-| `/test_discord` | Probe Discord by posting a hello line to `#app-status`. |
-
-### Per-room commands
-
-Run these inside a `#dm-*` channel; the bridge resolves the target room from the channel.
-
-| Command | Effect |
-| ------- | ------ |
-| `/refresh` | Refresh this chat: rename and replay recent history. |
-| `/archive` | Archive this chat. Channel is deleted; auto-recreates on next message. |
-| `/endchat` | Hide this chat. Delete the channel and drop future events for the room. Future DMs come back as a new message request. |
-| `/room` | Show diagnostic info for this chat (IDs, webhook status, state). |
-
 ## Admin web UI
 
 | Path | Purpose |
@@ -137,10 +137,3 @@ Run these inside a `#dm-*` channel; the bridge resolves the target room from the
 | `/events` | Journal-tail of operational events (filterable by level + source). |
 | `/health` | Container health probe; returns 200 when Puma is up and the DB is queryable. |
 
-## Contributing
-
-Issues and PRs are welcome. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for project conventions, local development, and the architecture overview.
-
-## Security
-
-If you've found a security issue, please report it privately. See [`SECURITY.md`](./SECURITY.md) for the disclosure channel and what is in scope.
