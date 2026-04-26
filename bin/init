@@ -1,0 +1,55 @@
+#!/bin/bash
+set -euo pipefail
+
+# Container entrypoint. Default path: runs as root, adjusts the `app`
+# user's uid/gid to match PUID/PGID env vars (Unraid convention),
+# chowns the bind-mounted state directory, sets umask, then drops
+# privileges via gosu before exec'ing bin/start. Defaults match the
+# previous baked USER 1000:1000 directive when the env vars are unset,
+# so existing non-Unraid `--user 1000:1000`-free deployments behave
+# identically.
+#
+# Pinned-user path: when started with `docker run --user <uid>:<gid>`
+# (or compose `user:`), the container starts as a non-root user. The
+# usermod/chown/gosu logic can't run, so this script just sets umask
+# and execs bin/start directly. The operator owns the host-side
+# permissions in that mode.
+
+UMASK_VAL="${UMASK:-022}"
+
+if [[ "$(id -u)" != "0" ]]; then
+  umask "$UMASK_VAL"
+  exec /app/bin/start
+fi
+
+PUID="${PUID:-1000}"
+PGID="${PGID:-1000}"
+
+current_uid="$(id -u app)"
+current_gid="$(id -g app)"
+
+if [[ "$current_gid" != "$PGID" ]]; then
+  groupmod -o -g "$PGID" app
+fi
+
+if [[ "$current_uid" != "$PUID" ]]; then
+  usermod -o -u "$PUID" app
+fi
+
+# Chown only when the directory's current owner doesn't match. -R is
+# scoped to /app/state and /app/log so this stays cheap.
+chown_if_needed() {
+  local dir="$1"
+  local current_owner
+  current_owner="$(stat -c '%u:%g' "$dir")"
+  if [[ "$current_owner" != "${PUID}:${PGID}" ]]; then
+    chown -R "${PUID}:${PGID}" "$dir"
+  fi
+}
+
+chown_if_needed /app/state
+chown_if_needed /app/log
+
+umask "$UMASK_VAL"
+
+exec gosu app:app /app/bin/start

@@ -124,13 +124,12 @@ Run these inside a `#dm-*` channel; the bridge resolves the target room from the
 docker run -d \
   --name reddit_chat_bridge \
   --restart unless-stopped \
-  --user 1000:1000 \
   -p 4567:4567 \
   -v "$PWD/state:/app/state" \
   ghcr.io/mmenanno/reddit_chat_bridge:latest
 ```
 
-The container persists everything to the mounted `state/` directory. The host directory must be owned by uid/gid `1000:1000` (the user the container runs as) so SQLite can write to it.
+The container persists everything to the mounted `state/` directory. The entrypoint chowns this directory on first boot to match the runtime user (default uid/gid `1000:1000`); set `PUID` / `PGID` env vars to align with a different host convention (e.g. Unraid's `99:100`).
 
 For a Compose-based deploy, [`docker-compose.yml`](./docker-compose.yml) at the repo root is a working starting point. See [`guides/deployment.md`](./guides/deployment.md) for a full deployment walkthrough including updates and reverse-proxy notes.
 

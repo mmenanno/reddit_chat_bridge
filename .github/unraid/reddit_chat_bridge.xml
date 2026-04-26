@@ -31,9 +31,7 @@ Self-hosted bridge between Reddit Chat and a private Discord server.
 3. On `/auth`, paste your `reddit_session` cookie or a Matrix JWT.
 4. Restart the container once so the sync thread picks up the now-complete config. Subsequent changes are live.
 
-**Permissions**
-
-Runs as uid/gid 1000:1000. If first boot logs a permission error, run `chown -R 1000:1000 /mnt/user/appdata/reddit_chat_bridge` from the Unraid console.
+The default `PUID=99 PGID=100` matches Unraid's `nobody:users` so `/mnt/user/appdata/reddit_chat_bridge` works out of the box.
 
 See the [project README](https://github.com/mmenanno/reddit_chat_bridge) for full documentation.
   </Description>
@@ -65,10 +63,28 @@ See the [project README](https://github.com/mmenanno/reddit_chat_bridge) for ful
       <Name>SESSION_SECRET</Name>
       <Mode/>
     </Variable>
+    <Variable>
+      <Value>99</Value>
+      <Name>PUID</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value>100</Value>
+      <Name>PGID</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value>022</Value>
+      <Name>UMASK</Name>
+      <Mode/>
+    </Variable>
   </Environment>
   <Labels/>
   <Config Name="WebUI" Target="4567" Default="4567" Mode="tcp" Description="Bridge web UI." Type="Port" Display="always" Required="true" Mask="false">4567</Config>
-  <Config Name="Data Path" Target="/app/state" Default="/mnt/user/appdata/reddit_chat_bridge" Mode="rw" Description="Persistent SQLite database (admin account, Discord IDs, Reddit cookies encrypted at rest, journal, sync checkpoint). Must be writable by uid/gid 1000:1000." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/reddit_chat_bridge</Config>
+  <Config Name="Data Path" Target="/app/state" Default="/mnt/user/appdata/reddit_chat_bridge" Mode="rw" Description="Persistent SQLite database (admin account, Discord IDs, Reddit cookies encrypted at rest, journal, sync checkpoint)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/reddit_chat_bridge</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="Host user id the container should run as. Default 99 matches Unraid's `nobody`." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Host group id the container should run as. Default 100 matches Unraid's `users`." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="022" Mode="" Description="File-mode creation mask. 022 (default) = files 644, dirs 755." Type="Variable" Display="advanced" Required="false" Mask="false">022</Config>
   <Config Name="PORT" Target="PORT" Default="4567" Mode="" Description="Web UI bind port inside the container. Only change this if you also remap the WebUI port above to match." Type="Variable" Display="advanced" Required="false" Mask="false">4567</Config>
   <Config Name="SESSION_SECRET" Target="SESSION_SECRET" Default="" Mode="" Description="Optional. Master secret used to derive the encryption key for the Reddit cookie jar at rest. Leave blank and the bridge auto-generates one on first boot and persists it in the database. Changing it after first boot will fail to decrypt previously-stored cookies." Type="Variable" Display="advanced" Required="false" Mask="true"/>
 </Container>

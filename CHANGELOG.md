@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.12.4] - 2026-04-26
+
+### Added
+
+- Container now honors `PUID`, `PGID`, and `UMASK` env vars at startup. Defaults match the previous baked `USER 1000:1000` behavior when unset, so existing deployments are unchanged. Unraid users can set `PUID=99 PGID=100` to align with the host's `nobody:users` and skip the manual `chown` step.
+- New `bin/init` entrypoint runs as root, adjusts the `app` user's uid/gid to match `PUID`/`PGID`, chowns `/app/state` and `/app/log` only when their current owner doesn't match, applies the requested umask, then drops privileges via `gosu` before exec'ing `bin/start`.
+- Unraid Community Applications template at `.github/unraid/reddit_chat_bridge.xml`. Defaults to `PUID=99 PGID=100` so `/mnt/user/appdata/reddit_chat_bridge` works out of the box. The raw URL is `https://raw.githubusercontent.com/mmenanno/reddit_chat_bridge/main/.github/unraid/reddit_chat_bridge.xml`; submission to the Unraid forum's "Adding New Applications" thread is the next step.
+
+### Changed
+
+- Dockerfile drops the static `USER 1000:1000` directive; the container starts as root and `bin/init` handles the privilege drop. `gosu` added to the runtime image (~1.5 MB).
+- `README.md` docker run example drops `--user 1000:1000`. Existing host directories owned by `1000:1000` keep working under the new defaults; the entrypoint chowns automatically when ownership differs.
+- `docker-compose.yml` drops the `user: "1000:1000"` pin and gains a commented-out `environment:` block showing `PUID`/`PGID`/`UMASK`.
+- `bin/init` falls back to a no-privilege-drop path when started under a forced `--user` flag (or compose `user:`), so operators who explicitly pin runtime uid still get a working container.
+
 ## [1.12.3] - 2026-04-26
 
 ### Added
@@ -503,7 +518,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.2...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.4...HEAD
+[1.12.4]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.3...v1.12.4
+[1.12.3]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.2...v1.12.3
 [1.12.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.6...v1.12.0

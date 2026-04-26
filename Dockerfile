@@ -12,6 +12,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       curl \
+      gosu \
       libjemalloc2 \
       sqlite3 \
       tini
@@ -100,7 +101,7 @@ FROM base AS source
 COPY --link lib ./lib
 COPY --link app/views ./app/views
 COPY --link db/migrate ./db/migrate
-COPY --link bin/start ./bin/start
+COPY --link bin/start bin/init ./bin/
 COPY --link config.ru Gemfile Gemfile.lock VERSION ./
 
 # ---- final runtime ----
@@ -143,12 +144,17 @@ RUN set -eux; \
     groupadd --gid 1000 app; \
     useradd --uid 1000 --gid app --create-home --shell /bin/bash app; \
     mkdir -p /app/state /app/log; \
-    chown -R 1000:1000 /app/state /app/log
+    chown -R 1000:1000 /app/state /app/log; \
+    chmod +x /app/bin/init /app/bin/start
 
-USER 1000:1000
+# Container starts as root so bin/init can adjust the `app` user's
+# uid/gid to match PUID/PGID env vars (Unraid convention), chown the
+# state directory, set umask, then drop privileges via gosu before
+# exec'ing bin/start. Without PUID/PGID, defaults to 1000:1000 - same
+# as the previous USER directive behavior.
 
 EXPOSE 4567
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -fsS "http://localhost:${PORT:-4567}/health" || exit 1
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/bin/start"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/bin/init"]

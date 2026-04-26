@@ -3,8 +3,13 @@ services:
     image: ghcr.io/mmenanno/reddit_chat_bridge:latest
     container_name: reddit_chat_bridge
     restart: unless-stopped
-    user: "1000:1000"
     ports:
       - "4567:4567"
     volumes:
       - ./state:/app/state
+    # Optional. Defaults match the previous --user 1000:1000 behavior;
+    # override to align with your host's appdata ownership convention.
+    # environment:
+    #   PUID: "1000"
+    #   PGID: "1000"
+    #   UMASK: "022"
