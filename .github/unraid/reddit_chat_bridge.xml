@@ -35,6 +35,28 @@ The default `PUID=99 PGID=100` matches Unraid's `nobody:users` so `/mnt/user/app
 
 See the [project README](https://github.com/mmenanno/reddit_chat_bridge) for full documentation.
   </Description>
+  <Changes><![CDATA[
+### v1.12.5 - 2026-04-26
+- Fix: leaving `SESSION_SECRET` blank no longer crashes the web UI on first boot. The bridge now auto-generates and persists one as documented.
+
+### v1.12.4 - 2026-04-26
+- Container honors `PUID`, `PGID`, and `UMASK` env vars at startup. Defaults to `99:100` (Unraid's `nobody:users`) so `/mnt/user/appdata/reddit_chat_bridge` works without a manual `chown`.
+- This Unraid Community Applications template added.
+
+### v1.12.3 - 2026-04-26
+- `/resync` slash command restored after a one-version detour.
+- `/status` embed now shows the `/sync` cadence (long-poll, 10s idle).
+
+### v1.12.0 - 2026-04-26
+- New `/unarchive <query>` and `/restore <query>` slash commands with fuzzy match plus confirm-button flow.
+- `/status` now warns when the Reddit cookie is within 7 days of expiry.
+- Every slash command response is now an ephemeral embed in the bridge palette instead of plain content.
+
+### v1.11.6 - 2026-04-26
+- Multi-arch images: every release now publishes `linux/amd64` and `linux/arm64` under one manifest list. Docker pulls the right arch automatically.
+
+Full history: https://github.com/mmenanno/reddit_chat_bridge/blob/main/CHANGELOG.md
+  ]]></Changes>
   <Networking>
     <Mode>bridge</Mode>
     <Publish>

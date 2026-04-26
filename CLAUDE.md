@@ -62,6 +62,8 @@ Exemptions from the bump rule: release-irrelevant pushes (every changed path mat
 
 Multi-arch produces two intentionally-untagged digest-only entries in GHCR per push (one per arch) that the manifest list points at. This is normal multi-arch image structure, not a misconfiguration. GHCR does not expose time-based retention rules for user-owned packages; if the orphaned-untagged accumulation becomes a problem the options are manual bulk delete via Settings → Packages → `reddit_chat_bridge` → Manage versions, or a scheduled `actions/delete-package-versions` workflow.
 
+**Unraid CA `<Changes>` block.** `.github/unraid/reddit_chat_bridge.xml` carries a hand-maintained `<Changes>` block that Unraid's Community Applications card surfaces as the "Show changes" panel. On a release that's worth an Unraid user's attention (functionality changes, breaking changes, fixes), prepend a condensed entry and trim the bottom so the block stays around the most recent five versions. Pure CI/build refactors don't need their own entry; roll them into the next user-visible version. The block is best-effort scrolling history, not exhaustive — full detail lives in `CHANGELOG.md`, which the block links at the bottom.
+
 ## Testing conventions
 
 - **TDD.** Write the failing test before the implementation. Always.
