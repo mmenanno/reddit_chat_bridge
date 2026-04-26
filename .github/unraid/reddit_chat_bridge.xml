@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>reddit_chat_bridge</Name>
+  <Repository>ghcr.io/mmenanno/reddit_chat_bridge:latest</Repository>
+  <Registry>https://github.com/mmenanno/reddit_chat_bridge/pkgs/container/reddit_chat_bridge</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/mmenanno/reddit_chat_bridge/issues</Support>
+  <Project>https://github.com/mmenanno/reddit_chat_bridge</Project>
+  <Overview>Self-hosted bridge between Reddit Chat and a private Discord server. Reddit DMs land in per-conversation #dm-* channels with the sender's snoovatar; replies relay back under your Reddit identity. All config happens in the bcrypt-protected admin web UI after first run.</Overview>
+  <Category>Tools: Network:Messenger</Category>
+  <WebUI>http://[IP]:[PORT:4567]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/mmenanno/reddit_chat_bridge/main/.github/unraid/reddit_chat_bridge.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/mmenanno/reddit_chat_bridge/main/app/assets/icons/icon-1024.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText>Buy me a coffee</DonateText>
+  <DonateLink>https://buymeacoffee.com/mmenanno</DonateLink>
+  <Requires/>
+  <Description>
+Self-hosted bridge between Reddit Chat and a private Discord server.
+
+**First run**
+
+1. Open the WebUI. First load lands on `/setup`. Create the admin account (12+ char password).
+2. Walk through the in-app `/guide/bot-setup` wizard for the Discord side.
+3. On `/auth`, paste your `reddit_session` cookie or a Matrix JWT.
+4. Restart the container once so the sync thread picks up the now-complete config. Subsequent changes are live.
+
+**Permissions**
+
+Runs as uid/gid 1000:1000. If first boot logs a permission error, run `chown -R 1000:1000 /mnt/user/appdata/reddit_chat_bridge` from the Unraid console.
+
+See the [project README](https://github.com/mmenanno/reddit_chat_bridge) for full documentation.
+  </Description>
+  <Networking>
+    <Mode>bridge</Mode>
+    <Publish>
+      <Port>
+        <HostPort>4567</HostPort>
+        <ContainerPort>4567</ContainerPort>
+        <Protocol>tcp</Protocol>
+      </Port>
+    </Publish>
+  </Networking>
+  <Data>
+    <Volume>
+      <HostDir>/mnt/user/appdata/reddit_chat_bridge</HostDir>
+      <ContainerDir>/app/state</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+  </Data>
+  <Environment>
+    <Variable>
+      <Value>4567</Value>
+      <Name>PORT</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value/>
+      <Name>SESSION_SECRET</Name>
+      <Mode/>
+    </Variable>
+  </Environment>
+  <Labels/>
+  <Config Name="WebUI" Target="4567" Default="4567" Mode="tcp" Description="Bridge web UI." Type="Port" Display="always" Required="true" Mask="false">4567</Config>
+  <Config Name="Data Path" Target="/app/state" Default="/mnt/user/appdata/reddit_chat_bridge" Mode="rw" Description="Persistent SQLite database (admin account, Discord IDs, Reddit cookies encrypted at rest, journal, sync checkpoint). Must be writable by uid/gid 1000:1000." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/reddit_chat_bridge</Config>
+  <Config Name="PORT" Target="PORT" Default="4567" Mode="" Description="Web UI bind port inside the container. Only change this if you also remap the WebUI port above to match." Type="Variable" Display="advanced" Required="false" Mask="false">4567</Config>
+  <Config Name="SESSION_SECRET" Target="SESSION_SECRET" Default="" Mode="" Description="Optional. Master secret used to derive the encryption key for the Reddit cookie jar at rest. Leave blank and the bridge auto-generates one on first boot and persists it in the database. Changing it after first boot will fail to decrypt previously-stored cookies." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+</Container>
