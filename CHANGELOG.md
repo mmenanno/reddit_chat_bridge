@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Unraid Community Applications template moved to a dedicated repository at [mmenanno/unraid-templates](https://github.com/mmenanno/unraid-templates) per Squid's [Docker FAQ submission requirements](https://forums.unraid.net/topic/57181-docker-faq/#comment-566084) (CA expects template XML to live in a repo separate from the upstream project source). New raw URL: `https://raw.githubusercontent.com/mmenanno/unraid-templates/main/reddit_chat_bridge.xml`. `<Category>` updated to the official Unraid CA values (`Network:Messenger Tools:System Status:Stable`).
+
 ## [1.12.5] - 2026-04-26
 
 ### Fixed
