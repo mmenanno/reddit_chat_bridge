@@ -78,6 +78,19 @@ module Bridge
         ]
       ).freeze
 
+      class << self
+        # ENV first, then AppConfig, then auto-generate-and-persist. `.presence`
+        # treats a blank string the same as missing — without that, an Unraid
+        # template (or `docker-compose` with `environment: SESSION_SECRET:`)
+        # that defines the var with no value hands Sinatra a zero-length
+        # secret and Rack rejects anything <64 bytes.
+        def resolve_session_secret
+          ENV["SESSION_SECRET"].presence ||
+            AppConfig.get("session_secret").presence ||
+            SecureRandom.hex(32).tap { |s| AppConfig.set("session_secret", s) }
+        end
+      end
+
       # This block runs at class-load time and reads AppConfig for the
       # persisted session_secret. Callers must have run `Bridge::Boot.call`
       # before requiring this file — otherwise the model constants aren't
@@ -92,11 +105,7 @@ module Bridge
         set :show_exceptions, false
         set :raise_errors, false
         enable :sessions
-        set :session_secret, (
-          ENV["SESSION_SECRET"] ||
-          AppConfig.get("session_secret") ||
-          SecureRandom.hex(32).tap { |s| AppConfig.set("session_secret", s) }
-        )
+        set :session_secret, resolve_session_secret
       end
 
       configure :test do

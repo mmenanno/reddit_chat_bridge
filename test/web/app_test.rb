@@ -195,12 +195,63 @@ module Bridge
         end
       end
 
+      # ---- session secret resolution ----
+
+      test "resolve_session_secret prefers a non-blank ENV value" do
+        env_value = "x" * 64
+        with_session_secret_env(env_value) do
+          AppConfig.set("session_secret", "from_db")
+
+          assert_equal(env_value, App.resolve_session_secret)
+        end
+      end
+
+      test "resolve_session_secret treats a blank ENV value as missing and falls through to AppConfig" do
+        # Unraid (and docker-compose with `environment: SESSION_SECRET:`) ships
+        # the var as the empty string when the operator leaves the field blank.
+        # Empty strings are truthy in Ruby, so a naive `||` chain would hand
+        # Sinatra a zero-length secret and Rack rejects anything <64 bytes.
+        with_session_secret_env("") do
+          db_value = "y" * 64
+          AppConfig.set("session_secret", db_value)
+
+          assert_equal(db_value, App.resolve_session_secret)
+        end
+      end
+
+      test "resolve_session_secret auto-generates and persists a 64-char secret when neither source is set" do
+        with_session_secret_env(nil) do
+          AppConfig.where(key: "session_secret").destroy_all
+
+          generated = App.resolve_session_secret
+
+          assert_equal(64, generated.length)
+          assert_equal(generated, AppConfig.get("session_secret"))
+        end
+      end
+
       private
 
       # Sinatra mixes helpers into app instances; `new!` gives us one
       # without the middleware stack so we can call the helper directly.
       def helpers
         @helpers ||= App.new!
+      end
+
+      def with_session_secret_env(value)
+        previous = ENV.fetch("SESSION_SECRET", nil)
+        if value.nil?
+          ENV.delete("SESSION_SECRET")
+        else
+          ENV["SESSION_SECRET"] = value
+        end
+        yield
+      ensure
+        if previous.nil?
+          ENV.delete("SESSION_SECRET")
+        else
+          ENV["SESSION_SECRET"] = previous
+        end
       end
     end
   end

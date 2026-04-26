@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.12.5] - 2026-04-26
+
+### Fixed
+
+- Web app boot no longer crashes every request with `ArgumentError: invalid secret: 0, must be >=64` when `SESSION_SECRET` is defined as an empty string in the environment. Unraid's template (and `docker-compose` with `environment: SESSION_SECRET:`) ships the var blank when the operator leaves the field empty, and Ruby's `||` chain treated `""` as a value. The session_secret resolver now uses `.presence` so a blank ENV value falls through to the persisted AppConfig value (or auto-generates one on first boot, the documented behavior).
+
 ## [1.12.4] - 2026-04-26
 
 ### Added
@@ -518,7 +524,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.4...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.5...HEAD
+[1.12.5]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.4...v1.12.5
 [1.12.4]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.3...v1.12.4
 [1.12.3]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.2...v1.12.3
 [1.12.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.12.1...v1.12.2
