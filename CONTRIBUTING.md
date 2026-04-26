@@ -6,7 +6,7 @@ Issues and PRs are welcome. This document covers the project conventions, how to
 
 - **TDD-first.** Write the failing test before the implementation.
 - **Rubocop must be green.** CI gates on `bundle exec rubocop`. Use `bundle exec rubocop -a` to autocorrect.
-- **`VERSION` bumps on every push to `main`.** The repo-committed pre-push hook enforces this locally; CI's `version-bump-check` job enforces it on GitHub. Run `bin/setup-hooks` once after cloning to activate the local hook. Bump rules follow conventional-commits: patch for fixes and refactors, minor for new features, major for breaking changes. Docs-only pushes (every changed path matches `*.md` or `LICENSE`) and dependabot-authored PRs are exempt from the bump rule.
+- **`VERSION` bumps on every push to `main`.** The repo-committed pre-push hook enforces this locally; CI's `version-bump-check` job enforces it on GitHub. Run `bin/setup-hooks` once after cloning to activate the local hook. Bump rules follow conventional-commits: patch for fixes and refactors, minor for new features, major for breaking changes. Release-irrelevant pushes (every changed path matches `*.md`, `LICENSE`, `.github/**`, or `.githooks/**`) and dependabot-authored PRs are exempt from the bump rule. The same exemption set also short-circuits CI's per-arch build and publish, since none of those paths affect the released container image.
 - **`CHANGELOG.md` gets the bump alongside `VERSION`.** Add an entry under the matching version section in the same commit that bumps `VERSION`. The CI release job sources GitHub Release bodies from this file.
 - **Single-maintainer, reactive maintenance.** This is a small project with no active roadmap. Bug fixes and API-drift adjustments get attention; large new features may not.
 

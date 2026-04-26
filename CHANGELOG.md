@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- CI now skips the per-arch build matrix and the publish job entirely on release-irrelevant pushes. The exemption covers docs (`*.md`, `LICENSE`), any path under `.github/**` (workflows, dependabot config, issue templates, screenshot assets), and any path under `.githooks/**` (local pre-push hook, not in the runtime image). None of those affect the released container image, so re-running both arch builds and re-pushing the same manifest list was wasted work. The same set of paths is also exempt from the `VERSION` bump rule, both in CI and in the local pre-push hook. `version-bump-check` exposes a `skip_build` output that downstream jobs gate on. Dependabot exemptions still rebuild, since `Gemfile.lock` and `package-lock.json` bumps do affect the image.
+
 ## [1.11.6] - 2026-04-26
 
 ### Added

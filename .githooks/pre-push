@@ -7,8 +7,9 @@ set -euo pipefail
 # that overwrites the previous same-version tag, effectively making
 # `:v1.0.0` a moving target. This gate catches that before push.
 #
-# Skipped for non-main branches, ref deletes, and docs-only pushes
-# (every changed path matches *.md or LICENSE).
+# Skipped for non-main branches, ref deletes, and release-irrelevant
+# pushes (every changed path matches *.md, LICENSE, .github/**, or
+# .githooks/**).
 
 ZERO_SHA="0000000000000000000000000000000000000000"
 
@@ -24,14 +25,18 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   fi
 
   if [[ "$remote_sha" != "$ZERO_SHA" ]]; then
-    # Skip the bump check when the push contains only docs (*.md, LICENSE).
-    # CI's version-bump-check job mirrors this rule and is the authoritative
-    # gate; this hook is the local fast-feedback layer.
+    # Skip the bump check when the push is release-irrelevant: every
+    # changed path is docs (*.md), LICENSE, or under .github/ or
+    # .githooks/. None of those affect the released container image.
+    # CI's version-bump-check job mirrors this rule and is the
+    # authoritative gate; this hook is the local fast-feedback layer.
     changed="$(git diff --name-only "$remote_sha" "$local_sha")"
-    non_docs="$(printf '%s\n' "$changed" \
+    release_relevant="$(printf '%s\n' "$changed" \
       | grep -vE '\.md$' \
-      | grep -vx 'LICENSE' || true)"
-    if [[ -z "$non_docs" ]]; then
+      | grep -vx 'LICENSE' \
+      | grep -vE '^\.github/' \
+      | grep -vE '^\.githooks/' || true)"
+    if [[ -z "$release_relevant" ]]; then
       continue
     fi
 
@@ -42,7 +47,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       echo "     - bug fix          -> patch (1.0.0 -> 1.0.1)" >&2
       echo "     - new feature      -> minor (1.0.0 -> 1.1.0)" >&2
       echo "     - breaking change  -> major (1.0.0 -> 2.0.0)" >&2
-      echo "   Docs-only pushes (*.md, LICENSE) are exempt." >&2
+      echo "   Release-irrelevant pushes (*.md, LICENSE, .github/, .githooks/) are exempt." >&2
       exit 1
     fi
   fi

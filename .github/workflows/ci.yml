@@ -38,6 +38,13 @@ jobs:
     name: VERSION bump
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    outputs:
+      # Signals that the diff cannot affect the released container image,
+      # so downstream build-per-arch and publish can skip. Docs-only and
+      # `.github/**` (workflows, dependabot config, issue templates,
+      # screenshot assets) all qualify; dependency lockfile bumps do not
+      # because they DO change what gets baked into the image.
+      skip_build: ${{ steps.check.outputs.skip_build }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -57,10 +64,17 @@ jobs:
           fi
 
       - name: Enforce VERSION bump
+        id: check
         env:
           ACTOR: ${{ github.actor }}
           BASE: ${{ steps.base.outputs.ref }}
         run: |
+          # Default; flipped to true only when the diff is verifiably
+          # release-irrelevant. Dependabot exemptions still rebuild
+          # because Gemfile.lock and package-lock.json DO change what
+          # gets baked into the image.
+          echo "skip_build=false" >> "$GITHUB_OUTPUT"
+
           # Exemption 1: dependabot pushed (covers the PR-branch run).
           if [[ "$ACTOR" == "dependabot[bot]" ]]; then
             echo "Dependabot author; VERSION bump not required."
@@ -90,11 +104,19 @@ jobs:
             exit 0
           fi
 
-          non_docs=$(printf '%s\n' "$changed" \
+          # Release-irrelevant paths: markdown, LICENSE, anything under
+          # .github/ (workflows, dependabot config, issue templates,
+          # screenshot assets, etc.) or .githooks/ (local pre-push hook,
+          # not in the runtime image). None of these end up in the
+          # released container image.
+          release_relevant=$(printf '%s\n' "$changed" \
             | grep -vE '\.md$' \
-            | grep -vx 'LICENSE' || true)
-          if [[ -z "$non_docs" ]]; then
-            echo "Docs-only change; VERSION bump not required."
+            | grep -vx 'LICENSE' \
+            | grep -vE '^\.github/' \
+            | grep -vE '^\.githooks/' || true)
+          if [[ -z "$release_relevant" ]]; then
+            echo "Release-irrelevant change (docs, .github/, or .githooks/); VERSION bump not required."
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -103,9 +125,9 @@ jobs:
             exit 0
           fi
 
-          echo "::error::VERSION must be bumped for non-docs, non-dependabot changes."
-          echo "Changed files:"
-          printf '%s\n' "$changed"
+          echo "::error::VERSION must be bumped for changes that affect the released image."
+          echo "Release-relevant changed files:"
+          printf '%s\n' "$release_relevant"
           exit 1
 
   build-per-arch:
@@ -114,10 +136,14 @@ jobs:
     # tag yet. The publish job below stitches the digests into a single
     # multi-arch manifest list and applies the human tags. Native runners
     # avoid QEMU emulation, which would otherwise triple build wall-clock.
+    #
+    # Skipped when the diff is release-irrelevant (docs-only or scoped to
+    # `.github/**`). Dependabot exemptions still rebuild because Gemfile
+    # and package-lock bumps DO change the image.
     name: build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     needs: [lint, test, version-bump-check]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version-bump-check.outputs.skip_build != 'true'
     permissions:
       contents: read
       packages: write
