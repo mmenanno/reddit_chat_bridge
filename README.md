@@ -14,7 +14,9 @@ Reddit's chat UI is hard to use. It doesn't reliably notify you of new messages 
 
 ## Screenshots
 
-The admin web UI in its first-run state. Discord-side screenshots are not yet committed.
+### Admin web UI
+
+The console in its first-run state.
 
 <table>
   <tr>
@@ -24,6 +26,17 @@ The admin web UI in its first-run state. Discord-side screenshots are not yet co
   <tr>
     <td width="50%"><img alt="Auth page: Reddit session cookie paste flow with manual JWT fallback" src="./.github/assets/screenshots/auth.png" /></td>
     <td width="50%"><img alt="Operator controls: sync loop card and slash command registration" src="./.github/assets/screenshots/actions.png" /></td>
+  </tr>
+</table>
+
+### Discord side
+
+A bridged `#dm-*` channel with persona-rewritten messages, and a message-request card from `#message-requests`. Reddit usernames and avatars are blurred for privacy.
+
+<table>
+  <tr>
+    <td width="60%" valign="top"><img alt="A bridged #dm-* Discord channel where each message posts under the sender's Reddit display name and snoovatar via the channel webhook" src="./.github/assets/screenshots/dm-channel.png" /></td>
+    <td width="40%" valign="top"><img alt="A message-request card in #message-requests showing the original Reddit invite preview, the inviter's Reddit identity, and the Approve/Decline workflow" src="./.github/assets/screenshots/message-requests-discord.png" /></td>
   </tr>
 </table>
 

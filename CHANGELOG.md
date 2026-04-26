@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.5] - 2026-04-26
+
+### Added
+
+- README Screenshots section now includes the Discord side: a bridged `#dm-*` channel showing the persona-rewritten webhook posts under each sender's Reddit identity, and a message-request card from `#message-requests` showing the Approve/Decline workflow. Reddit usernames and avatars are blurred for privacy.
+- Screenshots section split into "Admin web UI" and "Discord side" subsections.
+
 ## [1.11.4] - 2026-04-26
 
 ### Added
@@ -433,7 +440,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.4...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.5...HEAD
+[1.11.5]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.4...v1.11.5
 [1.11.4]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.3...v1.11.4
 [1.11.3]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.1...v1.11.2

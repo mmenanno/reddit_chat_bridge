@@ -10,10 +10,12 @@ Repo-only images referenced from the main `README.md`'s Screenshots section. Not
 | `bot-setup-wizard.png` | Admin web UI, `/guide/bot-setup` (onboarding wizard hero + stepper) |
 | `auth.png` | Admin web UI, `/auth` (Reddit session cookie paste flow + manual JWT fallback) |
 | `actions.png` | Admin web UI, `/actions` (operator controls and slash command surface) |
+| `dm-channel.png` | Discord, a bridged `#dm-*` channel with persona-rewritten messages under each sender's Reddit identity |
+| `message-requests-discord.png` | Discord, a message-request card in `#message-requests` showing inviter identity and Approve/Decline workflow |
 
-All web-UI screenshots are scripted: spin up an isolated bridge instance against a temp DB, drive Playwright against `localhost:4568`, capture viewport at 1440x900.
+Web-UI screenshots are scripted: spin up an isolated bridge instance against a temp DB, drive Playwright against `localhost:4568`, capture viewport at 1440x900.
 
-Discord-side screenshots have to be captured manually since the bot operates inside a real guild. None are committed today; if added later, suggested filenames are `dm-channel.png` and `message-requests-discord.png`.
+Discord-side screenshots are captured manually since the bot operates inside a real guild. Reddit usernames and avatars must be blurred or substituted before committing.
 
 ## When refreshing
 
