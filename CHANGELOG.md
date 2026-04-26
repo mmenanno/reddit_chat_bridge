@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: split `CONTRIBUTING.md` out of `README.md` so the README focuses on what the bridge does and how to run it. Architecture diagrams, local development setup, stack list, and the contribution conventions live in `CONTRIBUTING.md`. Redundant License section dropped from the README; the badge and `LICENSE` file remain authoritative.
+
 ## [1.11.2] - 2026-04-25
 
 ### Fixed
