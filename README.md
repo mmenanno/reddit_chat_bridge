@@ -4,7 +4,7 @@ A self-hosted bridge between Reddit Chat and a private Discord server. Reddit Ch
 
 [![CI](https://img.shields.io/github/actions/workflow/status/mmenanno/reddit_chat_bridge/ci.yml?branch=main&label=CI)](https://github.com/mmenanno/reddit_chat_bridge/actions/workflows/ci.yml)
 [![version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmmenanno%2Freddit_chat_bridge%2Fmain%2FVERSION&search=.%2B&label=version&prefix=v)](./VERSION)
-[![ruby](https://img.shields.io/badge/ruby-4.0.2-CC342D)](./.ruby-version)
+[![ruby](https://img.shields.io/badge/ruby-4.0.3-CC342D)](./.ruby-version)
 [![license](https://img.shields.io/github/license/mmenanno/reddit_chat_bridge)](./LICENSE)
 ![maintenance: reactive](https://img.shields.io/badge/maintenance-reactive-blue)
 

@@ -241,7 +241,7 @@ lib/
 
 ## Known gotchas
 
-- **`discordrb` 3.7.2** is pinned; confirmed loads on Ruby 4.0.2. Voice support is irrelevant (libsodium warning on load is benign).
+- **`discordrb` 3.7.2** is pinned; confirmed loads on Ruby 4.0.3. Voice support is irrelevant (libsodium warning on load is benign).
 - **Tailwind v4 + DaisyUI**: Dockerfile's assets stage has a Node.js install because DaisyUI is a JS plugin and the standalone Tailwind CLI can't resolve `@plugin "daisyui"` without `node_modules/daisyui`. Node is only in the build stage; the runtime image has no Node.
 - **Boot order matters for `require`s**: `config.ru` must call `Bridge::Boot.call` BEFORE `require "bridge/web/app"`, because the app's `configure` block reads `AppConfig` at class-load time (for the persisted session_secret). Same rule in `test_helper.rb`.
 - **CI gates release.** Rubocop + minitest must pass before the GHCR image is published. If you locally `rubocop -a` and don't commit the autocorrected files, CI will fail.

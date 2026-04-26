@@ -15,7 +15,7 @@ Deeper conventions (testing patterns, service graph, Reddit and Matrix quirks di
 ## Local development
 
 ```bash
-mise install              # ensures Ruby 4.0.2 (or use any other Ruby version manager)
+mise install              # ensures Ruby 4.0.3 (or use any other Ruby version manager)
 bundle install
 npm ci                    # Tailwind v4 + DaisyUI for the asset build
 bin/setup-hooks           # activates the pre-push VERSION-bump gate
@@ -81,7 +81,7 @@ sequenceDiagram
 
 ## Stack
 
-- Ruby 4.0.2, Sinatra + Puma (no Rails)
+- Ruby 4.0.3, Sinatra + Puma (no Rails)
 - Standalone ActiveRecord + ActiveSupport + SQLite
 - Tailwind CSS v4 + DaisyUI v5 (standalone CLI, built into the Docker image)
 - Faraday for Matrix and Discord REST; `websocket-client-simple` for the Discord gateway

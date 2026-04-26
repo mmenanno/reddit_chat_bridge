@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.12.6] - 2026-04-26
+
 ### Changed
 
+- Bumped Ruby to 4.0.3 across `.ruby-version`, `Dockerfile`, and the docs/badges that name a specific runtime version. The container image build now pulls `ruby:4.0.3-slim` as its base layer.
+- Dropped the `ruby "..."` directive from `Gemfile`. `.ruby-version` is the single source of truth for the required Ruby version; bundler reads it directly and the Gemfile pin was just a duplicate that had to be kept in sync.
+- Refreshed transitive gems via `bundle update --all`: `bigdecimal` 4.1.1 to 4.1.2, `http-cookie` 1.1.4 to 1.1.6, `irb` 1.17.0 to 1.18.0. No first-party dependencies moved.
 - Unraid Community Applications template moved to a dedicated repository at [mmenanno/unraid-templates](https://github.com/mmenanno/unraid-templates) per Squid's [Docker FAQ submission requirements](https://forums.unraid.net/topic/57181-docker-faq/#comment-566084) (CA expects template XML to live in a repo separate from the upstream project source). New raw URL: `https://raw.githubusercontent.com/mmenanno/unraid-templates/main/reddit_chat_bridge.xml`. `<Category>` updated to the official Unraid CA values (`Network:Messenger Tools:System Status:Stable`).
 
 ## [1.12.5] - 2026-04-26

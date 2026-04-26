@@ -2,8 +2,6 @@
 
 source "https://rubygems.org"
 
-ruby "4.0.2"
-
 # Core
 gem "activerecord", "~> 8.1"
 gem "activesupport", "~> 8.1"
