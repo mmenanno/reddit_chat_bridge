@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.4] - 2026-04-26
+
+### Added
+
+- README Screenshots section showing the admin web UI's dashboard, bot-setup wizard, auth page, and operator controls (`/actions`) in a 2x2 grid. PNGs live in `.github/assets/screenshots/` and are captured by driving Playwright against an isolated local bridge instance with a temp database.
+
 ## [1.11.3] - 2026-04-25
 
 ### Fixed
@@ -427,7 +433,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial release: bidirectional Reddit Chat to Discord bridge with per-conversation `#dm-*` channels, webhook-backed persona rewrites, message-request gating, archive and end-chat lifecycles, idempotent inbound and outbound dedup, auto Matrix JWT refresh, in-app admin web UI with first-run setup wizard, and Discord slash command surface.
 - `VERSION` file plus `.githooks/pre-push` bump gate plus version surfacing in the UI logomark.
 
-[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.3...HEAD
+[Unreleased]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.4...HEAD
+[1.11.4]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.3...v1.11.4
 [1.11.3]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/mmenanno/reddit_chat_bridge/compare/v1.11.0...v1.11.1

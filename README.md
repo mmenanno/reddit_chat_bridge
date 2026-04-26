@@ -12,6 +12,21 @@ A self-hosted bridge between Reddit Chat and a private Discord server. Reddit Ch
 
 Reddit's chat UI is hard to use. It doesn't reliably notify you of new messages when you're not on the site, it gets buggy, and the ergonomics are generally rough. This bridge fans your Reddit DMs out into your existing Discord workflow so notifications, history, and search all live in one place. The ugly part of dealing with Reddit's Matrix server (auth, JWT refresh, deduplication, channel lifecycle) is hidden behind a small admin web UI.
 
+## Screenshots
+
+The admin web UI in its first-run state. Discord-side screenshots are not yet committed.
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Dashboard with three status tiles: Bridge thread, Matrix auth, Rooms" src="./.github/assets/screenshots/dashboard.png" /></td>
+    <td width="50%"><img alt="Bot setup wizard: Wire Discord to the bridge, with a 5-step stepper" src="./.github/assets/screenshots/bot-setup-wizard.png" /></td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Auth page: Reddit session cookie paste flow with manual JWT fallback" src="./.github/assets/screenshots/auth.png" /></td>
+    <td width="50%"><img alt="Operator controls: sync loop card and slash command registration" src="./.github/assets/screenshots/actions.png" /></td>
+  </tr>
+</table>
+
 ## Features
 
 ### Bridging
