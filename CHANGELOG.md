@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.14.2] - 2026-05-12
+
+### Fixed
+
+- iOS Safari no longer renders the pause / resume / log-out / warning glyphs (`⏸`, `▶`, `↪`, `⚠`) as blue Apple Color Emoji. The eight occurrences across `layout.erb`, `dashboard.erb`, and `actions.erb` now carry the Unicode Text Variation Selector (U+FE0E) immediately after the glyph, which forces text-style rendering across iOS Safari, macOS Safari, Chrome, and Firefox. macOS Safari was already rendering them as text from the system font; iOS would substitute the emoji font without an explicit hint. The fix is byte-level (HTML entity), no CSS change, and has no visual effect on platforms that already rendered the glyphs as text.
+
 ## [1.14.1] - 2026-05-12
 
 ### Fixed

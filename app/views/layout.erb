@@ -79,7 +79,7 @@
                 <form method="post" action="/actions/resume" class="inline">
                   <button type="submit" class="btn btn-outline btn-sm" title="Resume syncing (Shift+P)">
                     <span class="hidden sm:inline">Resume</span>
-                    <span class="sm:hidden" aria-label="Resume">▶</span>
+                    <span class="sm:hidden" aria-label="Resume">▶&#xFE0E;</span>
                   </button>
                 </form>
               <% elsif !AuthState.paused? %>
@@ -92,7 +92,7 @@
                       data-confirm-tone="neutral">
                   <button type="submit" class="btn btn-outline btn-sm" title="Pause syncing (Shift+P)">
                     <span class="hidden sm:inline">Pause</span>
-                    <span class="sm:hidden" aria-label="Pause">⏸</span>
+                    <span class="sm:hidden" aria-label="Pause">⏸&#xFE0E;</span>
                   </button>
                 </form>
               <% end %>
@@ -105,7 +105,7 @@
               <form method="post" action="/logout">
                 <button type="submit" class="btn btn-outline btn-sm" title="Log out <%= current_user.username %>">
                   <span class="hidden sm:inline">Log out</span>
-                  <span class="sm:hidden">↪</span>
+                  <span class="sm:hidden" aria-label="Log out">↪&#xFE0E;</span>
                 </button>
               </form>
             </div>

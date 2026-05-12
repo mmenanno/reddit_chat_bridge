@@ -18,7 +18,7 @@
 
     <% if Bridge::Application.running? && AuthState.paused_by_operator? %>
       <form method="post" action="/actions/resume" class="ml-auto">
-        <button type="submit" class="btn btn-primary btn-sm">▶ Resume sync</button>
+        <button type="submit" class="btn btn-primary btn-sm">▶&#xFE0E; Resume sync</button>
       </form>
     <% elsif Bridge::Application.running? && !AuthState.paused? %>
       <form method="post" action="/actions/pause" class="ml-auto"
@@ -28,7 +28,7 @@
             data-confirm-label="Pause sync"
             data-confirm-icon="reversible"
             data-confirm-tone="neutral">
-        <button type="submit" class="btn btn-outline btn-sm">⏸ Pause sync</button>
+        <button type="submit" class="btn btn-outline btn-sm">⏸&#xFE0E; Pause sync</button>
       </form>
     <% end %>
   </div>
@@ -58,7 +58,7 @@
     </p>
     <form method="post" action="/actions/start_sync" class="mt-5">
       <button type="submit" class="btn btn-primary" <%= "disabled" unless Bridge::Application.configured? %>>
-        ▶ Start sync
+        ▶&#xFE0E; Start sync
       </button>
     </form>
   <% end %>
@@ -189,7 +189,7 @@
 </section>
 
 <div class="rule-labeled rule-labeled--danger rise rise-delay-4">
-  <span class="rule-labeled__text">⚠ Destructive zone</span>
+  <span class="rule-labeled__text">⚠&#xFE0E; Destructive zone</span>
 </div>
 
 <section class="console-card console-card--danger p-6 rise rise-delay-4">
