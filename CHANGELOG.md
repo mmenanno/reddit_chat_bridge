@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-05-12
+
+### Fixed
+
+- PWA test job no longer 404s on a fresh checkout. `test/test_helper.rb` now stages the runtime-served `app/assets/built/` payload at boot (symlinks the committed icon PNG sources into `built/icons/`, touches a stub `application.css` if Tailwind hasn't run). Previously the PWA route tests assumed a prior local build, which v1.14.0's CI run did not have. v1.14.0 never shipped a published image as a result; v1.14.1 is the first release on the PWA branch.
+
 ## [1.14.0] - 2026-05-12
 
 ### Added

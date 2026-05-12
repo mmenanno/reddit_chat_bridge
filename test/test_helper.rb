@@ -22,6 +22,28 @@ require "bridge/boot"
 # below the parallelize threshold (running a single file, for example).
 Bridge::Boot.call(database_path: ":memory:")
 
+# Stage runtime-served assets that the PWA + static-asset tests expect at
+# app/assets/built/. The directory is gitignored because Tailwind compiles
+# application.css into it and bin/build-icons stages icon PNGs into it at
+# Docker assets-stage time — neither of those runs in CI before the test
+# job. Symlinking the committed icon sources keeps the test path identical
+# to production without duplicating bytes; an empty stub for application.css
+# is enough because the static-asset tests only check status + headers, not
+# CSS content.
+require "fileutils"
+test_built_root = File.expand_path("../app/assets/built", __dir__)
+test_built_icons = File.join(test_built_root, "icons")
+FileUtils.mkdir_p(test_built_icons)
+["icon-180.png", "icon-192.png", "icon-512.png", "icon-512-maskable.png", "icon-1024.png"].each do |name|
+  src = File.expand_path("../app/assets/icons/#{name}", __dir__)
+  dst = File.join(test_built_icons, name)
+  next if File.exist?(dst)
+
+  FileUtils.ln_sf(src, dst) if File.exist?(src)
+end
+test_css_path = File.join(test_built_root, "application.css")
+FileUtils.touch(test_css_path) unless File.exist?(test_css_path)
+
 # bcrypt's default cost (12 rounds) is ~250ms per hash — by far the
 # slowest single operation in the suite. Drop to MIN_COST for tests
 # so AdminUser#update_password! and friends don't dominate the profile.
