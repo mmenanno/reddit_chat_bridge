@@ -67,15 +67,26 @@ COPY --link package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm ci --silent
 
-# Bot-icon PNG ships first in its own layer. Only the 1024×1024 variant
-# ships — it matches Discord's recommended bot-avatar dimensions and is
-# the single size the /guide/bot-setup download link serves. The other
-# sizes (128/256/512) stay as dev-only exports under app/assets/icons/.
-# Keeping the COPY narrow also means the layer only invalidates when
-# that specific file regenerates via bin/build-icons.
-COPY --link app/assets/icons/icon-1024.png ./app/assets/icons/icon-1024.png
+# Runtime-served icon PNGs ship in their own layer so they only invalidate
+# when bin/build-icons regenerates them. Includes:
+#   - 1024 — Discord bot-avatar download served by /guide/bot-setup
+#   - 192/512 — PWA manifest "any" purpose icons
+#   - 512-maskable — PWA manifest Android adaptive-icon variant
+#   - 180 — apple-touch-icon (iOS home-screen icon)
+# 128 and 256 stay as dev-only exports under app/assets/icons/.
+COPY --link app/assets/icons/icon-180.png \
+            app/assets/icons/icon-192.png \
+            app/assets/icons/icon-512.png \
+            app/assets/icons/icon-512-maskable.png \
+            app/assets/icons/icon-1024.png \
+            ./app/assets/icons/
 RUN mkdir -p app/assets/built/icons && \
-    cp app/assets/icons/icon-1024.png app/assets/built/icons/icon-1024.png
+    cp app/assets/icons/icon-180.png \
+       app/assets/icons/icon-192.png \
+       app/assets/icons/icon-512.png \
+       app/assets/icons/icon-512-maskable.png \
+       app/assets/icons/icon-1024.png \
+       app/assets/built/icons/
 
 # App source + Tailwind compile. Invalidates on any app/ edit.
 # Runtime-served assets under app/assets/built (= PUBLIC_ROOT):
@@ -100,6 +111,13 @@ RUN npx @tailwindcss/cli \
 FROM base AS source
 COPY --link lib ./lib
 COPY --link app/views ./app/views
+# PWA artifacts served by explicit Sinatra routes (lib/bridge/web/app.rb).
+# These three files are static and read from PWA_ASSET_ROOT (= app/assets)
+# at runtime, so they need to sit alongside the views in the image.
+COPY --link app/assets/manifest.webmanifest \
+            app/assets/sw.js \
+            app/assets/offline.html \
+            ./app/assets/
 COPY --link db/migrate ./db/migrate
 COPY --link bin/start bin/init ./bin/
 COPY --link config.ru Gemfile Gemfile.lock VERSION ./

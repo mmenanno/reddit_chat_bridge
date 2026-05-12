@@ -32,6 +32,23 @@ module Bridge
     class App < Sinatra::Base
       VIEWS_ROOT  = File.expand_path("../../../app/views", __dir__)
       PUBLIC_ROOT = File.expand_path("../../../app/assets/built", __dir__)
+      # Source location for the three text-based PWA artifacts (manifest,
+      # service worker, offline fallback). They live alongside the Tailwind
+      # source rather than under built/ because they need no compile step;
+      # explicit route handlers serve them with the right content-types.
+      PWA_ASSET_ROOT = File.expand_path("../../../app/assets", __dir__)
+
+      # sw.js is templated: the `__BUILD_VERSION__` token in the source file
+      # is replaced with Bridge::BuildInfo.version at request time so the
+      # service worker's cache name auto-rotates on every project version
+      # bump. The file body is read once at class-load — the version is
+      # fixed for the process lifetime in production, and tests run in
+      # isolated processes anyway.
+      SW_JS_TEMPLATE = File.read(File.join(PWA_ASSET_ROOT, "sw.js")).freeze
+
+      # One year in seconds — the conventional "effectively forever" for
+      # versioned static assets that ship with a query-string cache buster.
+      ASSET_IMMUTABLE_MAX_AGE = 31_536_000
 
       EVENTS_PER_PAGE_OPTIONS = [10, 25, 50, 100].freeze
       EVENTS_PER_PAGE_DEFAULT = 10
@@ -704,7 +721,12 @@ module Bridge
         pass if request.path_info.start_with?("/setup")
         pass if request.path_info == "/login"
         pass if request.path_info == "/logout"
-        pass if request.path_info.end_with?(".css", ".js", ".ico", ".png", ".svg")
+        pass if request.path_info.end_with?(".css", ".js", ".ico", ".png", ".svg", ".webmanifest")
+        # /offline.html is the PWA's offline fallback — public by design so
+        # the service worker can serve it when no session cookie is in scope.
+        # Explicitly named instead of broadly passing ".html" so other paths
+        # can't slip through.
+        pass if request.path_info == "/offline.html"
 
         return redirect("/setup") if AdminUser.first_run?
         return redirect("/login") unless logged_in?
@@ -717,6 +739,46 @@ module Bridge
           uptime_s: (Process.clock_gettime(Process::CLOCK_MONOTONIC) - App::BOOT_AT).to_i,
           matrix: AuthState.paused? ? "paused" : "ok",
         }.to_json
+      end
+
+      # ---- PWA artifacts ----
+      # Explicit routes (instead of static-file serving) so each response
+      # carries the correct content-type and, for the service worker, the
+      # right Cache-Control. Browsers cache /sw.js by default; without
+      # `no-cache`, installed PWAs would pick up new service worker
+      # versions only after the operator manually cleared the cache.
+      get "/manifest.webmanifest" do
+        content_type "application/manifest+json"
+        send_file File.join(PWA_ASSET_ROOT, "manifest.webmanifest")
+      end
+
+      get "/sw.js" do
+        content_type "application/javascript"
+        headers "Cache-Control" => "no-cache"
+        SW_JS_TEMPLATE.gsub("__BUILD_VERSION__", Bridge::BuildInfo.version)
+      end
+
+      # Version-stamped stylesheet URL. The layout references
+      # `/application-<version>.css`, which never exists on disk, so
+      # Sinatra's static-file middleware (which runs ahead of route
+      # matching) falls through and this handler takes over. The handler
+      # serves the real `application.css` from PUBLIC_ROOT with an
+      # immutable cache header — safe because the URL changes whenever
+      # `Bridge::BuildInfo.version` bumps, so the cached entry is never
+      # served against a newer build. The bare `/application.css` still
+      # works via Sinatra's static handler for curl/dev, just without
+      # the immutable cache treatment.
+      get %r{/application-(?<version>[^/]+)\.css} do
+        css_path = File.join(PUBLIC_ROOT, "application.css")
+        pass unless File.exist?(css_path)
+
+        headers "Cache-Control" => "public, max-age=#{ASSET_IMMUTABLE_MAX_AGE}, immutable"
+        send_file(css_path)
+      end
+
+      get "/offline.html" do
+        content_type "text/html; charset=utf-8"
+        send_file File.join(PWA_ASSET_ROOT, "offline.html")
       end
 
       get "/setup" do

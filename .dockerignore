@@ -54,23 +54,26 @@
 
 # icon.svg is the ImageMagick source for bin/build-icons — a dev-only
 # regeneration helper that runs on the workstation, never in CI.
-# Of the exported PNGs, only icon-1024.png ships (served by
-# /guide/bot-setup as the bot-icon download at Discord's recommended
-# 1024×1024 dimension). The smaller sizes stay as dev-only exports.
+# Of the exported PNGs:
+#   - icon-1024 ships as the /guide/bot-setup Discord-bot download
+#   - icon-180/192/512 + icon-512-maskable ship as PWA manifest icons
+#     (manifest.webmanifest + apple-touch-icon)
+#   - icon-128 and icon-256 stay dev-only and are excluded here
 #
 # app/assets/built holds build artifacts produced inside the assets
 # stage (application.css, grain.png, icons/). Keeping any local copy
 # out of the context prevents a stale host-side `built/` from leaking
 # into the runtime image ahead of the fresh build.
 #
-# NOTE: tailwind.css and grain.png stay in the context; the assets
-# stage reads them via `npx @tailwindcss/cli -i app/assets/tailwind.css`
-# and `cp app/assets/grain.png`. .dockerignore gates the whole context,
-# not per-stage, so excluding them here would break the build.
+# NOTE: tailwind.css, grain.png, and the PWA source files (manifest,
+# sw.js, offline.html) stay in the context; the assets stage reads
+# tailwind/grain, and the source stage copies the PWA trio into the
+# final image so the explicit Sinatra routes can send_file them.
+# .dockerignore gates the whole context, not per-stage, so excluding
+# them here would break the build.
 /app/assets/icon.svg
 /app/assets/icons/icon-128.png
 /app/assets/icons/icon-256.png
-/app/assets/icons/icon-512.png
 /app/assets/built
 
 # Dockerfile and Rakefile themselves are not needed at runtime

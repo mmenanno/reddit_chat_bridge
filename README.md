@@ -67,6 +67,7 @@ A bridged `#dm-*` channel with persona-rewritten messages, and a message-request
 ### Operator surface
 
 - **Web admin UI.** Bcrypt-protected admin login, with pages for the dashboard, settings, auth, room list and per-room transcript, message requests, action panel, and an events log. The events log is a journal-tail of every operational message the bridge has emitted.
+- **Installable as a PWA.** The web admin UI ships a Progressive Web App manifest, service worker, and an offline-aware fallback page. Chrome/Edge/Firefox offer an Install affordance; Safari supports Add to Dock (macOS) and Add to Home Screen (iOS). Requires a secure context — HTTPS or `localhost`. Plain LAN HTTP works as a regular web page but won't install.
 - **Slash command surface.** 13 commands (see [Slash command reference](#slash-command-reference) below).
 - **In-app setup wizard.** First-run users land on `/guide/bot-setup`, which walks through Discord application creation, builds an invite URL, and live-tracks which configuration fields are still missing.
 - **Operator alerts.** `#app-status` pings on Matrix auth failure, missing Discord permissions, and a T-7-day Reddit cookie expiry warning. `#app-logs` carries the operational log tail.

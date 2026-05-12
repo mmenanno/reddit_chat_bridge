@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-05-12
+
+### Added
+
+- Web admin UI is now an installable Progressive Web App. New `/manifest.webmanifest`, `/sw.js`, and `/offline.html` ship from `app/assets/`, served by explicit Sinatra routes so each carries the right content-type (`application/manifest+json` for the manifest, `Cache-Control: no-cache` for the service worker). Chrome/Edge/Firefox install it from the address-bar prompt; Safari's "Add to Dock" (macOS) and "Add to Home Screen" (iOS) use the new 180×180 `apple-touch-icon` and the `apple-mobile-web-app-*` meta tags. Android adaptive-icon renderers use a maskable 512×512 variant with safe-zone padding.
+- Offline-aware fallback. The service worker uses network-first for navigation requests and falls back to the styled `/offline.html` ("Bridge unreachable") page only when the network rejects. Same-origin static assets (CSS, icons, manifest) are cache-first; POST and cross-origin requests are pass-through and never cached, so data is never shown stale.
+- `bin/build-icons` regenerates new PWA icon sizes (180, 192, plus a 512-maskable variant with ~20% transparent safe-zone padding) from `app/assets/icon.svg` alongside the existing 128/256/512/1024 exports.
+
+### Changed
+
+- PWA + stylesheet cache invalidation is now tied to the project `VERSION`. The service worker's cache name uses a `__BUILD_VERSION__` token that the `/sw.js` route substitutes from `Bridge::BuildInfo.version` at request time. The layout references `/application-<version>.css`, served by a new Sinatra route that returns the real stylesheet with `Cache-Control: public, max-age=31536000, immutable`. Every `VERSION` bump rotates both URLs automatically, so installed PWAs and regular browsers both pick up CSS changes on next reload without manual cache-clear or a separate `sw.js` constant bump.
+
+### Notes
+
+- Service workers register only on HTTPS or `localhost`. Operators running the bridge over plain LAN HTTP will see no PWA install affordance or offline behavior — terminate TLS at the reverse proxy or use Tailscale Funnel / cloudflared to get a secure context.
+
 ## [1.13.0] - 2026-05-11
 
 ### Added

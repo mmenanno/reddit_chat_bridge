@@ -246,6 +246,8 @@ lib/
 - **Boot order matters for `require`s**: `config.ru` must call `Bridge::Boot.call` BEFORE `require "bridge/web/app"`, because the app's `configure` block reads `AppConfig` at class-load time (for the persisted session_secret). Same rule in `test_helper.rb`.
 - **CI gates release.** Rubocop + minitest must pass before the GHCR image is published. If you locally `rubocop -a` and don't commit the autocorrected files, CI will fail.
 - **docs/ is gitignored** for working notes (not shared). `guides/` is committed for user-facing documentation.
+- **PWA service worker requires a secure context.** Browsers only register `/sw.js` when the page is served over HTTPS or `localhost`. Operators exposing the bridge over plain LAN HTTP (no reverse proxy, no Tailscale Funnel) will silently get no PWA install affordance and no offline fallback — this is spec, not a bug. The `.catch(() => {})` on the registration call in `app/views/layout.erb` is the deliberate silent fallback for that case.
+- **PWA cache invalidation is tied to `VERSION`.** `app/assets/sw.js` uses a `__BUILD_VERSION__` token that the `/sw.js` route handler substitutes with `Bridge::BuildInfo.version` at request time. The stylesheet `<link>` in `app/views/layout.erb` likewise uses `/application-<version>.css`, an explicit Sinatra route that returns the real `application.css` with `Cache-Control: public, max-age=31536000, immutable`. Net effect: every project `VERSION` bump rotates the service-worker cache name and the stylesheet URL automatically — installed PWAs and plain browsers both pick up new assets without manual cache-clear. No extra steps required when shipping CSS changes; just bump `VERSION` per the existing release rules.
 
 ## Surfaces touched by a slash-command change
 

@@ -10,7 +10,34 @@ out=app/assets/icons
 
 mkdir -p "$out"
 
-for size in 128 256 512 1024; do
+# Full-bleed renders. 180 is the apple-touch-icon; 192/512 are the PWA
+# manifest "any" purpose icons; 128/256/1024 are the existing dev-only
+# exports (1024 is the Discord bot avatar download).
+for size in 128 180 192 256 512 1024; do
   magick -background none -density 300 "$src" -resize "${size}x${size}" "${out}/icon-${size}.png"
   echo "wrote ${out}/icon-${size}.png"
 done
+
+# Maskable 512: Android adaptive-icon renderers crop a full-bleed icon
+# inside a circle/squircle mask. The spec calls for the glyph to live in
+# the inner 80% (a 40-px safe-zone on each side at 512). Render the SVG
+# at 80% of the canvas, centered on a #0E0B08 background that matches
+# manifest.webmanifest's background_color so the masked edge is seamless.
+magick -background "#0E0B08" -density 300 \
+  -size 512x512 xc:"#0E0B08" \
+  \( "$src" -background none -resize 410x410 \) \
+  -gravity center -composite \
+  "${out}/icon-512-maskable.png"
+echo "wrote ${out}/icon-512-maskable.png"
+
+# Stage runtime-served icons to app/assets/built/icons/ for local Puma.
+# Docker rebuilds this directory fresh from app/assets/icons/ during the
+# assets stage; this step matches that for the dev workflow. icon-128
+# and icon-256 stay dev-only exports and are not staged.
+built=app/assets/built/icons
+mkdir -p "$built"
+for runtime_size in 180 192 512 1024; do
+  cp "${out}/icon-${runtime_size}.png" "${built}/icon-${runtime_size}.png"
+done
+cp "${out}/icon-512-maskable.png" "${built}/icon-512-maskable.png"
+echo "staged runtime icons to ${built}/"
