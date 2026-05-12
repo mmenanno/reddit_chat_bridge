@@ -117,6 +117,119 @@ module Bridge
       assert_nothing_raised { supervisor.one_tick }
     end
 
+    # ---- CRITICAL dedupe across ticks ----
+
+    test "one_tick does not re-fire CRITICAL when the same upstream error repeats on the next tick" do
+      notifier = mock("notifier")
+      notifier.expects(:critical).with(regexp_matches(/streaming token/), anything).once
+      @loop.on_iterate do
+        raise(Matrix::ServerError, "M_INVALID_ARGUMENT_VALUE: unable to get streaming token")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        admin_notifier: notifier,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      3.times { supervisor.one_tick }
+    end
+
+    test "one_tick fires CRITICAL again when the error message changes between ticks" do
+      notifier = mock("notifier")
+      notifier.expects(:critical).with(regexp_matches(/streaming token/), anything).once
+      notifier.expects(:critical).with(regexp_matches(/503/), anything).once
+      call = 0
+      @loop.on_iterate do
+        call += 1
+        raise(Matrix::ServerError, call == 1 ? "M_INVALID_ARGUMENT_VALUE: unable to get streaming token" : "503")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        admin_notifier: notifier,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      supervisor.one_tick
+      supervisor.one_tick
+    end
+
+    test "one_tick re-fires CRITICAL after a recovery if the same error recurs later" do
+      notifier = mock("notifier")
+      notifier.expects(:critical).with(regexp_matches(/streaming token/), anything).twice
+      notifier.stubs(:info) # recovery announcement, not under test here
+      scenario = [:fail, :ok, :fail]
+      @loop.on_iterate do
+        next(:ok) unless scenario.shift == :fail
+
+        raise(Matrix::ServerError, "M_INVALID_ARGUMENT_VALUE: unable to get streaming token")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        admin_notifier: notifier,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      3.times { supervisor.one_tick }
+    end
+
+    # ---- sync-recovered announcement ----
+
+    test "one_tick announces sync recovered via journal after consecutive failed ticks succeed" do
+      journal = mock("journal")
+      journal.stubs(:critical)
+      journal.expects(:info).with(regexp_matches(/recovered after 2 failed/), source: "supervisor").once
+      scenario = [:fail, :fail, :ok]
+      @loop.on_iterate do
+        next(:ok) unless scenario.shift == :fail
+
+        raise(Matrix::ServerError, "streaming token")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        journal: journal,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      3.times { supervisor.one_tick }
+    end
+
+    test "one_tick does not announce recovery when there was no prior failure" do
+      journal = mock("journal")
+      journal.expects(:info).never
+      supervisor = Supervisor.new(sync_loop: @loop, sleeper: ->(_) {}, journal: journal)
+
+      supervisor.one_tick
+    end
+
+    test "one_tick does not re-announce recovery on a second consecutive successful tick" do
+      journal = mock("journal")
+      journal.stubs(:critical)
+      journal.expects(:info).with(regexp_matches(/recovered/), source: "supervisor").once
+      scenario = [:fail, :ok, :ok]
+      @loop.on_iterate do
+        next(:ok) unless scenario.shift == :fail
+
+        raise(Matrix::ServerError, "streaming token")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        journal: journal,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      3.times { supervisor.one_tick }
+    end
+
     # ---- cookie expiry warning ----
 
     test "warns exactly once when reddit_session enters the 7-day window" do

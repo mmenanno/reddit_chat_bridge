@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-05-11
+
+### Added
+
+- Supervisor now emits a single `Sync recovered after N failed attempts (Xh Ym)` info line to the journal once a tick succeeds after one or more failed ticks. Bookends the existing `Sync loop gave up after retries` CRITICAL so the `/events` page (and `#app-logs` via the Discord logger) has a clear close-of-incident marker. Previously the only signal that an outage cleared was the *absence* of new CRITICALs.
+
+### Changed
+
+- Supervisor de-dupes repeated CRITICAL alerts during sustained upstream outages. Within a single tick the backoff wrapper already collapses N retries into one alert, but a multi-hour Reddit-side incident (e.g. Synapse intermittently returning `M_INVALID_ARGUMENT_VALUE: unable to get streaming token`) would previously fire one identical CRITICAL per tick, roughly every 65 seconds, for the duration of the outage. The supervisor now alerts only on the *transition* into a given failure mode; a different error message or a recovery in between resets the gate.
+
 ## [1.12.6] - 2026-04-26
 
 ### Changed

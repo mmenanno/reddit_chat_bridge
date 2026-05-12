@@ -51,6 +51,9 @@ module Bridge
         sleep: sleeper,
       )
       @last_prune_at = nil
+      @last_critical_message = nil
+      @failure_started_at = nil
+      @failed_tick_count = 0
     end
 
     def one_tick
@@ -63,12 +66,14 @@ module Bridge
         return :paused
       end
 
-      @backoff.call { @sync_loop.iterate }
+      result = @backoff.call { @sync_loop.iterate }
+      announce_recovery_if_recovering
+      result
     rescue *TRANSIENT_UPSTREAM_ERRORS => e
-      alert_critical("Sync loop gave up after retries: #{e.class}: #{e.message}")
+      record_failure!("Sync loop gave up after retries: #{e.class}: #{e.message}")
       :error
     rescue StandardError => e
-      alert_critical("Sync loop crashed: #{e.class}: #{e.message}")
+      record_failure!("Sync loop crashed: #{e.class}: #{e.message}")
       :error
     end
 
@@ -82,11 +87,60 @@ module Bridge
 
     private
 
+    # Cross-tick dedupe. Within a single tick the backoff wrapper already
+    # collapses N retries into one alert, but sustained Reddit-side outages
+    # span many ticks (one per ~65s backoff cycle), and the operator does
+    # not want the same CRITICAL line firing every minute for hours. We
+    # alert on the *transition* into a given failure mode; a different
+    # error message or a recovery in between resets the gate.
+    def record_failure!(message)
+      @failed_tick_count += 1
+      return if message == @last_critical_message
+
+      alert_critical(message)
+      @last_critical_message = message
+      @failure_started_at = Time.current if @failure_started_at.nil?
+    end
+
+    # Bookend to the CRITICAL line: when a tick finally succeeds after one
+    # or more failed ticks, fire one INFO entry so the journal has a clear
+    # close-of-incident marker. Without this the operator has to notice the
+    # *absence* of new CRITICALs to know things recovered.
+    def announce_recovery_if_recovering
+      return unless @last_critical_message
+
+      duration = @failure_started_at ? Time.current - @failure_started_at : 0
+      noun = @failed_tick_count == 1 ? "attempt" : "attempts"
+      journal_or_notifier_info(
+        "Sync recovered after #{@failed_tick_count} failed #{noun} (#{format_failure_duration(duration)}).",
+        source: "supervisor",
+      )
+      @last_critical_message = nil
+      @failure_started_at = nil
+      @failed_tick_count = 0
+    end
+
+    def format_failure_duration(seconds)
+      total = seconds.to_i
+      return "#{total}s" if total < 60
+      return "#{total / 60}m #{total % 60}s" if total < 3600
+
+      "#{total / 3600}h #{(total % 3600) / 60}m"
+    end
+
     def alert_critical(message)
       if @journal
         @journal.critical(message, source: "supervisor")
       else
         @admin_notifier&.critical(message, ping_everyone: false)
+      end
+    end
+
+    def journal_or_notifier_info(message, source: nil)
+      if @journal
+        @journal.info(message, source: source)
+      else
+        @admin_notifier&.info(message)
       end
     end
 
