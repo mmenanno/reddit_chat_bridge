@@ -535,10 +535,10 @@ module Bridge
 
           outcomes = admin_actions.provision_system_channels!
           { status: :ok, outcomes: outcomes }
-        rescue Admin::Actions::NotConfiguredError => e
-          { status: :error, message: e.message }
-        rescue Discord::Error => e
-          { status: :error, message: "Auto-provisioning failed: #{e.message}" }
+        rescue Admin::Actions::NotConfiguredError => exception
+          { status: :error, message: exception.message }
+        rescue Discord::Error => exception
+          { status: :error, message: "Auto-provisioning failed: #{exception.message}" }
         end
 
         # Friendly one-liner describing what the provisioner just did. Fed
@@ -707,8 +707,8 @@ module Bridge
             begin
               admin_actions.public_send(method_name, id: request.id)
               flash_notice!("#{verb}d message request from #{request.display_name}.")
-            rescue Matrix::Error, Discord::Error => e
-              flash_error!("#{verb} failed: #{e.class}: #{e.message}")
+            rescue Matrix::Error, Discord::Error => exception
+              flash_error!("#{verb} failed: #{exception.class}: #{exception.message}")
             end
           end
 
@@ -801,8 +801,8 @@ module Bridge
           # (which no longer hit this branch once an admin exists) and
           # operators who've already configured Discord bypass this.
           redirect(guide_bot_setup_steps.any? { |s| s[:status] == :pending } ? "/guide/bot-setup" : "/")
-        rescue ActiveRecord::RecordInvalid => e
-          flash_error!(e.message)
+        rescue ActiveRecord::RecordInvalid => exception
+          flash_error!(exception.message)
           redirect("/setup")
         end
       end
@@ -1038,11 +1038,11 @@ module Bridge
               state: raw["state"],
             )
             @older_token = raw["end"] if chunk.any?
-          rescue Matrix::TokenError => e
+          rescue Matrix::TokenError => exception
             @auth_paused = true
-            @transcript_error = "Matrix token rejected (#{e.message}) - refresh on /auth."
-          rescue Matrix::Error => e
-            @transcript_error = "Matrix /messages call failed: #{e.class}: #{e.message}"
+            @transcript_error = "Matrix token rejected (#{exception.message}) - refresh on /auth."
+          rescue Matrix::Error => exception
+            @transcript_error = "Matrix /messages call failed: #{exception.class}: #{exception.message}"
           end
         end
 
@@ -1099,10 +1099,10 @@ module Bridge
               "channel #{result[:renamed] ? "renamed" : "unchanged"}, " \
               "#{result[:posted_attempted]} event(s) re-examined.",
             )
-          rescue Admin::Actions::NotConfiguredError => e
-            flash_error!(e.message)
-          rescue Matrix::Error, Discord::Error => e
-            flash_error!("Refresh failed: #{e.class}: #{e.message}")
+          rescue Admin::Actions::NotConfiguredError => exception
+            flash_error!(exception.message)
+          rescue Matrix::Error, Discord::Error => exception
+            flash_error!("Refresh failed: #{exception.class}: #{exception.message}")
           end
         end
 
@@ -1120,10 +1120,10 @@ module Bridge
             flash_notice!(
               result == :already_archived ? "Room was already archived." : "Archived #{room_display_name(room)} - Discord channel deleted.",
             )
-          rescue Admin::Actions::NotConfiguredError => e
-            flash_error!(e.message)
-          rescue Matrix::Error, Discord::Error => e
-            flash_error!("Archive failed: #{e.class}: #{e.message}")
+          rescue Admin::Actions::NotConfiguredError => exception
+            flash_error!(exception.message)
+          rescue Matrix::Error, Discord::Error => exception
+            flash_error!("Archive failed: #{exception.class}: #{exception.message}")
           end
         end
 
@@ -1140,10 +1140,10 @@ module Bridge
           begin
             admin_actions.end_chat!(matrix_room_id: room.matrix_room_id)
             flash_notice!("Hid chat with #{display}. Future events in this room are filtered; click Restore on /rooms to re-bridge.")
-          rescue Admin::Actions::NotConfiguredError => e
-            flash_error!(e.message)
-          rescue Discord::Error => e
-            flash_error!("End chat failed: #{e.class}: #{e.message}")
+          rescue Admin::Actions::NotConfiguredError => exception
+            flash_error!(exception.message)
+          rescue Discord::Error => exception
+            flash_error!("End chat failed: #{exception.class}: #{exception.message}")
           end
         end
 
@@ -1159,8 +1159,8 @@ module Bridge
           begin
             admin_actions.restore_chat!(matrix_room_id: room.matrix_room_id)
             flash_notice!("Restored #{room_display_name(room)}. Next Reddit message in this room will create a fresh Discord channel.")
-          rescue Admin::Actions::NotConfiguredError => e
-            flash_error!(e.message)
+          rescue Admin::Actions::NotConfiguredError => exception
+            flash_error!(exception.message)
           end
         end
 
@@ -1178,10 +1178,10 @@ module Bridge
             result = admin_actions.unarchive_room!(matrix_room_id: room.matrix_room_id, backfill: backfill)
             label = backfill ? "restored with #{result[:posted_attempted]} event(s) replayed" : "unarchived - channel will recreate on next message"
             flash_notice!("#{room_display_name(room)} #{label}.")
-          rescue Admin::Actions::NotConfiguredError => e
-            flash_error!(e.message)
-          rescue Matrix::Error, Discord::Error => e
-            flash_error!("Unarchive failed: #{e.class}: #{e.message}")
+          rescue Admin::Actions::NotConfiguredError => exception
+            flash_error!(exception.message)
+          rescue Matrix::Error, Discord::Error => exception
+            flash_error!("Unarchive failed: #{exception.class}: #{exception.message}")
           end
         end
 
@@ -1217,8 +1217,8 @@ module Bridge
             "Reconcile complete: #{stats[:renamed]} renamed, " \
             "#{stats[:skipped]} skipped, #{stats[:errors]} errors.",
           )
-        rescue Admin::Actions::NotConfiguredError => e
-          flash_error!(e.message)
+        rescue Admin::Actions::NotConfiguredError => exception
+          flash_error!(exception.message)
         end
         redirect("/actions")
       end
@@ -1227,10 +1227,10 @@ module Bridge
         begin
           admin_actions.test_discord!
           flash_notice!("Posted a probe message to #app-status. If you see it, Discord config is good.")
-        rescue Admin::Actions::NotConfiguredError => e
-          flash_error!(e.message)
-        rescue Discord::Error => e
-          flash_error!("Discord probe failed: #{e.class}: #{e.message}")
+        rescue Admin::Actions::NotConfiguredError => exception
+          flash_error!(exception.message)
+        rescue Discord::Error => exception
+          flash_error!("Discord probe failed: #{exception.class}: #{exception.message}")
         end
         redirect("/actions")
       end
@@ -1242,8 +1242,8 @@ module Bridge
             "Rebuild: refreshed #{stats[:rebuilt]} room(s) (#{stats[:rebuild_errors]} errors). " \
             "Channels are current; recent history replayed where needed.",
           )
-        rescue Admin::Actions::NotConfiguredError => e
-          flash_error!(e.message)
+        rescue Admin::Actions::NotConfiguredError => exception
+          flash_error!(exception.message)
         end
         redirect("/actions")
       end
@@ -1274,8 +1274,8 @@ module Bridge
             )
             flash_notice!("Registered #{Discord::SlashCommandRouter::COMMAND_DEFINITIONS.size} slash commands with Discord.")
           end
-        rescue Discord::Error => e
-          flash_error!("Discord rejected the registration: #{e.class}: #{e.message}")
+        rescue Discord::Error => exception
+          flash_error!("Discord rejected the registration: #{exception.class}: #{exception.message}")
         end
         redirect("/actions")
       end
@@ -1315,10 +1315,10 @@ module Bridge
               "Token probed and saved. Matrix sync resumes on the next iteration."
             end,
           )
-        rescue Matrix::TokenError => e
-          flash_error!("Reddit rejected that token: #{e.message}")
-        rescue Matrix::Error => e
-          flash_error!("Couldn't reach Reddit: #{e.message}")
+        rescue Matrix::TokenError => exception
+          flash_error!("Reddit rejected that token: #{exception.message}")
+        rescue Matrix::Error => exception
+          flash_error!("Couldn't reach Reddit: #{exception.message}")
         end
 
         redirect("/auth")
@@ -1351,12 +1351,12 @@ module Bridge
               "Reddit cookies saved and fresh token minted. Future expirations refresh automatically."
             end,
           )
-        rescue Auth::RefreshFlow::RefreshError => e
-          flash_error!("Reddit rejected those cookies: #{e.message}")
-        rescue Matrix::TokenError => e
-          flash_error!("Reddit minted a JWT but Matrix rejected it: #{e.message}")
-        rescue ArgumentError => e
-          flash_error!(e.message)
+        rescue Auth::RefreshFlow::RefreshError => exception
+          flash_error!("Reddit rejected those cookies: #{exception.message}")
+        rescue Matrix::TokenError => exception
+          flash_error!("Reddit minted a JWT but Matrix rejected it: #{exception.message}")
+        rescue ArgumentError => exception
+          flash_error!(exception.message)
         end
 
         redirect("/auth")

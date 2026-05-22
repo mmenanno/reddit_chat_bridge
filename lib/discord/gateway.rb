@@ -61,8 +61,8 @@ module Discord
       until stop_signal.call || @stopped
         begin
           run_once(stop_signal)
-        rescue StandardError => e
-          @journal&.warn("Discord gateway crashed: #{e.class}: #{e.message}", source: "gateway")
+        rescue StandardError => exception
+          @journal&.warn("Discord gateway crashed: #{exception.class}: #{exception.message}", source: "gateway")
           sleep(2) unless stop_signal.call
         end
       end
@@ -103,12 +103,12 @@ module Discord
       when OP_DISPATCH then on_dispatch(payload)
       when OP_HEARTBEAT_ACK then nil
       end
-    rescue JSON::ParserError => e
-      journal_warn("bad frame: #{e.message} (payload=#{raw.to_s[0, 80].inspect})")
-    rescue StandardError => e
+    rescue JSON::ParserError => exception
+      journal_warn("bad frame: #{exception.message} (payload=#{raw.to_s[0, 80].inspect})")
+    rescue StandardError => exception
       # Any bug in on_hello/on_dispatch/handlers must not kill the
       # websocket thread silently. Log it and keep the socket alive.
-      journal_warn("frame handler crashed: #{e.class}: #{e.message}")
+      journal_warn("frame handler crashed: #{exception.class}: #{exception.message}")
     end
 
     def log_close(msg)
@@ -213,8 +213,8 @@ module Discord
       return unless @socket
 
       @socket.send(JSON.generate(op: opcode, d: data))
-    rescue StandardError => e
-      journal_warn("send failed: #{e.class}: #{e.message}")
+    rescue StandardError => exception
+      journal_warn("send failed: #{exception.class}: #{exception.message}")
     end
 
     def identify_payload

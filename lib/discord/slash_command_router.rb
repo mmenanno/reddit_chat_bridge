@@ -52,8 +52,8 @@ module Discord
       handler = COMMANDS[name] || method(:unknown_command)
       data = handler.call(self, payload)
       { type: CALLBACK_CHANNEL_MESSAGE, data: data }
-    rescue StandardError => e
-      error_response("#{e.class}: #{e.message}")
+    rescue StandardError => exception
+      error_response("#{exception.class}: #{exception.message}")
     end
 
     # -------- handlers (invoked via COMMANDS table below) --------

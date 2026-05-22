@@ -100,8 +100,8 @@ module Auth
 
       decoded = CGI.unescapeHTML(match[1])
       JSON.parse(decoded)
-    rescue JSON::ParserError => e
-      raise RefreshError, "rs-app token attribute has malformed JSON: #{e.message}"
+    rescue JSON::ParserError => exception
+      raise RefreshError, "rs-app token attribute has malformed JSON: #{exception.message}"
     end
 
     def build_reddit_connection

@@ -25,8 +25,8 @@ module Discord
       return if positions.empty?
 
       @client.reorder_channels(guild_id: @guild_id, positions: positions)
-    rescue Discord::Error => e
-      @logger&.warn("channel reorder failed: #{e.class}: #{e.message}")
+    rescue Discord::Error => exception
+      @logger&.warn("channel reorder failed: #{exception.class}: #{exception.message}")
     end
 
     private
