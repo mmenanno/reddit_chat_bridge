@@ -51,9 +51,9 @@ module Admin
         when :unchanged then unchanged.increment
         when :skipped then skipped.increment
         end
-      rescue StandardError => e
+      rescue StandardError => exception
         errors.increment
-        @logger&.warn("reconcile failed for #{room.matrix_room_id}: #{e.class}: #{e.message}")
+        @logger&.warn("reconcile failed for #{room.matrix_room_id}: #{exception.class}: #{exception.message}")
       end
       { renamed: renamed.value, unchanged: unchanged.value, skipped: skipped.value, errors: errors.value }
     end
@@ -85,9 +85,9 @@ module Admin
         deleted.increment
       rescue Discord::NotFound
         deleted.increment
-      rescue StandardError => e
+      rescue StandardError => exception
         failed.increment
-        @logger&.warn("channel delete failed for #{room.matrix_room_id}: #{e.class}: #{e.message}")
+        @logger&.warn("channel delete failed for #{room.matrix_room_id}: #{exception.class}: #{exception.message}")
       end
       { channels_deleted: deleted.value, channel_delete_errors: failed.value }
     end
@@ -228,9 +228,9 @@ module Admin
     # path for any future non-DM room type.
     def try_leave_matrix!(room)
       @matrix_client.leave_room(room_id: room.matrix_room_id)
-    rescue Matrix::Error => e
+    rescue Matrix::Error => exception
       @logger&.warn(
-        "Matrix /leave refused for #{room.matrix_room_id} (#{e.message}); terminating locally only.",
+        "Matrix /leave refused for #{room.matrix_room_id} (#{exception.message}); terminating locally only.",
       )
     end
 

@@ -49,8 +49,8 @@ module Discord
       else
         unknown_interaction
       end
-    rescue StandardError => e
-      ephemeral_error("#{e.class}: #{e.message}")
+    rescue StandardError => exception
+      ephemeral_error("#{exception.class}: #{exception.message}")
     end
 
     private

@@ -69,11 +69,11 @@ module Bridge
       result = @backoff.call { @sync_loop.iterate }
       announce_recovery_if_recovering
       result
-    rescue *TRANSIENT_UPSTREAM_ERRORS => e
-      record_failure!("Sync loop gave up after retries: #{e.class}: #{e.message}")
+    rescue *TRANSIENT_UPSTREAM_ERRORS => exception
+      record_failure!("Sync loop gave up after retries: #{exception.class}: #{exception.message}")
       :error
-    rescue StandardError => e
-      record_failure!("Sync loop crashed: #{e.class}: #{e.message}")
+    rescue StandardError => exception
+      record_failure!("Sync loop crashed: #{exception.class}: #{exception.message}")
       :error
     end
 
@@ -153,8 +153,8 @@ module Bridge
       return unless AuthState.access_token_expiring_soon?(within: 1.hour)
 
       @admin_actions.refresh_matrix_token!
-    rescue Auth::RefreshFlow::RefreshError => e
-      journal_or_notifier_warn("Auto-refresh failed: #{e.message}", source: "supervisor")
+    rescue Auth::RefreshFlow::RefreshError => exception
+      journal_or_notifier_warn("Auto-refresh failed: #{exception.message}", source: "supervisor")
     end
 
     def journal_or_notifier_warn(message, source: nil)
@@ -193,8 +193,8 @@ module Bridge
 
       PostedEvent.prune!
       @last_prune_at = now
-    rescue StandardError => e
-      journal_or_notifier_warn("PostedEvent.prune! failed: #{e.message}", source: "supervisor")
+    rescue StandardError => exception
+      journal_or_notifier_warn("PostedEvent.prune! failed: #{exception.message}", source: "supervisor")
     end
   end
 end

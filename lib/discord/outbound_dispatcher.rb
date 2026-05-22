@@ -75,14 +75,14 @@ module Discord
         "Discord → Reddit: relayed message #{discord_id} as Matrix event #{event_id}",
         source: "outbound",
       )
-    rescue Matrix::Error => e
+    rescue Matrix::Error => exception
       OutboundMessage.register_failure!(
         txn_id: txn_id,
         discord_message_id: message["id"].to_s,
         matrix_room_id: room&.matrix_room_id.to_s,
-        error: "#{e.class}: #{e.message}",
+        error: "#{exception.class}: #{exception.message}",
       )
-      @journal&.warn("Discord → Reddit relay failed: #{e.class}: #{e.message}", source: "outbound")
+      @journal&.warn("Discord → Reddit relay failed: #{exception.class}: #{exception.message}", source: "outbound")
     end
 
     private
@@ -105,9 +105,9 @@ module Discord
         channel_id: message.fetch("channel_id"),
         message_id: message.fetch("id"),
       )
-    rescue Discord::Error => e
+    rescue Discord::Error => exception
       @journal&.warn(
-        "Discord persona rewrite failed: #{e.class}: #{e.message}",
+        "Discord persona rewrite failed: #{exception.class}: #{exception.message}",
         source: "outbound",
       )
     end
@@ -203,8 +203,8 @@ module Discord
 
     def mark_read_quietly(room_id, event_id)
       @matrix_client.set_read_marker(room_id: room_id, event_id: event_id)
-    rescue Matrix::Error => e
-      @journal&.warn("read marker for #{event_id} in #{room_id} failed: #{e.message}", source: "outbound")
+    rescue Matrix::Error => exception
+      @journal&.warn("read marker for #{event_id} in #{room_id} failed: #{exception.message}", source: "outbound")
     end
 
     # Accept only messages from the configured operator(s), and only when

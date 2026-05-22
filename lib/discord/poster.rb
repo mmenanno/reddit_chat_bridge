@@ -76,17 +76,17 @@ module Discord
       room.mark_activity!(time: activity_time_for(event))
       mark_read_quietly(event.room_id, event.event_id)
       @activity_posted = true
-    rescue Discord::BadRequest => e
+    rescue Discord::BadRequest => exception
       # Unrecoverable request-shape error. Record anyway so we don't loop.
-      @logger&.warn("Discord rejected event #{event.event_id} (400): #{e.message}")
+      @logger&.warn("Discord rejected event #{event.event_id} (400): #{exception.message}")
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room&.advance_event!(event.event_id)
-    rescue Discord::AuthError => e
+    rescue Discord::AuthError => exception
       # Almost always "Missing Permissions" — the bot role lacks Manage
       # Webhooks. Recording as posted prevents the sync loop from hammering
       # the same event every tick; after the operator fixes the role,
       # clicking "Rebuild all rooms" on /actions backfills from /messages.
-      mark_permissions_blocked!(e)
+      mark_permissions_blocked!(exception)
       PostedEvent.record!(event_id: event.event_id, room_id: event.room_id)
       room&.advance_event!(event.event_id)
     end
@@ -155,16 +155,16 @@ module Discord
 
       profile = @matrix_client.profile(user_id: user_id)
       profile.is_a?(Hash) ? profile["displayname"] : nil
-    rescue Matrix::Error => e
-      @logger&.warn("Matrix profile lookup failed for #{user_id}: #{e.message}")
+    rescue Matrix::Error => exception
+      @logger&.warn("Matrix profile lookup failed for #{user_id}: #{exception.message}")
       nil
     end
 
     def sync_channel_metadata!(channel_id:, name:, topic:)
       @client.update_channel(channel_id: channel_id, name: name, topic: topic)
-    rescue Discord::Error => e
+    rescue Discord::Error => exception
       @logger&.warn(
-        "channel metadata update #{channel_id} (name=#{name.inspect} topic=#{topic && "(set)"}) failed: #{e.message}",
+        "channel metadata update #{channel_id} (name=#{name.inspect} topic=#{topic && "(set)"}) failed: #{exception.message}",
       )
     end
 
@@ -196,10 +196,10 @@ module Discord
       begin
         attempt += 1
         @client.execute_webhook(webhook_id: webhook_id, webhook_token: webhook_token, payload: payload)
-      rescue Discord::RateLimited => e
+      rescue Discord::RateLimited => exception
         raise if attempt >= RATE_LIMIT_MAX_ATTEMPTS
 
-        sleep_seconds = e.retry_after_ms.to_f.positive? ? (e.retry_after_ms / 1000.0) : RATE_LIMIT_FALLBACK_SLEEP
+        sleep_seconds = exception.retry_after_ms.to_f.positive? ? (exception.retry_after_ms / 1000.0) : RATE_LIMIT_FALLBACK_SLEEP
         @sleeper.call(sleep_seconds)
         retry
       end
@@ -386,8 +386,8 @@ module Discord
       return unless @matrix_client
 
       @matrix_client.set_read_marker(room_id: room_id, event_id: event_id)
-    rescue Matrix::Error => e
-      @logger&.warn("read marker for #{event_id} in #{room_id} failed: #{e.message}")
+    rescue Matrix::Error => exception
+      @logger&.warn("read marker for #{event_id} in #{room_id} failed: #{exception.message}")
     end
   end
 end

@@ -66,9 +66,9 @@ module Discord
       )
 
       @scheduler.call { run_deferred_work(payload, type) }
-    rescue StandardError => e
+    rescue StandardError => exception
       @journal&.warn(
-        "Gateway interaction ACK failed: #{e.class}: #{e.message}",
+        "Gateway interaction ACK failed: #{exception.class}: #{exception.message}",
         source: "gateway",
       )
     end
@@ -108,9 +108,9 @@ module Discord
         "Interaction follow-up skipped for #{label(payload)} (ephemeral host channel was deleted by the command).",
         source: "gateway",
       )
-    rescue StandardError => e
+    rescue StandardError => exception
       @journal&.warn(
-        "Gateway interaction callback failed: #{e.class}: #{e.message}",
+        "Gateway interaction callback failed: #{exception.class}: #{exception.message}",
         source: "gateway",
       )
     end

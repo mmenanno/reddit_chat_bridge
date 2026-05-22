@@ -46,8 +46,8 @@ module Matrix
       SyncCheckpoint.advance!(body["next_batch"])
       AuthState.mark_ok!
       :ok
-    rescue Matrix::TokenError => e
-      AuthState.mark_failure!(e.message)
+    rescue Matrix::TokenError => exception
+      AuthState.mark_failure!(exception.message)
       :paused
     end
   end
