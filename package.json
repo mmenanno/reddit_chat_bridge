@@ -6,7 +6,7 @@
   "repository": "github:mmenanno/reddit_chat_bridge",
   "dependencies": {
     "@tailwindcss/cli": "^4.3.0",
-    "daisyui": "^5.5.19",
+    "daisyui": "^5.5.20",
     "tailwindcss": "^4.2.2"
   }
 }
