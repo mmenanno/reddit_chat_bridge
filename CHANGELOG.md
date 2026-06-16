@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-06-16
+
+### Added
+
+- Category spillover for Discord's 50-channel-per-category limit. When the "Reddit DMs" category fills, the bridge auto-creates overflow categories (`Reddit DMs 2`, `3`, … derived from the primary category's name) and routes new `#dm-*` channels there instead of silently dropping them. New `Discord::CategoryAllocator` detects the `CHANNEL_PARENT_MAX_CHANNELS` 400, mints the next category, persists the IDs in `discord_dms_spillover_category_ids`, and retries. A new `Auto spillover categories` toggle in `/settings` (on by default) gates it; when off, a full category warns loudly rather than dropping the DM. If the guild-wide 500-channel cap is hit, a critical `#app-status` alert fires instead of a silent drop. No new bot permission — category creation uses the existing Manage Channels grant. Fixes #17.
+- History cutoff levers in `/settings`: a rolling `History lookback (days)` and an absolute `History cutoff date`, usable separately or together (the later boundary wins). Events older than the cutoff are skipped before a Room or channel is created, so old dormant DMs don't each claim a Discord channel on the initial sync. Blank/0 = bridge everything (the default). Explicit per-room "Restore history" / unarchive backfills bypass the cutoff.
+
 ## [1.14.2] - 2026-05-12
 
 ### Fixed

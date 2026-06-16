@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "discord/client"
+require "discord/category_allocator"
 require "discord/channel_index"
 
 module Discord
@@ -11,10 +12,15 @@ module Discord
 
     setup do
       @client = Discord::Client.new(bot_token: "tok")
+      @allocator = Discord::CategoryAllocator.new(
+        client: @client,
+        guild_id: GUILD,
+        primary_category_id: CATEGORY,
+      )
       @index = Discord::ChannelIndex.new(
         client: @client,
         guild_id: GUILD,
-        category_id: CATEGORY,
+        category_allocator: @allocator,
       )
     end
 

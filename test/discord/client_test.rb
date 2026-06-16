@@ -49,6 +49,20 @@ module Discord
       assert_equal(CHANNEL, id)
     end
 
+    test "create_category POSTs a type-4 channel and returns its id" do
+      stub_request(:post, "#{BASE}/guilds/#{GUILD}/channels")
+        .with(body: { name: "Reddit DMs 2", type: 4 }.to_json)
+        .to_return(
+          status: 201,
+          body: { id: CATEGORY, name: "Reddit DMs 2", type: 4 }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      id = @client.create_category(guild_id: GUILD, name: "Reddit DMs 2")
+
+      assert_equal(CATEGORY, id)
+    end
+
     test "create_channel raises Discord::AuthError on 401" do
       stub_request(:post, "#{BASE}/guilds/#{GUILD}/channels")
         .to_return(status: 401, body: { message: "401: Unauthorized" }.to_json)

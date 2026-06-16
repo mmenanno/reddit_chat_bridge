@@ -53,6 +53,8 @@ A bridged `#dm-*` channel with persona-rewritten messages, and a message-request
 
 - **Auto-create / auto-rename.** New conversations create their channel + webhook on first event. When a username later resolves (Matrix lazy-loaded state often arrives late), the channel is renamed to match.
 - **Auto-reorder.** `#dm-*` channels are bulk-reordered most-recent-first on every batch via Discord's bulk channel-position endpoint, so the active conversation is always at the top.
+- **Category spillover.** Discord caps a category at 50 channels. When the "Reddit DMs" category fills, the bridge auto-creates overflow categories (`Reddit DMs 2`, `3`, …) and routes new channels there. On by default; toggle off in `/settings`. Uses the existing Manage Channels permission.
+- **History cutoff.** Optional `/settings` levers — a rolling lookback in days and/or an absolute cutoff date — limit how far back conversations are bridged, so old dormant DMs don't each claim a channel. Blank = bridge everything. Explicit per-room "Restore history" ignores the cutoff.
 - **Message request gating.** Messages from strangers land as a card in `#message-requests` with Approve and Decline buttons. Approve joins the Matrix room and starts bridging; Decline leaves the invite so future DMs surface as fresh requests.
 - **Archive.** Soft state. Deletes the Discord channel but keeps the Matrix link; the next inbound message auto-unarchives and recreates the channel.
 - **End chat.** Hard local hide. Reddit's Matrix server refuses `/leave` on DM rooms (the same limitation Reddit's own "Hide chat" button works around), so the bridge marks the room terminated locally and filters every future event for that room.
@@ -167,4 +169,3 @@ The Reddit cookie jar is encrypted at rest with a key derived from `AppConfig.se
 | `/actions` | Admin action panel: resync, pause/resume, reconcile, rebuild, test Discord, register slash commands. |
 | `/events` | Journal-tail of operational events (filterable by level + source). |
 | `/health` | Container health probe; returns 200 when Puma is up and the DB is queryable. |
-

@@ -8,6 +8,7 @@ require "matrix/id"
 require "matrix/media_resolver"
 require "discord/client"
 require "discord/channel_index"
+require "discord/category_allocator"
 require "discord/channel_reorderer"
 require "discord/poster"
 require "discord/message_request_notifier"
@@ -236,10 +237,16 @@ module Bridge
           )
           discord_client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
           guild_id = AppConfig.fetch("discord_guild_id")
+          category_allocator = Discord::CategoryAllocator.new(
+            client: discord_client,
+            guild_id: guild_id,
+            primary_category_id: AppConfig.fetch("discord_dms_category_id"),
+            journal: Bridge::Application.instance&.journal,
+          )
           channel_index = Discord::ChannelIndex.new(
             client: discord_client,
             guild_id: guild_id,
-            category_id: AppConfig.fetch("discord_dms_category_id"),
+            category_allocator: category_allocator,
           )
           # Without this the web-initiated rebuild/full_resync paths rebuild
           # every channel but never re-sort them — the supervisor-owned
@@ -311,6 +318,23 @@ module Bridge
           return false unless /\A\d+\z/.match?(value)
 
           value.to_i <= App::SNOWFLAKE_MAX
+        end
+
+        def validate_history_fields(submitted)
+          errors = []
+          days = submitted["bridge_history_lookback_days"].to_s.strip
+          errors << "History lookback (days) must be a whole number" if !days.empty? && !/\A\d+\z/.match?(days)
+
+          date = submitted["bridge_history_cutoff_date"].to_s.strip
+          errors << "History cutoff date must be YYYY-MM-DD" if !date.empty? && !valid_iso_date?(date)
+          errors
+        end
+
+        def valid_iso_date?(value)
+          Date.iso8601(value)
+          true
+        rescue Date::Error
+          false
         end
 
         # Drives the /guide/bot-setup progress rail + "done when" ready-check.
@@ -872,6 +896,28 @@ module Bridge
           snowflake: true,
         },
         {
+          key: "discord_dms_spillover_enabled",
+          label: "Auto spillover categories",
+          hint: "When the Reddit DMs category fills Discord's 50-channel limit, auto-create overflow categories (Reddit DMs 2, 3...). On by default.",
+          default: "true",
+          secret: false,
+          boolean: true,
+        },
+        {
+          key: "bridge_history_lookback_days",
+          label: "History lookback (days)",
+          hint: "Only bridge conversations active in the last N days. Blank or 0 = bridge all history.",
+          default: "",
+          secret: false,
+        },
+        {
+          key: "bridge_history_cutoff_date",
+          label: "History cutoff date",
+          hint: "Ignore messages before this date (YYYY-MM-DD). Blank = no date floor. Combined with lookback, the later of the two wins.",
+          default: "",
+          secret: false,
+        },
+        {
           key: "discord_system_channels_mode",
           label: "System channels mode",
           hint: "auto (recommended) or manual",
@@ -948,7 +994,7 @@ module Bridge
       end
 
       post "/settings" do
-        invalid = validate_snowflake_fields(params)
+        invalid = validate_snowflake_fields(params) + validate_history_fields(params)
         if invalid.any?
           flash_error!("#{invalid.join("; ")}. Nothing was saved.")
           redirect("/settings")

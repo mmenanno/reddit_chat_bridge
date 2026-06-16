@@ -146,7 +146,9 @@ module Admin
 
       newest_first = [stub(event_id: "$2"), stub(event_id: "$1")]
       @normalizer.expects(:normalize).returns(newest_first)
-      @poster.expects(:call).with { |events| events.map(&:event_id) == ["$1", "$2"] }
+      @poster.expects(:call).with do |events, **opts|
+        events.map(&:event_id) == ["$1", "$2"] && opts[:respect_cutoff] == false
+      end
 
       result = @reconciler.refresh_one(matrix_room_id: ROOM_ID)
 
@@ -377,7 +379,7 @@ module Admin
         .with(room_id: ROOM_ID, dir: "b", limit: 50)
         .returns("chunk" => [{ "type" => "m.room.message", "event_id" => "$e" }], "state" => [])
       @normalizer.expects(:normalize).returns([:fake_event])
-      @poster.expects(:call).with([:fake_event])
+      @poster.expects(:call).with([:fake_event], respect_cutoff: false)
 
       result = @reconciler.unarchive!(matrix_room_id: ROOM_ID, backfill: true)
 

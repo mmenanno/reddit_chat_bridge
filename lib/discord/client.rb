@@ -31,6 +31,7 @@ module Discord
   class Client
     BASE_URL = "https://discord.com/api/v10/"
     CHANNEL_TYPE_TEXT = 0
+    CHANNEL_TYPE_CATEGORY = 4
 
     def initialize(bot_token:, base_url: BASE_URL, conn: nil)
       @bot_token = bot_token
@@ -44,6 +45,10 @@ module Discord
       payload[:topic] = topic if topic
 
       post("guilds/#{guild_id}/channels", payload: payload).body.fetch("id")
+    end
+
+    def create_category(guild_id:, name:)
+      post("guilds/#{guild_id}/channels", payload: { name: name, type: CHANNEL_TYPE_CATEGORY }).body.fetch("id")
     end
 
     def send_message(channel_id:, content:)

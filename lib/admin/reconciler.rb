@@ -253,7 +253,7 @@ module Admin
       sync_shaped = wrap_as_sync(response, room_id: room.matrix_room_id)
       events = @normalizer.normalize(sync_shaped)
       # `/messages?dir=b` returns newest first; post in chronological order.
-      @poster.call(events.reverse)
+      @poster.call(events.reverse, respect_cutoff: false)
       events.size
     end
 
