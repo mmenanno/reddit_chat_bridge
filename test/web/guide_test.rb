@@ -70,7 +70,7 @@ module Bridge
         # invite URL requests. Recompute if the bridge ever legitimately
         # needs another permission bit.
         expected = (1 << 4) | (1 << 11) | (1 << 13) | (1 << 14) |
-          (1 << 15) | (1 << 16) | (1 << 29) | (1 << 31)
+          (1 << 15) | (1 << 16) | (1 << 28) | (1 << 29) | (1 << 31)
 
         assert_equal(expected, App::GUIDE_INVITE_PERMISSIONS)
       end

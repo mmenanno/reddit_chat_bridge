@@ -253,6 +253,49 @@ module Admin
       assert_equal(0, stats[:rebuild_errors])
     end
 
+    test "full_resync! unarchives and rebuilds archived rooms but leaves terminated hidden" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+      archived = Room.create!(matrix_room_id: "!b:reddit.com", archived_at: 1.day.ago)
+      Room.create!(matrix_room_id: "!c:reddit.com", terminated_at: 1.day.ago)
+
+      reconciler = mock("Reconciler")
+      reconciler.expects(:delete_all_discord_channels!).returns(channels_deleted: 1, channel_delete_errors: 0)
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!a:reddit.com").returns(renamed: true, posted_attempted: 0)
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!b:reddit.com").returns(renamed: true, posted_attempted: 0)
+      reconciler.expects(:refresh_one).with(matrix_room_id: "!c:reddit.com").never
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+      )
+
+      stats = actions.full_resync!
+
+      assert_equal(2, stats[:rebuilt])
+      assert_equal(1, stats[:rebuild_skipped])
+      refute_predicate(archived.reload, :archived?)
+    end
+
+    test "full_resync! logs each rebuild failure to the journal" do
+      Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
+
+      reconciler = mock("Reconciler")
+      reconciler.expects(:delete_all_discord_channels!).returns(channels_deleted: 1, channel_delete_errors: 0)
+      reconciler.expects(:refresh_one).raises(RuntimeError, "boom")
+      journal = mock("Journal")
+      journal.expects(:warn).with(regexp_matches(/rebuild failed.*boom/), has_key(:source))
+
+      actions = Admin::Actions.new(
+        matrix_client_factory: ->(_) { @probe_client },
+        refresh_flow: @refresh_flow,
+        reconciler: reconciler,
+        journal: journal,
+      )
+
+      assert_equal(1, actions.full_resync![:rebuild_errors])
+    end
+
     test "full_resync! delegates channel deletion to the reconciler before nuking state" do
       Room.create!(matrix_room_id: "!a:reddit.com", discord_channel_id: "111")
 

@@ -45,12 +45,22 @@ module Discord
       AppConfig.fetch(ENABLED_KEY, "true") != "false"
     end
 
+    # Copies the primary category's name + permission overwrites so a spillover
+    # category is private by default (channels inherit their parent's perms).
     def open_spillover_category!
       name = next_spillover_name
-      id = @client.create_category(guild_id: @guild_id, name: name)
+      id = @client.create_category(guild_id: @guild_id, name: name, permission_overwrites: primary_overwrites)
       AppConfig.set(SPILLOVER_KEY, (spillover_ids + [id]).join(","))
       @journal&.info("Reddit DMs category full; created spillover category '#{name}' (#{id}).", source: SOURCE)
       id
+    rescue Discord::AuthError
+      # Setting overwrites on create needs Manage Roles; without it we'd only be
+      # able to make a public category, which would leak the operator's DMs.
+      @journal&.critical(
+        "Spillover category needs the Manage Roles permission to stay private. Re-invite the bot with Manage Roles.",
+        source: SOURCE,
+      )
+      raise
     rescue Discord::BadRequest
       @journal&.critical(
         "Discord guild channel cap reached - cannot create more DM channels. Archive old DMs to free space.",
@@ -64,15 +74,19 @@ module Discord
     end
 
     def base_category_name
-      return @base_category_name if defined?(@base_category_name)
-
-      @base_category_name = fetch_primary_name || DEFAULT_BASE_NAME
+      primary_category&.dig("name").to_s.strip.presence || DEFAULT_BASE_NAME
     end
 
-    def fetch_primary_name
-      @client.get_channel(@primary_category_id)["name"].to_s.strip.presence
+    def primary_overwrites
+      primary_category&.dig("permission_overwrites")
+    end
+
+    def primary_category
+      return @primary_category if defined?(@primary_category)
+
+      @primary_category = @client.get_channel(@primary_category_id)
     rescue Discord::Error
-      nil
+      @primary_category = nil
     end
 
     def spillover_ids

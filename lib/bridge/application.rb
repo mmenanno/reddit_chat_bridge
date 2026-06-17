@@ -319,7 +319,7 @@ module Bridge
 
     def build_admin_actions
       factory = ->(token) { Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER) }
-      Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+      Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler, journal: @journal)
     end
 
     # Without this, every /endchat, /archive, /refresh, and message-request

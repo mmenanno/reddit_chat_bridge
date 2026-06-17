@@ -9,6 +9,7 @@ module Discord
     GUILD = "111111111111111111"
     PRIMARY = "222222222222222222"
     SPILLOVER_KEY = "discord_dms_spillover_category_ids"
+    OVERWRITES = [{ "id" => "everyone", "type" => 0, "allow" => "0", "deny" => "1024" }].freeze
 
     setup do
       @client = mock("Discord::Client")
@@ -50,8 +51,12 @@ module Discord
       @client.expects(:create_channel)
         .with(guild_id: GUILD, name: "dm-foo", parent_id: PRIMARY, topic: "t")
         .raises(category_full_error).in_sequence(seq)
-      @client.expects(:get_channel).with(PRIMARY).returns("name" => "Reddit DMs").in_sequence(seq)
-      @client.expects(:create_category).with(guild_id: GUILD, name: "Reddit DMs 2").returns("cat2").in_sequence(seq)
+      @client.expects(:get_channel).with(PRIMARY)
+        .returns("name" => "Reddit DMs", "permission_overwrites" => OVERWRITES).in_sequence(seq)
+      # Copies the primary category's overwrites so the spillover stays private.
+      @client.expects(:create_category)
+        .with(guild_id: GUILD, name: "Reddit DMs 2", permission_overwrites: OVERWRITES)
+        .returns("cat2").in_sequence(seq)
       @client.expects(:create_channel)
         .with(guild_id: GUILD, name: "dm-foo", parent_id: "cat2", topic: "t")
         .returns("chan2").in_sequence(seq)
@@ -65,7 +70,7 @@ module Discord
       AppConfig.set(SPILLOVER_KEY, "cat2")
       @client.expects(:create_channel).with(has_entry(parent_id: "cat2")).raises(category_full_error)
       @client.expects(:get_channel).with(PRIMARY).returns("name" => "Inbox")
-      @client.expects(:create_category).with(guild_id: GUILD, name: "Inbox 3").returns("cat3")
+      @client.expects(:create_category).with(guild_id: GUILD, name: "Inbox 3", permission_overwrites: nil).returns("cat3")
       @client.expects(:create_channel).with(has_entry(parent_id: "cat3")).returns("chan")
       @journal.stubs(:info)
 
@@ -77,7 +82,7 @@ module Discord
     test "falls back to 'Reddit DMs' when the primary name can't be fetched" do
       @client.expects(:create_channel).with(has_entry(parent_id: PRIMARY)).raises(category_full_error)
       @client.expects(:get_channel).with(PRIMARY).raises(Discord::NotFound.new("gone"))
-      @client.expects(:create_category).with(guild_id: GUILD, name: "Reddit DMs 2").returns("cat2")
+      @client.expects(:create_category).with(guild_id: GUILD, name: "Reddit DMs 2", permission_overwrites: nil).returns("cat2")
       @client.expects(:create_channel).with(has_entry(parent_id: "cat2")).returns("chan")
       @journal.stubs(:info)
 
@@ -102,6 +107,15 @@ module Discord
 
     test "propagates AuthError from channel creation" do
       @client.expects(:create_channel).raises(Discord::AuthError.new("403"))
+
+      assert_raises(Discord::AuthError) { @allocator.create_channel(name: "dm-foo", topic: nil) }
+    end
+
+    test "alerts about Manage Roles and re-raises when spillover category create is forbidden" do
+      @client.expects(:create_channel).with(has_entry(parent_id: PRIMARY)).raises(category_full_error)
+      @client.expects(:get_channel).with(PRIMARY).returns("name" => "Reddit DMs", "permission_overwrites" => OVERWRITES)
+      @client.expects(:create_category).raises(Discord::AuthError.new("Missing Permissions"))
+      @journal.expects(:critical).with(regexp_matches(/Manage Roles/), has_key(:source))
 
       assert_raises(Discord::AuthError) { @allocator.create_channel(name: "dm-foo", topic: nil) }
     end

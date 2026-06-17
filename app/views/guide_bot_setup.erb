@@ -290,6 +290,7 @@
     <ul class="perm-list mt-3">
       <% [
         ["Manage Channels",     "Create and delete #dm-* channels."],
+        ["Manage Roles",        "Copy your category's private permissions onto auto-created spillover categories."],
         ["Manage Webhooks",     "Per-channel webhooks so bubbles show the sender's Reddit identity."],
         ["Manage Messages",     "Delete your original Discord bubble after the webhook rewrite."],
         ["Send Messages",       "Baseline — the bridge posts here."],
@@ -380,8 +381,9 @@
     <p class="kicker">Heads-up · the 50-channel limit</p>
     <p class="guide-tip__body">
       Discord caps a category at 50 channels. The bridge auto-creates overflow categories
-      (<em>Reddit DMs 2</em>, <em>3</em>, …) when the DMs category fills — no extra
-      permission needed beyond <strong>Manage Channels</strong>. You can turn this off in
+      (<em>Reddit DMs 2</em>, <em>3</em>, …) when the DMs category fills, copying your
+      category's private permissions across (this is what <strong>Manage Roles</strong> is
+      for). You can turn this off in
       <a href="/settings" class="text-ember hover:underline">settings</a> (it's on by default).
       If you don't want old, dormant conversations claiming channels, set a
       <strong>history lookback</strong> or <strong>cutoff date</strong> there too.
@@ -431,9 +433,45 @@
     <ul class="guide-tip__list">
       <li>Token typo: paste again in <a href="/settings#discord_bot_token" class="guide-link">settings</a>.</li>
       <li>Guild ID belongs to a different server. Right-click the server name in the server list, not a channel inside it.</li>
-      <li>Permissions missing: Discord created a managed role named after your app when you invited the bot. Open <em>Server Settings → Roles</em>, click that role, and confirm it still has the 8 bot permissions. Re-running the invite URL from Step 03 will re-grant them.</li>
+      <li>Permissions missing: Discord created a managed role named after your app when you invited the bot. Open <em>Server Settings → Roles</em>, click that role, and confirm it still has the bot permissions listed in Step 03. Re-running the invite URL from Step 03 will re-grant them.</li>
       <li>Container logs are the last resort. Check whatever logging surface your platform provides for the bridge's output.</li>
     </ul>
+  </div>
+</article>
+
+<!-- Step 06 — Reddit session -->
+<article class="console-card p-7 rise rise-delay-4 guide-chapter" id="step-06">
+  <header class="guide-chapter__header">
+    <div>
+      <p class="kicker kicker-ember">Step 06 · Reddit session</p>
+      <h2 class="section-title mt-2">Connect your Reddit account</h2>
+    </div>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= AuthState.reddit_cookie_jar ? "ok" : "pending" %>">
+      <%= AuthState.reddit_cookie_jar ? "Connected" : "Needed to sync" %>
+    </span>
+  </header>
+
+  <p class="mt-4 text-bone-dim leading-relaxed max-w-2xl">
+    Everything above wires up Discord. The bridge still needs to read your Reddit chats:
+    paste your <code>reddit_session</code> cookie once on the
+    <a href="/auth" class="text-ember hover:underline">auth</a> page and it auto-refreshes
+    the short-lived chat token from then on.
+  </p>
+
+  <ol class="mt-4 text-sm text-bone-dim leading-relaxed list-decimal pl-5 space-y-1">
+    <li>Log in to <code>www.reddit.com</code> in your browser.</li>
+    <li>Open DevTools → <strong>Application</strong> (Chrome) or <strong>Storage</strong> (Firefox) → Cookies → <code>https://www.reddit.com</code>.</li>
+    <li>Copy the <strong>Value</strong> of the <code>reddit_session</code> row (just the JWT).</li>
+    <li>Paste it into <em>Auto-refresh via Reddit session token</em> on the auth page.</li>
+  </ol>
+
+  <div class="guide-final-grid mt-6">
+    <a href="/auth" class="guide-final-card">
+      <p class="kicker">Connect</p>
+      <p class="guide-final-card__title">Paste your Reddit session cookie</p>
+      <p class="guide-final-card__hint">Full step-by-step (with the one-click bookmarklet) lives on the auth page.</p>
+      <span class="guide-final-card__arrow" aria-hidden="true">→</span>
+    </a>
   </div>
 </article>
 

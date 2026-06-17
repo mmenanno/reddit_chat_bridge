@@ -6,12 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [1.15.0] - 2026-06-16
+## [1.15.0] - 2026-06-17
 
 ### Added
 
-- Category spillover for Discord's 50-channel-per-category limit. When the "Reddit DMs" category fills, the bridge auto-creates overflow categories (`Reddit DMs 2`, `3`, … derived from the primary category's name) and routes new `#dm-*` channels there instead of silently dropping them. New `Discord::CategoryAllocator` detects the `CHANNEL_PARENT_MAX_CHANNELS` 400, mints the next category, persists the IDs in `discord_dms_spillover_category_ids`, and retries. A new `Auto spillover categories` toggle in `/settings` (on by default) gates it; when off, a full category warns loudly rather than dropping the DM. If the guild-wide 500-channel cap is hit, a critical `#app-status` alert fires instead of a silent drop. No new bot permission — category creation uses the existing Manage Channels grant. Fixes #17.
+- Category spillover for Discord's 50-channel-per-category limit. When the "Reddit DMs" category fills, the bridge auto-creates overflow categories (`Reddit DMs 2`, `3`, … derived from the primary category's name) and routes new `#dm-*` channels there instead of silently dropping them. Each overflow category copies the primary category's permission overwrites, so it stays private and its channels inherit those perms. New `Discord::CategoryAllocator` detects the `CHANNEL_PARENT_MAX_CHANNELS` 400, mints the next category, persists the IDs in `discord_dms_spillover_category_ids`, and retries. A new `Auto spillover categories` toggle in `/settings` (on by default) gates it; when off, a full category warns loudly rather than dropping the DM. If the guild-wide 500-channel cap is hit, a critical `#app-status` alert fires instead of a silent drop. Fixes #17.
 - History cutoff levers in `/settings`: a rolling `History lookback (days)` and an absolute `History cutoff date`, usable separately or together (the later boundary wins). Events older than the cutoff are skipped before a Room or channel is created, so old dormant DMs don't each claim a Discord channel on the initial sync. Blank/0 = bridge everything (the default). Explicit per-room "Restore history" / unarchive backfills bypass the cutoff.
+- Setup guide now has a "Step 06 · Reddit session" section walking through grabbing the `reddit_session` cookie and pointing to the auth page, so the Reddit half of setup isn't easy to miss.
+
+### Changed
+
+- The bot invite now requests the **Manage Roles** permission so spillover categories can copy your private category's permissions. Existing installs must re-invite the bot (Step 03 of the setup guide) before spillover can keep overflow categories private.
+- Full resync now restores archived rooms too: it unarchives and rebuilds them so a from-scratch resync is complete. Ended (terminated/hidden) chats still stay hidden until explicitly restored.
+- Rebuild and full resync now log each per-room failure to the journal (`/events` + `#app-logs`) instead of only returning an error count, so a batch of failures is diagnosable.
 
 ## [1.14.2] - 2026-05-12
 

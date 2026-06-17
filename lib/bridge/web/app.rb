@@ -65,10 +65,13 @@ module Bridge
       #   EMBED_LINKS           (1 << 14)  = 16384
       #   ATTACH_FILES          (1 << 15)  = 32768
       #   READ_MESSAGE_HISTORY  (1 << 16)  = 65536
+      #   MANAGE_ROLES          (1 << 28)  = 268435456
       #   MANAGE_WEBHOOKS       (1 << 29)  = 536870912
       #   USE_APPLICATION_CMDS  (1 << 31)  = 2147483648
+      # Manage Roles is needed to copy private permissions onto auto-created
+      # spillover categories (Discord validates overwrites against the bot's perms).
       GUIDE_INVITE_PERMISSIONS = (1 << 4) | (1 << 11) | (1 << 13) | (1 << 14) |
-        (1 << 15) | (1 << 16) | (1 << 29) | (1 << 31)
+        (1 << 15) | (1 << 16) | (1 << 28) | (1 << 29) | (1 << 31)
 
       # AppConfig keys that `guide_bot_setup_steps` reads in one batched
       # query. Bundled here so the list can't drift out of sync with the
@@ -208,7 +211,7 @@ module Bridge
           factory = lambda { |token|
             Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER)
           }
-          actions = Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+          actions = Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler, journal: Bridge::Application.instance&.journal)
           actions.message_request_web_notifier = build_message_request_notifier
           actions
         end

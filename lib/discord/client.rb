@@ -47,8 +47,10 @@ module Discord
       post("guilds/#{guild_id}/channels", payload: payload).body.fetch("id")
     end
 
-    def create_category(guild_id:, name:)
-      post("guilds/#{guild_id}/channels", payload: { name: name, type: CHANNEL_TYPE_CATEGORY }).body.fetch("id")
+    def create_category(guild_id:, name:, permission_overwrites: nil)
+      payload = { name: name, type: CHANNEL_TYPE_CATEGORY }
+      payload[:permission_overwrites] = permission_overwrites if permission_overwrites
+      post("guilds/#{guild_id}/channels", payload: payload).body.fetch("id")
     end
 
     def send_message(channel_id:, content:)
