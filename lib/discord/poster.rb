@@ -38,7 +38,7 @@ module Discord
     # Re-check Reddit's profile API at most once every 24h after a miss.
     AVATAR_NEGATIVE_CACHE_TTL = 24 * 3600
 
-    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, channel_reorderer: nil, sleeper: Kernel.method(:sleep))
+    def initialize(client:, channel_index:, matrix_client: nil, logger: nil, sent_registry: nil, reddit_profile_client: nil, channel_reorderer: nil, history_cutoff: nil, sleeper: Kernel.method(:sleep))
       @client = client
       @channel_index = channel_index
       @matrix_client = matrix_client
@@ -46,15 +46,17 @@ module Discord
       @sent_registry = sent_registry
       @reddit_profile_client = reddit_profile_client
       @channel_reorderer = channel_reorderer
+      @history_cutoff = history_cutoff
       @sleeper = sleeper
       # nil = unknown; checked lazily on first successful post, then tracked
       # in-process so the common hot path skips a per-event AppConfig read.
       @permissions_flag_set = nil
     end
 
-    def call(events)
+    def call(events, respect_cutoff: true)
       @auth_warned_this_batch = false
       @activity_posted = false
+      @batch_cutoff = respect_cutoff ? @history_cutoff&.cutoff_time : nil
       events.each { |event| post_one(event) }
       @channel_reorderer&.reorder! if @activity_posted
     end
@@ -65,6 +67,7 @@ module Discord
       return if PostedEvent.posted?(event.event_id)
       return if echo_of_our_send?(event)
       return if terminated_room?(event.room_id)
+      return if before_cutoff?(event)
 
       room = Room.find_or_create_by_matrix_id!(event.room_id)
       auto_unarchive!(room)
@@ -346,6 +349,12 @@ module Discord
     # local filtering is the only way to make End chat stick.
     def terminated_room?(matrix_room_id)
       Room.terminated.exists?(matrix_room_id: matrix_room_id)
+    end
+
+    def before_cutoff?(event)
+      return false unless @batch_cutoff
+
+      activity_time_for(event) < @batch_cutoff
     end
 
     # New activity on an archived room flips it back to active. The channel

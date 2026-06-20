@@ -24,12 +24,14 @@ module Admin
       matrix_client_factory:,
       refresh_flow: Auth::RefreshFlow.new,
       reconciler: nil,
-      system_channel_provisioner: nil
+      system_channel_provisioner: nil,
+      journal: nil
     )
       @matrix_client_factory = matrix_client_factory
       @refresh_flow = refresh_flow
       @reconciler = reconciler
       @system_channel_provisioner = system_channel_provisioner
+      @journal = journal
     end
 
     def reauth(access_token:)
@@ -72,7 +74,8 @@ module Admin
     def full_resync!
       delete_stats = delete_existing_discord_channels!
       clear_stats = nuke_persisted_state!
-      rebuild_stats = rebuild_all_rooms!
+      # Destructive resync restores archived rooms too (terminated stay hidden).
+      rebuild_stats = rebuild_all_rooms!(include_archived: true)
       delete_stats.merge(clear_stats).merge(rebuild_stats)
     end
 
@@ -274,28 +277,28 @@ module Admin
       { rooms_reset: rooms_reset, events_cleared: events_cleared }
     end
 
-    # Per-room rescue: one flaky Matrix/Discord call shouldn't abort the
-    # whole rebuild. The refresh_one call itself is idempotent — PostedEvent
-    # dedup keeps replay safe if the operator re-runs.
+    # Per-room rescue: one flaky Matrix/Discord call shouldn't abort the whole
+    # rebuild. refresh_one is idempotent (PostedEvent dedup keeps replay safe).
+    # Failures are logged so a batch of errors is diagnosable, not just counted.
     #
-    # Archived and terminated rooms are intentionally skipped: backfilling
-    # their history through the Poster auto-unarchives the channel (the
-    # Poster treats "received an event" as a signal to bring the channel
-    # back), and terminated rooms are supposed to stay hidden until the
-    # operator explicitly /restore's them.
-    def rebuild_all_rooms!
+    # Terminated rooms always stay hidden until explicitly restored. Archived
+    # rooms are skipped on a non-destructive rebuild but unarchived + rebuilt on
+    # a full resync (include_archived), so a from-scratch resync is complete.
+    def rebuild_all_rooms!(include_archived: false)
       return { rebuilt: 0, rebuild_skipped: 0, rebuild_errors: 0 } unless @reconciler
 
-      active = Room.where(archived_at: nil, terminated_at: nil)
-      skipped = Room.count - active.count
+      scope = include_archived ? Room.where(terminated_at: nil) : Room.where(archived_at: nil, terminated_at: nil)
+      skipped = Room.count - scope.count
 
       rebuilt = 0
       errors = 0
-      active.find_each do |room|
+      scope.find_each do |room|
+        room.unarchive! if room.archived?
         @reconciler.refresh_one(matrix_room_id: room.matrix_room_id)
         rebuilt += 1
-      rescue StandardError
+      rescue StandardError => exception
         errors += 1
+        @journal&.warn("rebuild failed for #{room.matrix_room_id}: #{exception.class}: #{exception.message}", source: "admin_actions")
       end
       { rebuilt: rebuilt, rebuild_skipped: skipped, rebuild_errors: errors }
     end

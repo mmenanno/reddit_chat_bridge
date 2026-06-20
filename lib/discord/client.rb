@@ -31,6 +31,7 @@ module Discord
   class Client
     BASE_URL = "https://discord.com/api/v10/"
     CHANNEL_TYPE_TEXT = 0
+    CHANNEL_TYPE_CATEGORY = 4
 
     def initialize(bot_token:, base_url: BASE_URL, conn: nil)
       @bot_token = bot_token
@@ -43,6 +44,12 @@ module Discord
       payload[:parent_id] = parent_id if parent_id
       payload[:topic] = topic if topic
 
+      post("guilds/#{guild_id}/channels", payload: payload).body.fetch("id")
+    end
+
+    def create_category(guild_id:, name:, permission_overwrites: nil)
+      payload = { name: name, type: CHANNEL_TYPE_CATEGORY }
+      payload[:permission_overwrites] = permission_overwrites if permission_overwrites
       post("guilds/#{guild_id}/channels", payload: payload).body.fetch("id")
     end
 

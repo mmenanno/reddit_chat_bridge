@@ -187,6 +187,48 @@ module Bridge
         assert_equal("", AppConfig.get("discord_admin_commands_channel_id"))
       end
 
+      test "POST /settings round-trips the history cutoff fields" do
+        post "/settings",
+          bridge_history_lookback_days: "30",
+          bridge_history_cutoff_date: "2025-01-01"
+        follow_redirect!
+
+        assert_equal("30", AppConfig.get("bridge_history_lookback_days"))
+        assert_equal("2025-01-01", AppConfig.get("bridge_history_cutoff_date"))
+      end
+
+      test "POST /settings rejects a non-numeric history lookback without saving" do
+        AppConfig.set("bridge_history_lookback_days", "7")
+
+        post "/settings", bridge_history_lookback_days: "thirty"
+        follow_redirect!
+
+        assert_match(/History lookback/i, last_response.body)
+        assert_equal("7", AppConfig.get("bridge_history_lookback_days"))
+      end
+
+      test "POST /settings rejects an unparseable history cutoff date without saving" do
+        post "/settings", bridge_history_cutoff_date: "01/02/2025"
+        follow_redirect!
+
+        assert_match(/History cutoff date/i, last_response.body)
+      end
+
+      test "POST /settings stores the spillover toggle as false when unchecked" do
+        # The hidden field submits "false"; an unchecked checkbox omits "true".
+        post "/settings", discord_dms_spillover_enabled: "false"
+        follow_redirect!
+
+        assert_equal("false", AppConfig.get("discord_dms_spillover_enabled"))
+      end
+
+      test "POST /settings stores the spillover toggle as true when checked" do
+        post "/settings", discord_dms_spillover_enabled: "true"
+        follow_redirect!
+
+        assert_equal("true", AppConfig.get("discord_dms_spillover_enabled"))
+      end
+
       test "POST /settings accepts a valid 19-digit snowflake" do
         post "/settings", discord_guild_id: "1494755976241221705"
 

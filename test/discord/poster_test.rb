@@ -5,7 +5,9 @@ require "matrix/client"
 require "matrix/event_normalizer"
 require "discord/client"
 require "discord/channel_index"
+require "discord/category_allocator"
 require "discord/poster"
+require "bridge/history_cutoff"
 
 module Discord
   class PosterTest < ActiveSupport::TestCase
@@ -28,7 +30,11 @@ module Discord
       @index = Discord::ChannelIndex.new(
         client: @client,
         guild_id: "guild",
-        category_id: "cat",
+        category_allocator: Discord::CategoryAllocator.new(
+          client: @client,
+          guild_id: "guild",
+          primary_category_id: "cat",
+        ),
       )
       @sleeps = []
       @poster = Discord::Poster.new(
@@ -394,6 +400,52 @@ module Discord
 
       # Event is marked posted so the next sync iteration doesn't replay it.
       assert(PostedEvent.posted?("$bad"))
+    end
+
+    # ---- history cutoff ----
+
+    test "skips events older than the configured cutoff and creates no Room or channel" do
+      AppConfig.set("bridge_history_cutoff_date", "2026-01-01")
+      poster = Discord::Poster.new(client: @client, channel_index: @index, history_cutoff: Bridge::HistoryCutoff.new)
+      @client.expects(:execute_webhook).never
+      old_ts = (Time.utc(2020, 1, 1).to_f * 1000).to_i
+
+      poster.call([event(body: "ancient", event_id: "$old", origin_server_ts: old_ts)])
+
+      assert_equal(0, Room.count)
+      refute(PostedEvent.posted?("$old"))
+    end
+
+    test "posts events newer than the cutoff normally" do
+      AppConfig.set("bridge_history_cutoff_date", "2020-01-01")
+      poster = Discord::Poster.new(client: @client, channel_index: @index, history_cutoff: Bridge::HistoryCutoff.new)
+      @client.expects(:execute_webhook).returns("m")
+      recent_ts = (Time.utc(2026, 4, 1).to_f * 1000).to_i
+
+      poster.call([event(body: "recent", origin_server_ts: recent_ts)])
+
+      assert_equal(1, Room.count)
+    end
+
+    test "does not drop events whose timestamp is missing" do
+      AppConfig.set("bridge_history_lookback_days", "1")
+      poster = Discord::Poster.new(client: @client, channel_index: @index, history_cutoff: Bridge::HistoryCutoff.new)
+      @client.expects(:execute_webhook).returns("m")
+
+      poster.call([event(body: "no-ts", origin_server_ts: nil)])
+
+      assert_equal(1, Room.count)
+    end
+
+    test "respect_cutoff false bridges events older than the cutoff" do
+      AppConfig.set("bridge_history_cutoff_date", "2026-01-01")
+      poster = Discord::Poster.new(client: @client, channel_index: @index, history_cutoff: Bridge::HistoryCutoff.new)
+      @client.expects(:execute_webhook).returns("m")
+      old_ts = (Time.utc(2020, 1, 1).to_f * 1000).to_i
+
+      poster.call([event(body: "ancient-but-explicit", origin_server_ts: old_ts)], respect_cutoff: false)
+
+      assert_equal(1, Room.count)
     end
 
     # ---- channel reorder hook ----

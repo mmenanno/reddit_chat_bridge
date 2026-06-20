@@ -3,6 +3,9 @@
 <% manual_fields = where_to_post_channel_fields(@fields, scope: :manual) %>
 <% sys_category  = @fields.find { |f| f[:key] == "discord_system_channels_category_id" } %>
 <% slash_fields  = @fields.select { |f| ["discord_application_id", "discord_operator_user_ids"].include?(f[:key]) } %>
+<% spillover_field = @fields.find { |f| f[:key] == "discord_dms_spillover_enabled" } %>
+<% lookback_field  = @fields.find { |f| f[:key] == "bridge_history_lookback_days" } %>
+<% cutoff_field    = @fields.find { |f| f[:key] == "bridge_history_cutoff_date" } %>
 <% mode          = system_channels_mode %>
 <% rows          = system_channel_rows %>
 <% order_csv     = rows.map { |r| r[:slug] }.join(",") %>
@@ -156,6 +159,67 @@
           <% end %>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="console-card p-6 rise rise-delay-3">
+    <header class="mb-5">
+      <p class="kicker">Bridge · history scope</p>
+      <h2 class="section-title mt-1">How much history to bridge</h2>
+      <p class="mt-2 text-sm text-bone-dim">
+        Discord caps each category at 50 channels. Spillover auto-creates overflow
+        categories; the history cutoff stops old, dormant DMs from claiming channels
+        in the first place. Leave the cutoff fields blank to bridge everything.
+      </p>
+    </header>
+
+    <% if spillover_field %>
+      <div class="field mb-6">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="hidden" name="<%= spillover_field[:key] %>" value="false">
+          <input
+            type="checkbox"
+            name="<%= spillover_field[:key] %>"
+            value="true"
+            class="checkbox checkbox-primary"
+            <%= spillover_field[:value] == "false" ? "" : "checked" %>>
+          <span class="field-label mb-0"><%= spillover_field[:label] %></span>
+        </label>
+        <span class="field-hint"><%= spillover_field[:hint] %></span>
+      </div>
+    <% end %>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <% if lookback_field %>
+        <div class="field">
+          <label class="field-label" for="<%= lookback_field[:key] %>"><%= lookback_field[:label] %></label>
+          <input
+            id="<%= lookback_field[:key] %>"
+            type="text"
+            inputmode="numeric"
+            name="<%= lookback_field[:key] %>"
+            value="<%= lookback_field[:value] %>"
+            autocomplete="off"
+            spellcheck="false"
+            class="field-input">
+          <span class="field-hint"><%= lookback_field[:hint] %></span>
+        </div>
+      <% end %>
+      <% if cutoff_field %>
+        <div class="field">
+          <label class="field-label" for="<%= cutoff_field[:key] %>"><%= cutoff_field[:label] %></label>
+          <input
+            id="<%= cutoff_field[:key] %>"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            name="<%= cutoff_field[:key] %>"
+            value="<%= cutoff_field[:value] %>"
+            autocomplete="off"
+            spellcheck="false"
+            class="field-input">
+          <span class="field-hint"><%= cutoff_field[:hint] %></span>
+        </div>
+      <% end %>
     </div>
   </section>
 

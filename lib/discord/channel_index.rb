@@ -14,20 +14,17 @@ module Discord
     CHANNEL_TOPIC_MAX = 1024 # Discord's documented topic cap
     WEBHOOK_NAME = "Reddit Chat Bridge"
 
-    def initialize(client:, guild_id:, category_id:)
+    def initialize(client:, guild_id:, category_allocator:)
       @client = client
       @guild_id = guild_id
-      @category_id = category_id
+      @category_allocator = category_allocator
     end
 
     def ensure_channel(room:)
       return room.discord_channel_id if room.discord_channel_id
 
-      name = channel_name_for(room)
-      channel_id = @client.create_channel(
-        guild_id: @guild_id,
-        name: name,
-        parent_id: @category_id,
+      channel_id = @category_allocator.create_channel(
+        name: channel_name_for(room),
         topic: topic_for(room),
       )
       room.attach_discord_channel!(channel_id)

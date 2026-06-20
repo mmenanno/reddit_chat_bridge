@@ -8,6 +8,7 @@ require "matrix/id"
 require "matrix/media_resolver"
 require "discord/client"
 require "discord/channel_index"
+require "discord/category_allocator"
 require "discord/channel_reorderer"
 require "discord/poster"
 require "discord/message_request_notifier"
@@ -64,10 +65,13 @@ module Bridge
       #   EMBED_LINKS           (1 << 14)  = 16384
       #   ATTACH_FILES          (1 << 15)  = 32768
       #   READ_MESSAGE_HISTORY  (1 << 16)  = 65536
+      #   MANAGE_ROLES          (1 << 28)  = 268435456
       #   MANAGE_WEBHOOKS       (1 << 29)  = 536870912
       #   USE_APPLICATION_CMDS  (1 << 31)  = 2147483648
+      # Manage Roles is needed to copy private permissions onto auto-created
+      # spillover categories (Discord validates overwrites against the bot's perms).
       GUIDE_INVITE_PERMISSIONS = (1 << 4) | (1 << 11) | (1 << 13) | (1 << 14) |
-        (1 << 15) | (1 << 16) | (1 << 29) | (1 << 31)
+        (1 << 15) | (1 << 16) | (1 << 28) | (1 << 29) | (1 << 31)
 
       # AppConfig keys that `guide_bot_setup_steps` reads in one batched
       # query. Bundled here so the list can't drift out of sync with the
@@ -207,7 +211,7 @@ module Bridge
           factory = lambda { |token|
             Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER)
           }
-          actions = Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+          actions = Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler, journal: Bridge::Application.instance&.journal)
           actions.message_request_web_notifier = build_message_request_notifier
           actions
         end
@@ -236,10 +240,16 @@ module Bridge
           )
           discord_client = Discord::Client.new(bot_token: AppConfig.fetch("discord_bot_token"))
           guild_id = AppConfig.fetch("discord_guild_id")
+          category_allocator = Discord::CategoryAllocator.new(
+            client: discord_client,
+            guild_id: guild_id,
+            primary_category_id: AppConfig.fetch("discord_dms_category_id"),
+            journal: Bridge::Application.instance&.journal,
+          )
           channel_index = Discord::ChannelIndex.new(
             client: discord_client,
             guild_id: guild_id,
-            category_id: AppConfig.fetch("discord_dms_category_id"),
+            category_allocator: category_allocator,
           )
           # Without this the web-initiated rebuild/full_resync paths rebuild
           # every channel but never re-sort them — the supervisor-owned
@@ -313,6 +323,23 @@ module Bridge
           value.to_i <= App::SNOWFLAKE_MAX
         end
 
+        def validate_history_fields(submitted)
+          errors = []
+          days = submitted["bridge_history_lookback_days"].to_s.strip
+          errors << "History lookback (days) must be a whole number" if !days.empty? && !/\A\d+\z/.match?(days)
+
+          date = submitted["bridge_history_cutoff_date"].to_s.strip
+          errors << "History cutoff date must be YYYY-MM-DD" if !date.empty? && !valid_iso_date?(date)
+          errors
+        end
+
+        def valid_iso_date?(value)
+          Date.iso8601(value)
+          true
+        rescue Date::Error
+          false
+        end
+
         # Drives the /guide/bot-setup progress rail + "done when" ready-check.
         # Each step is marked `:ok` when the AppConfig keys that prove the
         # operator completed that phase are populated. `:pending` otherwise.
@@ -360,7 +387,7 @@ module Bridge
             {
               num: 3,
               rail: "Invite",
-              rail_full: "Bot invited to the server with the 8 required permissions",
+              rail_full: "Bot invited to the server with the required permissions",
               status: !app_id.empty? && !guild.empty? ? :ok : :pending,
             },
             {
@@ -375,6 +402,12 @@ module Bridge
               rail: "Confirm",
               rail_full: "Discord config complete — ready for the #app-status probe",
               status: !token.empty? && !guild.empty? && channels_ok ? :ok : :pending,
+            },
+            {
+              num: 6,
+              rail: "Reddit",
+              rail_full: "Reddit session cookie pasted so the bridge can sync your chats",
+              status: AuthState.reddit_cookie_jar ? :ok : :pending,
             },
           ]
         end
@@ -872,6 +905,28 @@ module Bridge
           snowflake: true,
         },
         {
+          key: "discord_dms_spillover_enabled",
+          label: "Auto spillover categories",
+          hint: "When the Reddit DMs category fills Discord's 50-channel limit, auto-create overflow categories (Reddit DMs 2, 3...). On by default.",
+          default: "true",
+          secret: false,
+          boolean: true,
+        },
+        {
+          key: "bridge_history_lookback_days",
+          label: "History lookback (days)",
+          hint: "Only bridge conversations active in the last N days. Blank or 0 = bridge all history.",
+          default: "",
+          secret: false,
+        },
+        {
+          key: "bridge_history_cutoff_date",
+          label: "History cutoff date",
+          hint: "Ignore messages before this date (YYYY-MM-DD). Blank = no date floor. Combined with lookback, the later of the two wins.",
+          default: "",
+          secret: false,
+        },
+        {
           key: "discord_system_channels_mode",
           label: "System channels mode",
           hint: "auto (recommended) or manual",
@@ -948,7 +1003,7 @@ module Bridge
       end
 
       post "/settings" do
-        invalid = validate_snowflake_fields(params)
+        invalid = validate_snowflake_fields(params) + validate_history_fields(params)
         if invalid.any?
           flash_error!("#{invalid.join("; ")}. Nothing was saved.")
           redirect("/settings")

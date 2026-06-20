@@ -8,6 +8,7 @@ require "matrix/sync_loop"
 require "dedup/sent_registry"
 require "discord/client"
 require "discord/channel_index"
+require "discord/category_allocator"
 require "discord/channel_reorderer"
 require "discord/gateway"
 require "discord/outbound_dispatcher"
@@ -23,6 +24,7 @@ require "admin/actions"
 require "admin/reconciler"
 require "auth/refresh_flow"
 require "bridge/build_info"
+require "bridge/history_cutoff"
 require "bridge/journal"
 require "bridge/supervisor"
 
@@ -175,6 +177,7 @@ module Bridge
         sent_registry: @sent_registry,
         reddit_profile_client: Reddit::ProfileClient.new,
         channel_reorderer: build_channel_reorderer,
+        history_cutoff: Bridge::HistoryCutoff.new,
       )
     end
 
@@ -197,7 +200,16 @@ module Bridge
       Discord::ChannelIndex.new(
         client: @discord_client,
         guild_id: AppConfig.fetch("discord_guild_id"),
-        category_id: AppConfig.fetch("discord_dms_category_id"),
+        category_allocator: build_category_allocator,
+      )
+    end
+
+    def build_category_allocator
+      Discord::CategoryAllocator.new(
+        client: @discord_client,
+        guild_id: AppConfig.fetch("discord_guild_id"),
+        primary_category_id: AppConfig.fetch("discord_dms_category_id"),
+        journal: @journal,
       )
     end
 
@@ -307,7 +319,7 @@ module Bridge
 
     def build_admin_actions
       factory = ->(token) { Matrix::Client.new(access_token: token, homeserver: Matrix::Client::DEFAULT_HOMESERVER) }
-      Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler)
+      Admin::Actions.new(matrix_client_factory: factory, reconciler: build_reconciler, journal: @journal)
     end
 
     # Without this, every /endchat, /archive, /refresh, and message-request
