@@ -34,13 +34,13 @@ module Bridge
         assert_match(/Setup guide/, last_response.body)
       end
 
-      test "renders each of the five step titles in order" do
+      test "renders each of the six step titles in order" do
         get "/guide/bot-setup"
 
-        # One regex covering all five h2s in render order, so any drift in the
+        # One regex covering all six h2s in render order, so any drift in the
         # view's chapter list fails this single test instead of producing
         # separate failures per title.
-        ordered = /Stand up a dedicated server.*Create the Discord application.*Invite the bot to your server.*Copy the category IDs into the bridge.*Prove the bot can talk/m
+        ordered = /Stand up a dedicated server.*Create the Discord application.*Invite the bot to your server.*Copy the category IDs into the bridge.*Prove the bot can talk.*Connect your Reddit account/m
 
         assert_match(ordered, last_response.body)
       end
@@ -101,10 +101,10 @@ module Bridge
 
         statuses = helpers.guide_bot_setup_steps.map { |s| s[:status] }
 
-        assert_equal([:pending, :pending, :pending, :pending, :pending], statuses)
+        assert_equal([:pending, :pending, :pending, :pending, :pending, :pending], statuses)
       end
 
-      test "steps reflect populated AppConfig in auto mode" do
+      test "Discord steps go ok with config but the Reddit step waits for a cookie" do
         AppConfig.set("discord_bot_token", "bot-token-xyz")
         AppConfig.set("discord_application_id", "1234567890123456789")
         AppConfig.set("discord_guild_id", "9999999999999999999")
@@ -114,7 +114,13 @@ module Bridge
 
         statuses = App.new!.guide_bot_setup_steps.map { |s| s[:status] }
 
-        assert_equal([:ok, :ok, :ok, :ok, :ok], statuses)
+        assert_equal([:ok, :ok, :ok, :ok, :ok, :pending], statuses)
+      end
+
+      test "the Reddit step flips to ok once a session cookie is stored" do
+        AuthState.stubs(:reddit_cookie_jar).returns("reddit_session_jwt")
+
+        assert_equal(:ok, App.new!.guide_bot_setup_steps.last[:status])
       end
 
       test "manual mode requires every channel ID before step 4 flips to ok" do

@@ -84,12 +84,14 @@ module Bridge
         assert_equal(1, AdminUser.count)
       end
 
-      test "POST /setup redirects to / when Discord is already fully configured" do
+      test "POST /setup redirects to / when setup is already fully configured" do
         # Edge case for reinstalls / test fixtures where AppConfig is already
         # populated before the admin is created. No guide is needed — the
-        # operator already has everything wired and just needs the dashboard.
+        # operator already has everything wired (including the Reddit cookie a
+        # persistent reinstall keeps) and just needs the dashboard.
         Bridge::Web::App::GUIDE_TRACKED_KEYS.each { |k| AppConfig.set(k, "1234") }
         AppConfig.set("discord_system_channels_mode", "auto")
+        AuthState.stubs(:reddit_cookie_jar).returns("reddit_session_jwt")
 
         post "/setup", username: "michael", password: "hunter2hunter2"
 

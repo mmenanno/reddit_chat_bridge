@@ -387,7 +387,7 @@ module Bridge
             {
               num: 3,
               rail: "Invite",
-              rail_full: "Bot invited to the server with the 8 required permissions",
+              rail_full: "Bot invited to the server with the required permissions",
               status: !app_id.empty? && !guild.empty? ? :ok : :pending,
             },
             {
@@ -402,6 +402,12 @@ module Bridge
               rail: "Confirm",
               rail_full: "Discord config complete — ready for the #app-status probe",
               status: !token.empty? && !guild.empty? && channels_ok ? :ok : :pending,
+            },
+            {
+              num: 6,
+              rail: "Reddit",
+              rail_full: "Reddit session cookie pasted so the bridge can sync your chats",
+              status: AuthState.reddit_cookie_jar ? :ok : :pending,
             },
           ]
         end

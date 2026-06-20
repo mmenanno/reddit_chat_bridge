@@ -2,7 +2,7 @@
   # Live detection of which steps already have their AppConfig fields populated.
   # Drives the progress rail and the "you're done when..." strip at the bottom.
   steps = guide_bot_setup_steps
-  discord_ok = steps.all? { |s| s[:status] == :ok }
+  setup_ok = steps.all? { |s| s[:status] == :ok }
   app_id     = AppConfig.fetch("discord_application_id", "").to_s
   bot_id     = AppConfig.fetch("discord_application_id", "").to_s
   invite_url = guide_invite_url(app_id)
@@ -14,18 +14,17 @@
     Wire Discord to the <em>bridge</em>.
   </h1>
   <p class="mt-4 max-w-2xl text-bone-dim text-base leading-relaxed">
-    Five steps to stand up the Discord side: a dedicated server, a bot identity, an invite, and
-    a handful of channel IDs pasted into
-    <a href="/settings" class="text-ember hover:underline">settings</a>.
-    Once the checklist at the bottom lights up, head to
-    <a href="/auth" class="text-ember hover:underline">auth</a> to paste your Reddit session
-    cookies and the bridge starts syncing.
+    Six steps: the Discord side — a dedicated server, a bot identity, an invite, and a handful
+    of channel IDs pasted into
+    <a href="/settings" class="text-ember hover:underline">settings</a> — then your Reddit
+    session cookie on the <a href="/auth" class="text-ember hover:underline">auth</a> page.
+    Once the checklist lights up, the bridge starts syncing.
   </p>
   <div class="mt-6 flex flex-wrap items-center gap-3">
-    <% if discord_ok %>
+    <% if setup_ok %>
       <span class="status-pill status-pill--healthy">
         <span class="pulse-dot" aria-hidden="true"></span>
-        Discord wired
+        All wired
       </span>
     <% else %>
       <span class="status-pill status-pill--warning">
@@ -446,8 +445,8 @@
       <p class="kicker kicker-ember">Step 06 · Reddit session</p>
       <h2 class="section-title mt-2">Connect your Reddit account</h2>
     </div>
-    <span class="guide-chapter__badge guide-chapter__badge--<%= AuthState.reddit_cookie_jar ? "ok" : "pending" %>">
-      <%= AuthState.reddit_cookie_jar ? "Connected" : "Needed to sync" %>
+    <span class="guide-chapter__badge guide-chapter__badge--<%= steps[5][:status] %>">
+      <%= steps[5][:status] == :ok ? "Connected" : "Needed to sync" %>
     </span>
   </header>
 
@@ -486,12 +485,12 @@
       <div>
         <p class="kicker">Ready check</p>
         <h2 class="section-title mt-2">
-          <%= discord_ok ? "Discord is wired." : "A couple of slots still empty." %>
+          <%= setup_ok ? "Everything's wired." : "A couple of slots still empty." %>
         </h2>
       </div>
-      <span class="status-pill status-pill--<%= discord_ok ? 'healthy' : 'warning' %>">
+      <span class="status-pill status-pill--<%= setup_ok ? 'healthy' : 'warning' %>">
         <span class="pulse-dot" aria-hidden="true"></span>
-        <%= discord_ok ? "All green" : "#{steps.count { |s| s[:status] == :ok }} of #{steps.size}" %>
+        <%= setup_ok ? "All green" : "#{steps.count { |s| s[:status] == :ok }} of #{steps.size}" %>
       </span>
     </div>
 
