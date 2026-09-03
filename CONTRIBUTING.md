@@ -15,7 +15,7 @@ Deeper conventions (testing patterns, service graph, Reddit and Matrix quirks di
 ## Local development
 
 ```bash
-mise install              # ensures Ruby 4.0.3 (or use any other Ruby version manager)
+mise install              # ensures the Ruby version pinned in .ruby-version (or use any other Ruby version manager)
 bundle install
 npm ci                    # Tailwind v4 + DaisyUI for the asset build
 bin/setup-hooks           # activates the pre-push VERSION-bump gate
