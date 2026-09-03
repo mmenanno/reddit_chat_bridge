@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.3] - 2026-09-02
+
+### Changed
+
+- Bumped Ruby to 4.0.6 (`.ruby-version`, `Dockerfile`) and Bundler to 4.0.20, and updated all other gem dependencies to their latest compatible versions (notably `rubocop` 1.88 → 1.90, `sqlite3` 2.9.5 → 2.9.6, `rack` 3.2.6 → 3.2.7, `webmock` 3.26.2 → 3.26.4).
+- CI now reads `.ruby-version` and passes it as a `RUBY_VERSION` Docker build-arg instead of relying solely on the `Dockerfile`'s hardcoded default, so a future Ruby bump only needs to touch `.ruby-version` to affect the published image.
+- Fixed a new `Style/DirectiveScope` rubocop offense (from the rubocop 1.90 upgrade) by switching three single-statement `# rubocop:disable`/`# rubocop:enable` pairs to `# rubocop:disable-next`.
+
 ## [1.16.0] - 2026-06-19
 
 ### Added

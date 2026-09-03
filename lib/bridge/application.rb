@@ -119,12 +119,11 @@ module Bridge
       # thread pool would be wrong here (pools are for short-lived
       # tasks), and Concurrent::TimerTask doesn't fit a blocking
       # `run_forever` — so a named Thread is the clearest primitive.
-      # rubocop:disable ThreadSafety/NewThread
+      # rubocop:disable-next ThreadSafety/NewThread
       @supervisor_thread = Thread.new do
         Thread.current.name = "reddit_chat_bridge-supervisor"
         @supervisor.run_forever(stop_signal: -> { @stopped })
       end
-      # rubocop:enable ThreadSafety/NewThread
       start_gateway_thread_if_configured
       announce_online
       @supervisor_thread
@@ -291,12 +290,11 @@ module Bridge
       # Long-lived websocket worker, same reasoning as the supervisor
       # thread — a pool would be inappropriate for a connection that
       # blocks forever.
-      # rubocop:disable ThreadSafety/NewThread
+      # rubocop:disable-next ThreadSafety/NewThread
       @gateway_thread = Thread.new do
         Thread.current.name = "reddit_chat_bridge-discord-gateway"
         @gateway.run(stop_signal: -> { @stopped })
       end
-      # rubocop:enable ThreadSafety/NewThread
     end
 
     def build_sync_loop

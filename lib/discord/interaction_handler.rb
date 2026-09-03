@@ -34,9 +34,8 @@ module Discord
     # Long-lived single-purpose thread per interaction. A pool would
     # be safer under burst, but this bridge's interaction volume is
     # ~1/min and each thread lives <5s, so the simpler primitive wins.
-    # rubocop:disable ThreadSafety/NewThread
+    # rubocop:disable-next ThreadSafety/NewThread
     DEFAULT_SCHEDULER = ->(&block) { Thread.new(&block) }
-    # rubocop:enable ThreadSafety/NewThread
 
     def initialize(
       client:,
