@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Bumped transitive `source-map-js` 1.2.1 → 1.2.2 (via `@tailwindcss/cli`) to fix an event-loop DoS in indexed source-map section offsets (Dependabot alert #4). Build-time only; no JS ships in the runtime image.
 
+## [1.16.4] - 2026-10-04
+
+### Changed
+
+- Dependency bumps: `activemodel`/`activerecord`/`activesupport` 8.1.3.1 → 8.1.4, `faraday` 2.14.3 → 2.14.4, `bigdecimal` 4.1.2 → 4.1.3, `json` 2.21.2 → 3.0.2, and `daisyui` 5.7.16 → 5.7.47.
+
 ## [1.16.3] - 2026-09-02
 
 ### Changed
