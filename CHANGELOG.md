@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.5] - 2026-10-10
+
+### Security
+
+- Bumped transitive `source-map-js` 1.2.1 → 1.2.2 (via `@tailwindcss/cli`) to fix an event-loop DoS in indexed source-map section offsets (Dependabot alert #4). Build-time only; no JS ships in the runtime image.
+
 ## [1.16.3] - 2026-09-02
 
 ### Changed
