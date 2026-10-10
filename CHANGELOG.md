@@ -26,6 +26,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CI now reads `.ruby-version` and passes it as a `RUBY_VERSION` Docker build-arg instead of relying solely on the `Dockerfile`'s hardcoded default, so a future Ruby bump only needs to touch `.ruby-version` to affect the published image.
 - Fixed a new `Style/DirectiveScope` rubocop offense (from the rubocop 1.90 upgrade) by switching three single-statement `# rubocop:disable`/`# rubocop:enable` pairs to `# rubocop:disable-next`.
 
+## [1.16.2] - 2026-08-07
+
+### Changed
+
+- Dependency bumps: `activemodel`/`activerecord`/`activesupport` 8.1.3 → 8.1.3.1, `i18n` 1.14.8 → 1.15.2, `json` 2.19.9 → 2.21.2, `zeitwerk` 2.8.2 → 2.8.3, `daisyui` 5.7.4 → 5.7.15, and the `docker/login-action` CI action v4.5.2 → v4.6.0.
+
+## [1.16.1] - 2026-08-01
+
+### Changed
+
+- Dependency bumps: `concurrent-ruby` 1.3.7 → 1.3.8, `discordrb` and `discordrb-webhooks` 3.7.2 → 3.8.0, `@tailwindcss/cli` 4.3.1 → 4.3.3, `daisyui` 5.5.23 → 5.7.4, and `docker/login-action` v4 → v4.5.2 in CI.
+
 ## [1.16.0] - 2026-06-19
 
 ### Added
