@@ -29,6 +29,10 @@ module Bridge
       base: 2.0, factor: 2.0, max_sleep: 300.0, max_attempts: 6,
     )
     PAUSED_SLEEP_SECONDS = 5
+    # A failed Matrix token refresh is not retried every tick (paused ticks
+    # run every few seconds), which used to flood #app-logs with one warning
+    # per tick while the Reddit session was dead.
+    REFRESH_RETRY_INTERVAL = 5.minutes
     POSTED_EVENT_PRUNE_INTERVAL = 1.hour
     COOKIE_EXPIRY_WARN_KEY = "reddit_session_warned_expires_at"
 
@@ -54,6 +58,8 @@ module Bridge
       @last_critical_message = nil
       @failure_started_at = nil
       @failed_tick_count = 0
+      @last_refresh_failure = nil
+      @next_refresh_attempt_at = nil
     end
 
     def one_tick
@@ -145,15 +151,25 @@ module Bridge
     end
 
     # Matrix JWTs live 24h; refresh them when <1h remains. The refresh path
-    # requires stored Reddit cookies — if they're absent, this is a no-op
-    # (the operator is driving manually via /auth).
+    # requires stored Reddit cookies - if they're absent, this is a no-op
+    # (the operator is driving manually via /auth). Failures are retried at
+    # most every REFRESH_RETRY_INTERVAL and only announced when the error
+    # message changes, so a dead Reddit session yields one warning, not one
+    # per tick.
     def refresh_matrix_token_if_near_expiry
       return unless @admin_actions
       return unless AuthState.reddit_cookie_jar
       return unless AuthState.access_token_expiring_soon?(within: 1.hour)
+      return if @next_refresh_attempt_at && Time.current < @next_refresh_attempt_at
 
       @admin_actions.refresh_matrix_token!
+      @last_refresh_failure = nil
+      @next_refresh_attempt_at = nil
     rescue Auth::RefreshFlow::RefreshError => exception
+      @next_refresh_attempt_at = Time.current + REFRESH_RETRY_INTERVAL
+      return if exception.message == @last_refresh_failure
+
+      @last_refresh_failure = exception.message
       journal_or_notifier_warn("Auto-refresh failed: #{exception.message}", source: "supervisor")
     end
 
