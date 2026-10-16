@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.6] - 2026-10-16
+
+### Fixed
+
+- A failed Matrix token auto-refresh no longer floods `#app-logs` while the bridge is paused. The refresh is retried at most every 5 minutes instead of every tick, and the "Auto-refresh failed" warning is only posted when the error message changes.
+
 ## [1.16.5] - 2026-10-10
 
 ### Security

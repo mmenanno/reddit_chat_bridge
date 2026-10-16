@@ -4,6 +4,7 @@ require "test_helper"
 require "bridge/supervisor"
 require "faraday"
 require "matrix/client"
+require "auth/refresh_flow"
 
 module Bridge
   class SupervisorTest < ActiveSupport::TestCase
@@ -46,6 +47,33 @@ module Bridge
       assert_equal(:paused, result)
       assert_equal(0, @loop.iterations)
       refute_empty(sleeps)
+    end
+
+    test "failed auto-refresh warns once and is not retried on every paused tick" do
+      AuthState.mark_failure!("paused")
+      AuthState.stubs(:reddit_cookie_jar).returns("jar")
+      AuthState.stubs(:access_token_expiring_soon?).returns(true)
+      actions = mock("actions")
+      actions.expects(:refresh_matrix_token!).once.raises(Auth::RefreshFlow::RefreshError.new("no <rs-app token=...> in /chat/ response"))
+      journal = mock("journal")
+      journal.expects(:warn).once.with("Auto-refresh failed: no <rs-app token=...> in /chat/ response", source: "supervisor")
+      supervisor = Supervisor.new(sync_loop: @loop, admin_actions: actions, journal: journal, sleeper: ->(_) {})
+
+      3.times { supervisor.one_tick }
+    end
+
+    test "failed auto-refresh is retried after the retry interval but an identical error is not re-announced" do
+      AuthState.mark_failure!("paused")
+      AuthState.stubs(:reddit_cookie_jar).returns("jar")
+      AuthState.stubs(:access_token_expiring_soon?).returns(true)
+      actions = mock("actions")
+      actions.expects(:refresh_matrix_token!).twice.raises(Auth::RefreshFlow::RefreshError.new("boom"))
+      journal = mock("journal")
+      journal.expects(:warn).once
+      supervisor = Supervisor.new(sync_loop: @loop, admin_actions: actions, journal: journal, sleeper: ->(_) {})
+
+      supervisor.one_tick
+      travel(Supervisor::REFRESH_RETRY_INTERVAL + 1.second) { supervisor.one_tick }
     end
 
     test "one_tick retries a ServerError via the configured backoff policy" do
