@@ -3,7 +3,7 @@
 
 # CI overrides this via --build-arg from .ruby-version; the default here
 # only matters for a bare local `docker build` and should stay in sync.
-ARG RUBY_VERSION=4.0.6
+ARG RUBY_VERSION=4.0.7
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 WORKDIR /app
