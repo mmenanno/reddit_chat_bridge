@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.7] - 2026-10-23
+
+### Changed
+
+- Ruby bumped from 4.0.6 to 4.0.7 (`.ruby-version`, Dockerfile default). Bundler and all gems updated to their latest versions.
+
 ## [1.16.6] - 2026-10-16
 
 ### Fixed
