@@ -96,6 +96,28 @@ module Bridge
       assert_equal(3, @loop.iterations)
     end
 
+    test "one_tick retries a Matrix::RateLimited 429 in-tick without alerting" do
+      attempts = 0
+      @loop.on_iterate do
+        attempts += 1
+        raise(Matrix::RateLimited.new("M_LIMIT_EXCEEDED: too many sync requests", retry_after_ms: nil)) if attempts < 2
+
+        :ok
+      end
+      notifier = mock("notifier")
+      notifier.expects(:critical).never
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        admin_notifier: notifier,
+        sleeper: ->(_) {},
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.1, max_attempts: 5),
+      )
+
+      assert_equal(:ok, supervisor.one_tick)
+      assert_equal(2, @loop.iterations)
+    end
+
     test "one_tick retries Faraday::ConnectionFailed via the configured backoff policy" do
       attempts = 0
       @loop.on_iterate do
