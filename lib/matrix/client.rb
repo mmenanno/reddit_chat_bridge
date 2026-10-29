@@ -9,6 +9,19 @@ module Matrix
   class TokenError < Error; end
   class ServerError < Error; end
 
+  # HTTP 429 / M_LIMIT_EXCEEDED. Reddit's homeserver sheds /sync load this
+  # way ("This server is handling too many sync requests"). The spec puts
+  # the server's wait hint in the body as `retry_after_ms`; Reddit often
+  # omits it, so it's nil-able and callers fall back to their own curve.
+  class RateLimited < Error
+    attr_reader :retry_after_ms
+
+    def initialize(message, retry_after_ms:)
+      super(message)
+      @retry_after_ms = retry_after_ms
+    end
+  end
+
   # Thin Faraday-backed wrapper around the Reddit Matrix Client-Server API.
   #
   # Deliberately narrow: `whoami`, `sync`, and `send_message` — the exact
@@ -141,6 +154,7 @@ module Matrix
     def handle(response)
       return response if response.status == 200
       raise TokenError, error_message(response) if response.status == 401
+      raise RateLimited.new(error_message(response), retry_after_ms: retry_after_ms(response)) if response.status == 429
       raise ServerError, error_message(response) if (500..599).cover?(response.status)
 
       raise Error, "HTTP #{response.status}: #{error_message(response)}"
@@ -151,6 +165,11 @@ module Matrix
       return body.to_s unless body.is_a?(Hash)
 
       [body["errcode"], body["error"]].compact.join(": ")
+    end
+
+    def retry_after_ms(response)
+      body = response.body
+      body.is_a?(Hash) ? body["retry_after_ms"]&.to_i : nil
     end
 
     def build_connection

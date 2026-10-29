@@ -25,18 +25,23 @@ module Retry
       begin
         attempt += 1
         yield
-      rescue *@rescue_from
+      rescue *@rescue_from => exception
         raise if attempt >= @policy.max_attempts
 
-        @sleep.call(delay_for(attempt))
+        @sleep.call(delay_for(attempt, exception))
         retry
       end
     end
 
     private
 
-    def delay_for(attempt)
+    # Errors that carry a server-supplied wait hint (`retry_after_ms`, e.g.
+    # Matrix 429s) never sleep shorter than the hint; the curve still sets
+    # the floor and `max_sleep` still caps the total.
+    def delay_for(attempt, exception)
       raw = @policy.base * (@policy.factor**(attempt - 1))
+      hint_ms = exception.respond_to?(:retry_after_ms) ? exception.retry_after_ms : nil
+      raw = [raw, hint_ms / 1000.0].max if hint_ms
       [raw, @policy.max_sleep].min
     end
   end

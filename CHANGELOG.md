@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.8] - 2026-10-29
+
+### Fixed
+
+- Reddit's Matrix homeserver answering `/sync` with `429 M_LIMIT_EXCEEDED` ("This server is handling too many sync requests") no longer posts a "Sync loop crashed" CRITICAL to `#app-status` plus a "Sync recovered" INFO to `#app-logs` on every occurrence. 429s now raise `Matrix::RateLimited` and are retried in-tick with the same backoff as 5xx errors, honoring the server's `retry_after_ms` hint when present. An alert only fires if the rate limit outlasts the full backoff budget.
+
 ## [1.16.7] - 2026-10-23
 
 ### Changed

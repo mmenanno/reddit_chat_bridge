@@ -17,9 +17,12 @@ module Bridge
     # wrapper rides these out in-place; without it, every transient blip
     # escapes to `rescue StandardError` and pages #app-status on every tick,
     # flooding the channel during any sustained outage (matrix.redditspace.com
-    # briefly unreachable → hundreds of crit alerts per minute).
+    # briefly unreachable → hundreds of crit alerts per minute). 429
+    # M_LIMIT_EXCEEDED belongs here too: Reddit sheds /sync load with it
+    # and it clears within seconds.
     TRANSIENT_UPSTREAM_ERRORS = [
       Matrix::ServerError,
+      Matrix::RateLimited,
       Faraday::ConnectionFailed,
       Faraday::TimeoutError,
       Faraday::SSLError,

@@ -8,6 +8,15 @@ module Retry
     class Boom < StandardError; end
     class Other < StandardError; end
 
+    class Hinted < StandardError
+      attr_reader :retry_after_ms
+
+      def initialize(retry_after_ms)
+        super("hinted")
+        @retry_after_ms = retry_after_ms
+      end
+    end
+
     test "returns the block's value when it succeeds on the first try" do
       backoff = Backoff.new(rescue_from: [Boom], sleep: ->(_) {})
 
@@ -99,6 +108,63 @@ module Retry
       end
 
       assert_equal([10, 30, 30], delays)
+    end
+
+    test "sleeps for the error's retry_after_ms hint when it exceeds the curve" do
+      delays = []
+      backoff = Backoff.new(
+        rescue_from: [Hinted],
+        sleep: ->(s) { delays << s },
+        policy: Backoff::Policy.new(base: 1, factor: 2, max_sleep: 60, max_attempts: 3),
+      )
+
+      calls = 0
+      backoff.call do
+        calls += 1
+        raise(Hinted, 5000) if calls < 2
+
+        :ok
+      end
+
+      assert_equal([5.0], delays)
+    end
+
+    test "keeps the curve delay when the retry_after_ms hint is smaller or missing" do
+      delays = []
+      backoff = Backoff.new(
+        rescue_from: [Hinted],
+        sleep: ->(s) { delays << s },
+        policy: Backoff::Policy.new(base: 2, factor: 2, max_sleep: 60, max_attempts: 3),
+      )
+
+      calls = 0
+      backoff.call do
+        calls += 1
+        raise(Hinted, calls == 1 ? 100 : nil) if calls < 3
+
+        :ok
+      end
+
+      assert_equal([2, 4], delays)
+    end
+
+    test "caps the retry_after_ms hint at the configured ceiling" do
+      delays = []
+      backoff = Backoff.new(
+        rescue_from: [Hinted],
+        sleep: ->(s) { delays << s },
+        policy: Backoff::Policy.new(base: 1, factor: 2, max_sleep: 30, max_attempts: 2),
+      )
+
+      calls = 0
+      backoff.call do
+        calls += 1
+        raise(Hinted, 600_000) if calls < 2
+
+        :ok
+      end
+
+      assert_equal([30], delays)
     end
   end
 end

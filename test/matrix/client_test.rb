@@ -65,6 +65,35 @@ module Matrix
       assert_raises(Matrix::ServerError) { @client.whoami }
     end
 
+    test "sync raises Matrix::RateLimited with retry_after_ms on 429" do
+      stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/sync")
+        .with(query: hash_including({}))
+        .to_return(
+          status: 429,
+          body: { errcode: "M_LIMIT_EXCEEDED", error: "Too many requests", retry_after_ms: 2500 }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      error = assert_raises(Matrix::RateLimited) { @client.sync }
+
+      assert_equal(2500, error.retry_after_ms)
+      assert_includes(error.message, "M_LIMIT_EXCEEDED")
+    end
+
+    test "sync raises Matrix::RateLimited with nil retry_after_ms when the server omits it" do
+      stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/sync")
+        .with(query: hash_including({}))
+        .to_return(
+          status: 429,
+          body: { errcode: "M_LIMIT_EXCEEDED", error: "This server is handling too many sync requests" }.to_json,
+          headers: { "Content-Type" => "application/json" },
+        )
+
+      error = assert_raises(Matrix::RateLimited) { @client.sync }
+
+      assert_nil(error.retry_after_ms)
+    end
+
     test "sync passes timeout when no since token is given" do
       stub_request(:get, "#{HOMESERVER}/_matrix/client/v3/sync")
         .with(query: { "timeout" => "10000" })
