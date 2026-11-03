@@ -31,6 +31,12 @@ module Bridge
     DEFAULT_RETRY_POLICY = Retry::Backoff::Policy.new(
       base: 2.0, factor: 2.0, max_sleep: 300.0, max_attempts: 6,
     )
+    # How long a transient upstream outage may last before it pages
+    # #app-status. The in-tick backoff only covers ~1 minute, but Reddit's
+    # 429 load-shedding and network blips routinely run a few minutes and
+    # clear on their own; alerting on those just produced a CRITICAL the
+    # operator could do nothing about. Measured from the first failed tick.
+    TRANSIENT_ALERT_GRACE = 10.minutes
     PAUSED_SLEEP_SECONDS = 5
     # A failed Matrix token refresh is not retried every tick (paused ticks
     # run every few seconds), which used to flood #app-logs with one warning
@@ -79,7 +85,10 @@ module Bridge
       announce_recovery_if_recovering
       result
     rescue *TRANSIENT_UPSTREAM_ERRORS => exception
-      record_failure!("Sync loop gave up after retries: #{exception.class}: #{exception.message}")
+      record_failure!(
+        "Sync loop gave up after retries: #{exception.class}: #{exception.message}",
+        grace: TRANSIENT_ALERT_GRACE,
+      )
       :error
     rescue StandardError => exception
       record_failure!("Sync loop crashed: #{exception.class}: #{exception.message}")
@@ -101,29 +110,34 @@ module Bridge
     # span many ticks (one per ~65s backoff cycle), and the operator does
     # not want the same CRITICAL line firing every minute for hours. We
     # alert on the *transition* into a given failure mode; a different
-    # error message or a recovery in between resets the gate.
-    def record_failure!(message)
+    # error message or a recovery in between resets the gate. `grace`
+    # holds the alert back until the failure streak is that old.
+    def record_failure!(message, grace: 0.seconds)
       @failed_tick_count += 1
+      @failure_started_at ||= Time.current
+      return if Time.current - @failure_started_at < grace
       return if message == @last_critical_message
 
       alert_critical(message)
       @last_critical_message = message
-      @failure_started_at = Time.current if @failure_started_at.nil?
     end
 
     # Bookend to the CRITICAL line: when a tick finally succeeds after one
     # or more failed ticks, fire one INFO entry so the journal has a clear
     # close-of-incident marker. Without this the operator has to notice the
-    # *absence* of new CRITICALs to know things recovered.
+    # *absence* of new CRITICALs to know things recovered. A streak that
+    # cleared inside the grace window never alerted, so it recovers quietly.
     def announce_recovery_if_recovering
-      return unless @last_critical_message
+      return unless @failure_started_at
 
-      duration = @failure_started_at ? Time.current - @failure_started_at : 0
-      noun = @failed_tick_count == 1 ? "attempt" : "attempts"
-      journal_or_notifier_info(
-        "Sync recovered after #{@failed_tick_count} failed #{noun} (#{format_failure_duration(duration)}).",
-        source: "supervisor",
-      )
+      if @last_critical_message
+        duration = Time.current - @failure_started_at
+        noun = @failed_tick_count == 1 ? "attempt" : "attempts"
+        journal_or_notifier_info(
+          "Sync recovered after #{@failed_tick_count} failed #{noun} (#{format_failure_duration(duration)}).",
+          source: "supervisor",
+        )
+      end
       @last_critical_message = nil
       @failure_started_at = nil
       @failed_tick_count = 0

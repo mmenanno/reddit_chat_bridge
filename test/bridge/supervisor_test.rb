@@ -151,6 +151,85 @@ module Bridge
       )
 
       assert_equal(:error, supervisor.one_tick)
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second) do
+        assert_equal(:error, supervisor.one_tick)
+      end
+    end
+
+    # ---- transient-outage grace window ----
+
+    test "one_tick does not alert when transient failures clear inside the grace window" do
+      journal = mock("journal")
+      journal.expects(:critical).never
+      journal.expects(:info).never
+      scenario = [:fail, :fail, :ok]
+      @loop.on_iterate do
+        next(:ok) unless scenario.shift == :fail
+
+        raise(Matrix::RateLimited.new("M_LIMIT_EXCEEDED: too many sync requests", retry_after_ms: nil))
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        journal: journal,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE - 1.minute) do
+        supervisor.one_tick
+        supervisor.one_tick
+      end
+    end
+
+    test "one_tick alerts once a transient outage outlasts the grace window, then announces recovery" do
+      journal = mock("journal")
+      journal.expects(:critical).with(regexp_matches(/ConnectionFailed/), source: "supervisor").once
+      journal.expects(:info).with(regexp_matches(/recovered after 3 failed/), source: "supervisor").once
+      scenario = [:fail, :fail, :fail, :ok]
+      @loop.on_iterate do
+        next(:ok) unless scenario.shift == :fail
+
+        raise(Faraday::ConnectionFailed, "Failed to open TCP connection")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        journal: journal,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second) do
+        supervisor.one_tick
+        supervisor.one_tick
+        supervisor.one_tick
+      end
+    end
+
+    test "one_tick restarts the grace window after a silent recovery" do
+      journal = mock("journal")
+      journal.expects(:critical).never
+      journal.expects(:info).never
+      scenario = [:fail, :ok, :fail]
+      @loop.on_iterate do
+        next(:ok) unless scenario.shift == :fail
+
+        raise(Matrix::ServerError, "503")
+      end
+
+      supervisor = Supervisor.new(
+        sync_loop: @loop,
+        sleeper: ->(_) {},
+        journal: journal,
+        retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
+      )
+
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE - 1.minute) { supervisor.one_tick }
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.minute) { supervisor.one_tick }
     end
 
     test "one_tick catches unexpected exceptions, alerts, and swallows them" do
@@ -183,7 +262,8 @@ module Bridge
         retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
       )
 
-      3.times { supervisor.one_tick }
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second) { 3.times { supervisor.one_tick } }
     end
 
     test "one_tick fires CRITICAL again when the error message changes between ticks" do
@@ -193,7 +273,7 @@ module Bridge
       call = 0
       @loop.on_iterate do
         call += 1
-        raise(Matrix::ServerError, call == 1 ? "M_INVALID_ARGUMENT_VALUE: unable to get streaming token" : "503")
+        raise(Matrix::ServerError, call <= 2 ? "M_INVALID_ARGUMENT_VALUE: unable to get streaming token" : "503")
       end
 
       supervisor = Supervisor.new(
@@ -204,14 +284,14 @@ module Bridge
       )
 
       supervisor.one_tick
-      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second) { 2.times { supervisor.one_tick } }
     end
 
     test "one_tick re-fires CRITICAL after a recovery if the same error recurs later" do
       notifier = mock("notifier")
       notifier.expects(:critical).with(regexp_matches(/streaming token/), anything).twice
       notifier.stubs(:info) # recovery announcement, not under test here
-      scenario = [:fail, :ok, :fail]
+      scenario = [:fail, :fail, :ok, :fail, :fail]
       @loop.on_iterate do
         next(:ok) unless scenario.shift == :fail
 
@@ -225,7 +305,11 @@ module Bridge
         retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
       )
 
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second)
       3.times { supervisor.one_tick }
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second)
+      supervisor.one_tick
     end
 
     # ---- sync-recovered announcement ----
@@ -248,7 +332,8 @@ module Bridge
         retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
       )
 
-      3.times { supervisor.one_tick }
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second) { 2.times { supervisor.one_tick } }
     end
 
     test "one_tick does not announce recovery when there was no prior failure" do
@@ -263,7 +348,7 @@ module Bridge
       journal = mock("journal")
       journal.stubs(:critical)
       journal.expects(:info).with(regexp_matches(/recovered/), source: "supervisor").once
-      scenario = [:fail, :ok, :ok]
+      scenario = [:fail, :fail, :ok, :ok]
       @loop.on_iterate do
         next(:ok) unless scenario.shift == :fail
 
@@ -277,7 +362,8 @@ module Bridge
         retry_policy: Retry::Backoff::Policy.new(base: 0.01, factor: 2, max_sleep: 0.01, max_attempts: 1),
       )
 
-      3.times { supervisor.one_tick }
+      supervisor.one_tick
+      travel(Supervisor::TRANSIENT_ALERT_GRACE + 1.second) { 3.times { supervisor.one_tick } }
     end
 
     # ---- cookie expiry warning ----

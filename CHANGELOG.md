@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.16.9] - 2026-11-02
+
+### Fixed
+
+- Short-lived upstream outages no longer page `#app-status`. Reddit's `/sync` rate limiting (`429 M_LIMIT_EXCEEDED`) and network blips (`Faraday::ConnectionFailed` and friends) routinely outlast the ~1 minute in-tick backoff and then clear on their own, which still produced a "Sync loop gave up after retries" CRITICAL each time. Transient upstream errors now only alert once the outage has lasted 10 minutes; streaks that clear sooner recover quietly with no CRITICAL and no "Sync recovered" INFO. Unexpected errors still alert immediately.
+
 ## [1.16.8] - 2026-10-29
 
 ### Fixed
